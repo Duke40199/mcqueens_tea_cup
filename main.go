@@ -32,7 +32,7 @@ type FeedConfig struct {
 	Title                       string `json:"title"`
 	URL                         string `json:"url"`
 	SourceLanguage              string `json:"source_language"` // e.g., "JP", "ja", "es"
-	DestinationDiscordChannelID string `json:"channel_id"`
+	DestinationDiscordChannelID string `json:"channel_id"`      // Custom channel for this feed
 }
 
 type FeedState map[string]string // Map of FeedURL -> LastSeenGUID
@@ -105,33 +105,72 @@ func checkFeeds(s *discordgo.Session) {
 			continue
 		}
 
-		latestItem := feed.Items[0]
+		// Get the last seen ID for this feed
+		stateMutex.Lock()
+		lastSeenID, exists := feedState[feedConf.URL]
+		stateMutex.Unlock()
 
-		uniqueID := latestItem.GUID
-		if uniqueID == "" {
-			uniqueID = latestItem.Link
+		// Determine display title
+		displayTitle := feedConf.Title
+		if displayTitle == "" {
+			displayTitle = feed.Title
+		}
+
+		// Identify new items
+		var newItems []*gofeed.Item
+
+		// If this is the first time we see this feed, just take the latest one to avoid spam
+		if !exists {
+			newItems = append(newItems, feed.Items[0])
+		} else {
+			// Find all items newer than lastSeenID
+			// RSS items are usually sorted Newest -> Oldest.
+			// We scan from the beginning (Newest) until we find the lastSeenID.
+			for _, item := range feed.Items {
+				id := item.GUID
+				if id == "" {
+					id = item.Link
+				}
+
+				if id == lastSeenID {
+					break // We found the checkpoint, stop gathering
+				}
+
+				newItems = append(newItems, item)
+			}
+
+			// Safety guard: If the feed rotated completely or we missed too much,
+			// limit it to the 5 newest items to prevent spamming the channel.
+			if len(newItems) > 5 {
+				newItems = newItems[:5]
+			}
+		}
+
+		// If no new items, continue to next feed
+		if len(newItems) == 0 {
+			continue
+		}
+
+		// Reverse newItems so we post Oldest -> Newest
+		// We gathered them [Newest, 2nd Newest, ...].
+		// We want to post them in the order they appeared in time.
+		for i := len(newItems) - 1; i >= 0; i-- {
+			item := newItems[i]
+			log.Printf("New item found for %s: %s", displayTitle, item.Title)
+			sendUpdate(s, feed, item, displayTitle, feedConf.DestinationDiscordChannelID, feedConf.SourceLanguage)
+		}
+
+		// Update state to the absolute newest item (index 0 of feed)
+		latest := feed.Items[0]
+		newLatestID := latest.GUID
+		if newLatestID == "" {
+			newLatestID = latest.Link
 		}
 
 		stateMutex.Lock()
-		lastSeenID, exists := feedState[feedConf.URL]
-
-		if !exists || lastSeenID != uniqueID {
-			// Determine display title (Config > Feed Title)
-			displayTitle := feedConf.Title
-			if displayTitle == "" {
-				displayTitle = feed.Title
-			}
-
-			log.Printf("New item found for %s", displayTitle)
-
-			feedState[feedConf.URL] = uniqueID
-			saveState()
-			stateMutex.Unlock()
-
-			sendUpdate(s, feed, latestItem, displayTitle, feedConf.DestinationDiscordChannelID, feedConf.SourceLanguage)
-		} else {
-			stateMutex.Unlock()
-		}
+		feedState[feedConf.URL] = newLatestID
+		saveState()
+		stateMutex.Unlock()
 	}
 }
 
@@ -150,39 +189,41 @@ func sendUpdate(s *discordgo.Session, feed *gofeed.Feed, item *gofeed.Item, cust
 	// 3. Translation Logic
 	var translationTextEn string
 	var translationTextVn string
-	// Basic mapping for common codes if needed, though Google is smart
+
+	// Default to "en" if sourceLang is missing but content exists
+	if sourceLang == "" {
+		sourceLang = "en"
+	}
+
+	// Basic mapping for common codes
 	if strings.ToUpper(sourceLang) == "JP" {
 		sourceLang = "ja"
 	}
-	if sourceLang != "" && strings.ToLower(sourceLang) != "en" {
-		// en translation
 
-		// Don't translate if it's empty
+	// Logic: If source is NOT English, translate to English.
+	if strings.ToLower(sourceLang) != "en" {
 		if strings.TrimSpace(cleanContent) != "" {
 			tr, err := translateText(cleanContent, sourceLang, "en")
 			if err != nil {
-				log.Printf("Translation error: %v", err)
+				log.Printf("Translation error (EN): %v", err)
 			} else {
 				translationTextEn = tr
 			}
 		}
 	}
-	// vn translation
+
+	// Logic: If source is NOT Vietnamese, translate to Vietnamese.
 	if strings.ToLower(sourceLang) != "vi" {
-		// Don't translate if it's empty
 		if strings.TrimSpace(cleanContent) != "" {
-			if sourceLang == "" {
-				sourceLang = "en"
-			}
 			trVn, err := translateText(cleanContent, sourceLang, "vi")
 			if err != nil {
-				log.Printf("Translation error: %v", err)
+				log.Printf("Translation error (VN): %v", err)
 			} else {
 				translationTextVn = trVn
 			}
 		}
-
 	}
+
 	// 4. Construct the Message
 	msgBody := fmt.Sprintf("**%s**\n\n", customTitle)
 
@@ -197,10 +238,12 @@ func sendUpdate(s *discordgo.Session, feed *gofeed.Feed, item *gofeed.Item, cust
 	// Add Original Content (Truncated to ~800 to leave room for translation)
 	msgBody += truncate(contentBody, 800)
 
-	// Add Translation if available
+	// Add English Translation if available
 	if translationTextEn != "" {
 		msgBody += fmt.Sprintf("\n\n🇬🇧 **Translation:**\n%s", truncate(translationTextEn, 800))
 	}
+
+	// Add Vietnamese Translation if available
 	if translationTextVn != "" {
 		msgBody += fmt.Sprintf("\n\n🇻🇳 **Bản dịch:**\n%s", truncate(translationTextVn, 800))
 	}
@@ -213,10 +256,10 @@ func sendUpdate(s *discordgo.Session, feed *gofeed.Feed, item *gofeed.Item, cust
 		msgBody += "\n" + item.Image.URL
 	}
 
-	// 6. Send Standard Message
+	// 6. Send Standard Message to the Specific Channel ID
 	_, err := s.ChannelMessageSend(channelID, msgBody)
 	if err != nil {
-		log.Printf("Error sending to Discord: %v", err)
+		log.Printf("Error sending to Discord channel %s: %v", channelID, err)
 	}
 }
 
@@ -250,7 +293,6 @@ func translateText(text, source, target string) (string, error) {
 	}
 
 	// Parse JSON: [[[ "translated", "original", ...], ...], ...]
-	// It's a messy nested array structure.
 	var result []interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", err
