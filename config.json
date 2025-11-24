@@ -1,0 +1,17 @@
+{
+  "token": "MTQ0MTM2MTQwOTEyNzQ4NTQ5MA.GBZGUp.I8AfPwGIY3yySq0_nFzZVa-fMDgv5e8L8pOW80",
+  "check_interval_minutes": 15,
+  "feeds": [
+    {
+      "title": "Initial D The Arcade - Official News",
+      "url": "https://info-initialdac.sega.jp/feed",
+      "source_language": "JP",
+      "channel_id": "1440771328587202771"
+    },
+    {
+      "title": "Umamusume: Pretty Derby - Twitter",
+      "url": "https://nitter.poast.org/umamusume_eng/rss",
+      "channel_id": "1440578176299434005"
+    }
+  ]
+}
