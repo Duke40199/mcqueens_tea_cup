@@ -1,17 +1,12 @@
 package discord
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"io"
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -151,82 +146,35 @@ func (d *DiscordNotifier) StartCommands() error {
 				return
 			}
 
-			// 5. Generate Spacer Image (300x1 Transparent)
-			// This forces the embed to be wider on mobile without needing external URLs.
-			spacerImg := image.NewRGBA(image.Rect(0, 0, 300, 1))
-			// (Optional) Fill with transparent color, though NewRGBA defaults to zero-value (transparent black)
-			for x := 0; x < 300; x++ {
-				spacerImg.Set(x, 0, color.RGBA{0, 0, 0, 0})
-			}
-			var imgBuf bytes.Buffer
-			if err := png.Encode(&imgBuf, spacerImg); err != nil {
-				log.Printf("Failed to encode spacer image: %v", err)
-			}
+			// 5. Build LIST Message (Clean & Mobile Friendly)
+			var sb strings.Builder
 
-			// 6. Build Embed Fields
-			embed := &discordgo.MessageEmbed{
-				Title: fmt.Sprintf("Initial D Rankings (%s)", optMap["mode"]),
-				Description: fmt.Sprintf("Course: %s | Area: %s",
-					domain.CourseDisplayNameByCode[optMap["course"].(string)], domain.AreaDisplayNameByCode[optMap["area"].(string)]),
-				Color:     0xEE0000,
-				URL:       fullURL,
-				Timestamp: time.Now().Format(time.RFC3339),
-				// Link the image to the attachment
-				Image: &discordgo.MessageEmbedImage{
-					URL: "attachment://spacer.png",
-				},
-			}
-
-			var files []*discordgo.File
-			// Add the spacer file to the response payload
-			if imgBuf.Len() > 0 {
-				files = append(files, &discordgo.File{
-					Name:   "spacer.png",
-					Reader: &imgBuf,
-				})
-			}
-
+			// Header Information
+			sb.WriteString(fmt.Sprintf("# Initial D Rankings (%s)\n", optMap["mode"]))
+			sb.WriteString(fmt.Sprintf("**Course:** %s | **Area:** %s\n",
+				domain.CourseDisplayNameByCode[optMap["course"].(string)], domain.AreaDisplayNameByCode[optMap["area"].(string)]))
 			if len(data.Records) == 0 {
-				embed.Description += "\n\nNo records found."
+				sb.WriteString("No records found.")
 			} else {
 				if len(data.Records) < limit {
 					limit = len(data.Records)
 				}
 
-				var rankCol, infoCol, timeCol string
-
 				for j := 0; j < limit; j++ {
 					r := data.Records[j]
 
-					name := r.Name
-					if len(name) > 20 {
-						name = name[:12] + ".."
-					}
+					// Compact Single-Line Format:
+					// **1. DriverName** (CarName) — `Time`
+					sb.WriteString(fmt.Sprintf("%s. **%s** — %s — `%s`\n", r.Rank, r.Name, r.CarName, r.Record))
 
-					car := r.CarName
-					if len(car) > 20 {
-						car = car[:12] + ".."
-					}
-
-					rankCol += fmt.Sprintf("**%s**\n\n", r.Rank)
-					infoCol += fmt.Sprintf("%s\n%s\n", name, car)
-					timeCol += fmt.Sprintf("%s\n\n", r.Record)
 				}
-
-				embed.Fields = []*discordgo.MessageEmbedField{
-					{Name: "Rank", Value: rankCol, Inline: true},
-					{Name: "Driver / Car", Value: infoCol, Inline: true},
-					{Name: "Time", Value: timeCol, Inline: true},
-				}
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: sb.String(),
+					},
+				})
 			}
-
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Embeds: []*discordgo.MessageEmbed{embed},
-					Files:  files,
-				},
-			})
 		},
 		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
