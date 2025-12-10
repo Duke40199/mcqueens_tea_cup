@@ -6,6 +6,7 @@ import (
 
 	"McQueens_Tea_Cup/internal/infra"
 	"McQueens_Tea_Cup/internal/infra/config"
+	"McQueens_Tea_Cup/internal/infra/discord"
 	"McQueens_Tea_Cup/internal/usecase"
 )
 
@@ -22,10 +23,11 @@ func main() {
 	translator := infra.NewGoogleTranslator()
 
 	// Discord needs session initialization
-	discordNotifier, err := infra.NewDiscordNotifier(cfg.Token)
+	discordNotifier, err := discord.NewDiscordNotifier(cfg.Token)
 	if err != nil {
 		log.Fatal(err)
 	}
+	discordNotifier.StartCommands()
 	defer discordNotifier.Close()
 
 	// 3. Use Case: Inject Dependencies
