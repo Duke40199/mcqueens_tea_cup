@@ -58,6 +58,12 @@ func (d *DiscordNotifier) StartCommands() error {
 					Required:    false,
 				},
 				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "spec",
+					Description: "Spec Variant (AR, HC, DH) - Ignored if car is empty",
+					Required:    false,
+				},
+				{
 					Type:        discordgo.ApplicationCommandOptionNumber,
 					Name:        "limit",
 					Description: "Result limit (default: 10)",
@@ -70,13 +76,18 @@ func (d *DiscordNotifier) StartCommands() error {
 	// 2. Define Handlers
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		// --- IDAC Handler ---
-		// --- IDAC Handler ---
 		"idac": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			// 1. Parse Options
 			options := i.ApplicationCommandData().Options
 			optMap := make(map[string]interface{})
+			specInput := ""
+
 			for _, opt := range options {
-				optMap[opt.Name] = opt.Value
+				if opt.Name == "spec" {
+					specInput = opt.StringValue()
+				} else {
+					optMap[opt.Name] = opt.StringValue()
+				}
 			}
 
 			// Defaults
@@ -84,17 +95,40 @@ func (d *DiscordNotifier) StartCommands() error {
 				optMap["car"] = "car-all"
 			}
 
-			// --- 1.5 RESOLVE ALIASES ---
-			// Check Course Alias
+			// --- 1.5 RESOLVE ALIASES (Using domain package) ---
 			courseInput := strings.ToLower(optMap["course"].(string))
 			if val, ok := domain.CourseAliases[courseInput]; ok {
 				optMap["course"] = val
 			}
 
-			// Check Area Alias
 			areaInput := strings.ToLower(optMap["area"].(string))
 			if val, ok := domain.AreaAliases[areaInput]; ok {
 				optMap["area"] = val
+			}
+
+			// Resolve Car with Spec (New Logic)
+			finalCarID := domain.ResolveCarID(optMap["car"].(string), specInput)
+
+			// Resolve Display Names
+			courseName := optMap["course"].(string)
+			if val, ok := domain.CourseDisplayNameByCode[courseName]; ok {
+				courseName = val
+			}
+
+			areaName := optMap["area"].(string)
+			if val, ok := domain.AreaDisplayNameByCode[areaName]; ok {
+				areaName = val
+			}
+
+			carDisplayName := finalCarID
+			baseCar := domain.ResolveCarID(optMap["car"].(string), "")
+			if val, ok := domain.CarDisplayNameByCode[baseCar]; ok {
+				if emoji, ok := domain.SpecEmojis[strings.ToLower(specInput)]; ok {
+					carDisplayName = fmt.Sprintf("%s %s", emoji, val)
+				}
+			}
+			if optMap["car"] == "car-all" {
+				carDisplayName = "All"
 			}
 			// Check limit Alias
 			var limit int
@@ -111,7 +145,7 @@ func (d *DiscordNotifier) StartCommands() error {
 			}
 
 			baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
-			filename := fmt.Sprintf("%s_%s_%s_%s.json", optMap["mode"], optMap["course"], optMap["area"], optMap["car"])
+			filename := fmt.Sprintf("%s_%s_%s_%s.json", optMap["mode"], optMap["course"], optMap["area"], finalCarID)
 			fullURL := fmt.Sprintf("%s/%s/%s", baseURL, modeFolder, filename)
 
 			// 3. Fetch Data
@@ -145,14 +179,17 @@ func (d *DiscordNotifier) StartCommands() error {
 				})
 				return
 			}
-
+			fmt.Println("full url:", fullURL)
 			// 5. Build LIST Message (Clean & Mobile Friendly)
 			var sb strings.Builder
 
 			// Header Information
 			sb.WriteString(fmt.Sprintf("# Initial D Rankings (%s)\n", optMap["mode"]))
-			sb.WriteString(fmt.Sprintf("**Course:** %s | **Area:** %s\n",
-				domain.CourseDisplayNameByCode[optMap["course"].(string)], domain.AreaDisplayNameByCode[optMap["area"].(string)]))
+			sb.WriteString(fmt.Sprintf("🗾 : %s |  🌎 : %s |  🚗 : %s\n\n",
+				domain.CourseDisplayNameByCode[optMap["course"].(string)],
+				domain.AreaDisplayNameByCode[optMap["area"].(string)],
+				carDisplayName,
+			))
 			if len(data.Records) == 0 {
 				sb.WriteString("No records found.")
 			} else {

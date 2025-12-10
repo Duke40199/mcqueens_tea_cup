@@ -1,5 +1,11 @@
 package domain
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 type IdacResponse struct {
 	CalcDate string             `json:"calcDate"`
 	Records  []TimeAttackRecord `json:"records"` // Sometimes it's "ranking" or "list"
@@ -312,7 +318,7 @@ var AreaAliases = map[string]string{
 }
 
 var AreaDisplayNameByCode = map[string]string{
-	"area-all": "All Areas",
+	"area-all": "All",
 	"area-0":   "Hokkaido", "area-1": "Aomori", "area-2": "Iwate", "area-3": "Miyagi", "area-4": "Fukushima",
 	"area-5": "Yamagata", "area-6": "Akita", "area-7": "Ibaraki", "area-8": "Tochigi", "area-9": "Gunma",
 	"area-10": "Chiba", "area-11": "Saitama", "area-12": "Tokyo", "area-13": "Kanagawa", "area-14": "Yamanashi",
@@ -326,4 +332,225 @@ var AreaDisplayNameByCode = map[string]string{
 	"area-47": "Macau", "area-48": "Hong Kong", "area-49": "Korea", "area-50": "Malaysia", "area-51": "Singapore",
 	"area-52": "Taiwan", "area-53": "Indonesia", "area-54": "Philippines", "area-55": "Thailand", "area-56": "USA",
 	"area-57": "Vietnam", "area-58": "Myanmar", "area-59": "Australia", "area-60": "New Zealand", "area-61": "Cambodia",
+}
+
+// Add this to internal/domain/idac.go
+
+var CarAliases = map[string]string{
+	"all": "car-all",
+	// TOYOTA
+	"ae86": "car-0", "trueno": "car-0", "86": "car-0",
+	"ae86 levin": "car-1", "levin": "car-1",
+	"ae85": "car-2", "levin sr": "car-2",
+	"zn6": "car-7", "86 gt": "car-7",
+	"sw20": "car-3", "mr2": "car-3",
+	"zzw30": "car-5", "mrs": "car-5",
+	"sxe10": "car-4", "altezza": "car-4",
+	"st205": "car-10", "celica": "car-10",
+	"jza80": "car-6", "supra": "car-6",
+	"gxpa16": "car-11", "gr yaris": "car-11", "yaris": "car-11",
+	"db42": "car-12", "gr supra": "car-12",
+	"jzx100": "car-13", "chaser": "car-13",
+	"zn8": "car-14", "gr86": "car-14",
+	"mxwh61": "car-15", "prius": "car-15",
+
+	// NISSAN
+	"bnr32": "car-256", "r32": "car-256", "gtr32": "car-256",
+	"bnr34": "car-257", "r34": "car-257", "gtr34": "car-257",
+	"s13": "car-258", "silvia s13": "car-258",
+	"s14": "car-259", "silvia s14": "car-259",
+	"s15": "car-260", "silvia s15": "car-260",
+	"rps13": "car-261", "180sx": "car-261",
+	"z33": "car-262", "350z": "car-262",
+	"r35 nismo": "car-263", "gtr35 nismo": "car-263",
+	"r35 tspec": "car-267", "gtr35 my25": "car-267",
+	"er34": "car-264", "skyline 25gt": "car-264",
+	"s30": "car-265", "fairlady s30": "car-265", "devil z": "car-265",
+	"rz34": "car-266", "new z": "car-266",
+
+	// HONDA
+	"eg6": "car-512", "civic eg6": "car-512",
+	"ek9": "car-513", "civic ek9": "car-513",
+	"dc2": "car-514", "integra": "car-514",
+	"ap1": "car-515", "s2000": "car-515",
+	"na1": "car-516", "nsx": "car-516",
+	"fl5": "car-517", "civic fl5": "car-517",
+
+	// MAZDA
+	"fc3s": "car-768", "fc": "car-768", "rx7 fc": "car-768", // fc
+	"rx7 efini": "car-769", "fd efini": "car-769", // fd efini
+	"fd rs": "car-773", "rx7 rs": "car-773", // fd rs
+
+	"se3p": "car-770", "rx8": "car-770",
+	"na6ce": "car-771", "roadster na": "car-771", "mx5": "car-771",
+	"nb8c": "car-772", "roadster nb": "car-772",
+
+	// SUBARU
+	"gc8": "car-1024", "impreza gc8": "car-1024",
+	"gdbf": "car-1025", "impreza gdbf": "car-1025",
+	"gdba": "car-1026", "impreza gdba": "car-1026",
+	"zc6": "car-1027", "brz": "car-1027",
+	"vab": "car-1028", "wrx sti": "car-1028",
+	"zd8": "car-1029", "brz s": "car-1029",
+
+	// MITSUBISHI
+	"ce9a": "car-1280", "evo 3": "car-1280", "lan evo 3": "car-1280",
+	"cn9a": "car-1281", "evo 4": "car-1281",
+	"ct9a 9": "car-1282", "evo 9": "car-1282",
+	"ct9a 7": "car-1283", "evo 7": "car-1283",
+	"cz4a": "car-1284", "evo 10": "car-1284",
+	"cp9a 5": "car-1285", "evo 5": "car-1285",
+	"cp9a 6": "car-1286", "evo 6": "car-1286",
+
+	// SUZUKI
+	"ea11r": "car-1536", "cappuccino": "car-1536", "cappu": "car-1536",
+	"zc33s": "car-1537", "swift": "car-1537",
+
+	// OTHERS
+	"sileighty": "car-1792", "sil80": "car-1792",
+	"964": "car-2304", "porsche 964": "car-2304", "blackbird": "car-2304",
+	"982": "car-2305", "cayman": "car-2305",
+	"991": "car-2306", "gt3": "car-2306",
+}
+
+// CarDisplayNameByCode maps the internal IDAC car codes to their full display names
+var CarDisplayNameByCode = map[string]string{
+	"car-all": "All Cars",
+	"":        "All Cars",
+	// TOYOTA
+	"car-0":  "SPRINTER TRUENO GT-APEX (AE86)",
+	"car-9":  "SPRINTER TRUENO 2door GT-APEX (AE86)",
+	"car-1":  "COROLLA LEVIN GT-APEX (AE86)",
+	"car-2":  "COROLLA LEVIN SR (AE85)",
+	"car-7":  "86 GT (ZN6)",
+	"car-3":  "MR2 G-Limited (SW20)",
+	"car-5":  "MR-S S EDITION (ZZW30)",
+	"car-4":  "ALTEZZA RS200 Z EDITION (SXE10)",
+	"car-10": "CELICA GT-FOUR (ST205)",
+	"car-6":  "SUPRA RZ (JZA80)",
+	"car-11": "GR YARIS 1st Edition RZ “High performance” (GXPA16)",
+	"car-12": "GR SUPRA RZ (DB42)",
+	"car-13": "CHASER 2.5 TourerV (JZX100)",
+	"car-14": "GR86 RZ (ZN8)",
+	"car-15": "PRIUS Z (MXWH61)",
+
+	// NISSAN
+	"car-256": "SKYLINE GT-R V･specⅡ (BNR32)",
+	"car-257": "SKYLINE GT-R V･specⅡ Nür (BNR34)",
+	"car-258": "SILVIA K's (S13)",
+	"car-259": "Silvia Q's (S14)",
+	"car-260": "Silvia spec-R (S15)",
+	"car-261": "180SX TYPE Ⅱ (RPS13)",
+	"car-262": "FAIRLADY Z Version S (Z33)",
+	"car-263": "NISSAN GT-R NISMO (R35)",
+	"car-264": "SKYLINE 25GT TURBO (ER34)",
+	"car-265": "Fairlady Z (S30)",
+	"car-266": "FAIRLADY Z Version ST (RZ34)",
+	"car-267": "NISSAN GT-R Premium edition T-spec (R35)",
+
+	// HONDA
+	"car-512": "Civic SiR･Ⅱ (EG6)",
+	"car-513": "CIVIC TYPE R (EK9)",
+	"car-514": "INTEGRA TYPE R (DC2)",
+	"car-515": "S2000 (AP1)",
+	"car-516": "NSX (NA1)",
+	"car-517": "CIVIC TYPE R (FL5)",
+
+	// MAZDA
+	"car-768": "SAVANNA RX-7 ∞Ⅲ (FC3S)",
+	"car-769": "ε~fini RX-7 Type R (FD3S)",
+	"car-770": "RX-8 Type S (SE3P)",
+	"car-771": "EUNOS ROADSTER (NA6CE)",
+	"car-772": "ROADSTER RS (NB8C)",
+	"car-773": "RX-7 Type RS (FD3S)",
+
+	// SUBARU
+	"car-1024": "IMPREZA WRX type R STi Version Ⅴ (GC8)",
+	"car-1025": "IMPREZA WRX STI (GDBF)",
+	"car-1026": "IMPREZA WRX STi (GDBA)",
+	"car-1027": "SUBARU BRZ S (ZC6)",
+	"car-1028": "STI S207 NBR CHALLENGE PACKAGE (VAB)",
+	"car-1029": "BRZ S (ZD8)",
+
+	// MITSUBISHI
+	"car-1280": "LANCER GSR Evolution Ⅲ (CE9A)",
+	"car-1281": "LANCER RS EVOLUTION Ⅳ (CN9A)",
+	"car-1282": "LANCER Evolution Ⅸ GSR (CT9A)",
+	"car-1283": "LANCER EVOLUTION Ⅶ GSR (CT9A)",
+	"car-1284": "LANCER EVOLUTION Ⅹ GSR (CZ4A)",
+	"car-1285": "LANCER RS EVOLUTION Ⅴ (CP9A)",
+	"car-1286": "LANCER GSR EVOLUTION Ⅵ T.M.EDITION (CP9A)",
+
+	// SUZUKI
+	"car-1536": "Cappuccino (EA11R)",
+	"car-1537": "SWIFT Sport (ZC33S)",
+	"car-1538": "CARRY KC (DC51T)",
+
+	// OTHERS
+	"car-1792": "SILEIGHTY",
+	"car-2304": "911Turbo3.6 (964)",
+	"car-2305": "718Cayman GTS (982)",
+	"car-2306": "911 GT3 (991)",
+	"car-2560": "4C (96018)",
+}
+
+// ResolveCarID calculates the final car ID based on the model alias and spec string.
+// Logic: FinalID = BaseID + (SpecIndex * 65536)
+func ResolveCarID(alias string, specInput string) string {
+	// 1. Normalize input
+	lowerAlias := strings.ToLower(alias)
+
+	// 2. Resolve Alias to Base ID (e.g. "r34" -> "car-257")
+	baseID, ok := CarAliases[lowerAlias]
+	if !ok {
+		// Fallback: assume input is already a raw code like "car-257"
+		baseID = lowerAlias
+	}
+
+	// 3. Resolve Spec String to Index
+	specIndex := 0
+	if specInput != "" {
+		lowerSpec := strings.ToLower(specInput)
+		if idx, ok := SpecAliases[lowerSpec]; ok {
+			specIndex = idx
+		} else {
+			// Fallback: Check if user typed a number directly (e.g. "1")
+			if val, err := strconv.Atoi(specInput); err == nil {
+				specIndex = val
+			}
+		}
+	}
+
+	// 4. If no spec requested (index 0), or if input is "car-all", return base
+	if specIndex <= 0 || baseID == "car-all" {
+		return baseID
+	}
+
+	// 5. Parse the numeric ID (remove "car-" prefix)
+	rawIDStr := strings.TrimPrefix(baseID, "car-")
+	rawID, err := strconv.Atoi(rawIDStr)
+	if err != nil {
+		return baseID
+	}
+
+	// 6. Apply Bit Shift Logic for Specs
+	// Spec 1 = +65536, Spec 2 = +131072, etc.
+	finalID := rawID + (specIndex * 65536)
+
+	return fmt.Sprintf("car-%d", finalID)
+}
+
+// SpecAliases maps user-friendly spec names to their internal index (bitshift multiplier)
+var SpecAliases = map[string]int{
+	"dh": 0, "c": 0,
+	"ar": 1, "a": 1, // Spec 1
+	"hc": 2, "b": 2, // Spec 2
+
+}
+
+// SpecEmojis maps spec codes to emojis (Unicode or Custom Discord IDs)
+var SpecEmojis = map[string]string{
+	"dh": "<:dh:1448368217574740038>",
+	"ar": "<:ar:1448368501550092339>",
+	"hc": "<:hc:1448368366732447908>",
 }
