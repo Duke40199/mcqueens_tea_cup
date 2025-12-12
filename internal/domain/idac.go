@@ -24,173 +24,173 @@ type TimeAttackRecord struct {
 // --- ALIAS CONFIGURATION ---
 var CourseAliases = map[string]string{
 	// --- Akina Lake (0/2) ---
-	"秋名湖／左周り":  "course-0",
+	"秋名湖／左周り":        "course-0",
 	"akina lake ccw": "course-0",
 	"lake ccw":       "course-0",
-	"秋名湖／右周り":  "course-2",
+	"秋名湖／右周り":        "course-2",
 	"akina lake cw":  "course-2",
 	"lake cw":        "course-2",
 
 	// --- Hakone (52/54) ---
-	"箱根／下り": "course-52",
+	"箱根／下り":     "course-52",
 	"hakone dh": "course-52",
-	"箱根／上り": "course-54",
+	"箱根／上り":     "course-54",
 	"hakone uh": "course-54",
 	"hakone hc": "course-54",
 
 	// --- Usui (36/38) ---
-	"碓氷／左周り": "course-36",
-	"usui ccw":    "course-36",
-	"碓氷／右周り": "course-38",
-	"usui cw":     "course-38",
+	"碓氷／左周り":   "course-36",
+	"usui ccw": "course-36",
+	"碓氷／右周り":   "course-38",
+	"usui cw":  "course-38",
 
 	// --- Myogi (4/6) ---
-	"妙義／下り": "course-4",
-	"myogi dh":  "course-4",
-	"妙義／上り": "course-6",
-	"myogi uh":  "course-6",
-	"myogi hc":  "course-6",
+	"妙義／下り":    "course-4",
+	"myogi dh": "course-4",
+	"妙義／上り":    "course-6",
+	"myogi uh": "course-6",
+	"myogi hc": "course-6",
 
 	// --- Akagi (8/10) ---
-	"赤城／下り": "course-8",
-	"akagi dh":  "course-8",
-	"赤城／上り": "course-10",
-	"akagi uh":  "course-10",
-	"akagi hc":  "course-10",
+	"赤城／下り":    "course-8",
+	"akagi dh": "course-8",
+	"赤城／上り":    "course-10",
+	"akagi uh": "course-10",
+	"akagi hc": "course-10",
 
 	// --- Akina (12/14) ---
-	"秋名／下り": "course-12",
-	"akina dh":  "course-12",
-	"秋名／上り": "course-14",
-	"akina uh":  "course-14",
-	"akina hc":  "course-14",
+	"秋名／下り":    "course-12",
+	"akina dh": "course-12",
+	"秋名／上り":    "course-14",
+	"akina uh": "course-14",
+	"akina hc": "course-14",
 
 	// --- Irohazaka (16/18) ---
-	"いろは坂／下り": "course-16",
-	"irohazaka dh":  "course-16",
-	"iro dh":        "course-16",
-	"いろは坂／逆走": "course-18",
-	"irohazaka uh":  "course-18", // Reverse often acts as Uphill/HC
-	"irohazaka hc":  "course-18",
-	"iro uh":        "course-18",
-	"iro hc":        "course-18",
+	"いろは坂／下り":      "course-16",
+	"irohazaka dh": "course-16",
+	"iro dh":       "course-16",
+	"いろは坂／逆走":      "course-18",
+	"irohazaka uh": "course-18", // Reverse often acts as Uphill/HC
+	"irohazaka hc": "course-18",
+	"iro uh":       "course-18",
+	"iro hc":       "course-18",
 
 	// --- Yabitsu (76/78) ---
-	"ヤビツ／下り": "course-76",
-	"yabitsu dh":  "course-76",
-	"yabi dh":     "course-76",
-	"ヤビツ／上り": "course-78",
-	"yabitsu uh":  "course-78",
-	"yabitsu hc":  "course-78",
-	"yabi uh":     "course-78",
+	"ヤビツ／下り":     "course-76",
+	"yabitsu dh": "course-76",
+	"yabi dh":    "course-76",
+	"ヤビツ／上り":     "course-78",
+	"yabitsu uh": "course-78",
+	"yabitsu hc": "course-78",
+	"yabi uh":    "course-78",
 
 	// --- Momiji Line (56/58) ---
 	"もみじライン／下り": "course-56",
-	"momiji dh":         "course-56",
+	"momiji dh": "course-56",
 	"もみじライン／上り": "course-58",
-	"momiji uh":         "course-58",
-	"momiji hc":         "course-58",
+	"momiji uh": "course-58",
+	"momiji hc": "course-58",
 
 	// --- Tsukuba (20/22) ---
-	"筑波／往路":  "course-20",
+	"筑波／往路":      "course-20",
 	"tsukuba ob": "course-20",
-	"筑波／復路":  "course-22",
+	"筑波／復路":      "course-22",
 	"tsukuba ib": "course-22",
 
 	// --- Happogahara (24/26) ---
-	"八方ヶ原／往路":  "course-24",
+	"八方ヶ原／往路":        "course-24",
 	"happogahara ob": "course-24",
 	"happo ob":       "course-24",
-	"八方ヶ原／復路":  "course-26",
+	"八方ヶ原／復路":        "course-26",
 	"happogahara ib": "course-26",
 	"happo ib":       "course-26",
 
 	// --- Sadamine (40/42) ---
-	"定峰／下り":   "course-40",
+	"定峰／下り":       "course-40",
 	"sadamine dh": "course-40",
 	"sada dh":     "course-40",
-	"定峰／上り":   "course-42",
+	"定峰／上り":       "course-42",
 	"sadamine uh": "course-42",
 	"sada uh":     "course-42",
 
 	// --- Tsuchisaka (44/46) ---
-	"土坂／往路":     "course-44",
+	"土坂／往路":         "course-44",
 	"tsuchisaka ob": "course-44",
 	"tsuchi ob":     "course-44",
-	"土坂／復路":     "course-46",
+	"土坂／復路":         "course-46",
 	"tsuchisaka ib": "course-46",
 	"tsuchi ib":     "course-46",
 
 	// --- Nagao (28/30) ---
-	"長尾／下り": "course-28",
-	"nagao dh":  "course-28",
-	"長尾／上り": "course-30",
-	"nagao uh":  "course-30",
-	"nagao hc":  "course-30",
+	"長尾／下り":    "course-28",
+	"nagao dh": "course-28",
+	"長尾／上り":    "course-30",
+	"nagao uh": "course-30",
+	"nagao hc": "course-30",
 
 	// --- Nanamagari (60/62) ---
-	"七曲り／下り":   "course-60",
+	"七曲り／下り":        "course-60",
 	"nanamagari dh": "course-60",
 	"nana dh":       "course-60",
-	"七曲り／上り":   "course-62",
+	"七曲り／上り":        "course-62",
 	"nanamagari uh": "course-62",
 	"nana uh":       "course-62",
 
 	// --- Tsubaki Line (32/34) ---
-	"椿ライン／下り": "course-32",
-	"tsubaki dh":    "course-32",
-	"椿ライン／上り": "course-34",
-	"tsubaki uh":    "course-34",
-	"tsubaki hc":    "course-34",
+	"椿ライン／下り":    "course-32",
+	"tsubaki dh": "course-32",
+	"椿ライン／上り":    "course-34",
+	"tsubaki uh": "course-34",
+	"tsubaki hc": "course-34",
 
 	// --- Akina Snow (48/50) ---
-	"秋名（雪）／下り": "course-48",
+	"秋名（雪）／下り":      "course-48",
 	"akina snow dh": "course-48",
-	"秋名（雪）／上り": "course-50",
+	"秋名（雪）／上り":      "course-50",
 	"akina snow uh": "course-50",
 
 	// --- Gunsai (64/66) ---
-	"群サイ／往路": "course-64",
-	"gunsai ob":   "course-64",
-	"群サイ／復路": "course-66",
-	"gunsai ib":   "course-66",
+	"群サイ／往路":    "course-64",
+	"gunsai ob": "course-64",
+	"群サイ／復路":    "course-66",
+	"gunsai ib": "course-66",
 
 	// --- Odawara (68/70) ---
-	"小田原／順走": "course-68",
+	"小田原／順走":      "course-68",
 	"odawara":     "course-68",
-	"小田原／逆走": "course-70",
+	"小田原／逆走":      "course-70",
 	"odawara rev": "course-70",
 
 	// --- Tsukuba Snow (72/74) ---
-	"筑波（雪）／往路":   "course-72",
+	"筑波（雪）／往路":        "course-72",
 	"tsukuba snow ob": "course-72",
-	"筑波（雪）／復路":   "course-74",
+	"筑波（雪）／復路":        "course-74",
 	"tsukuba snow ib": "course-74",
 
 	// --- Tsuchisaka Snow (80/82) ---
-	"土坂（雪）／往路":      "course-80",
+	"土坂（雪）／往路":           "course-80",
 	"tsuchisaka snow ob": "course-80",
-	"土坂（雪）／復路":      "course-82",
+	"土坂（雪）／復路":           "course-82",
 	"tsuchisaka snow ib": "course-82",
 
 	// --- Manazuru (84/86) ---
-	"真鶴／順走":    "course-84",
+	"真鶴／順走":        "course-84",
 	"manazuru":     "course-84",
 	"mana":         "course-84",
-	"真鶴／逆走":    "course-86",
+	"真鶴／逆走":        "course-86",
 	"manazuru rev": "course-86",
 	"mana rev":     "course-86",
 
 	// --- Usui Snow (88/90) ---
-	"碓氷（雪）／左周り": "course-88",
-	"usui snow ccw":   "course-88",
-	"碓氷（雪）／右周り": "course-90",
-	"usui snow cw":    "course-90",
+	"碓氷（雪）／左周り":     "course-88",
+	"usui snow ccw": "course-88",
+	"碓氷（雪）／右周り":     "course-90",
+	"usui snow cw":  "course-90",
 
 	// --- Akina Rain (92/94) ---
-	"秋名（雨）／下り": "course-92",
+	"秋名（雨）／下り":      "course-92",
 	"akina rain dh": "course-92",
-	"秋名（雨）／上り": "course-94",
+	"秋名（雨）／上り":      "course-94",
 	"akina rain uh": "course-94",
 }
 
