@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,10 @@ import (
 // StartCommands registers the commands with Discord and sets up the listener
 func (d *DiscordNotifier) StartCommands() error {
 	// 1. Define Commands
+	// Constants for limits
+	minLimit := 1.0
+	maxLimit := 25.0 // Cap at 25 to prevent exceeding Discord's 2000 char limit
+
 	commands := []*discordgo.ApplicationCommand{
 		{
 			Name:        "status",
@@ -74,9 +79,31 @@ func (d *DiscordNotifier) StartCommands() error {
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "name",
-							Description: "Filter by Team Name (Optional)",
+							Name:        "rank",
+							Description: "Team Rank Class",
+							Required:    true,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "All", Value: "all"}, // New "All" option
+								{Name: "Master", Value: "6"},
+								{Name: "Platinum", Value: "5"},
+								{Name: "Gold", Value: "4"},
+								{Name: "Silver", Value: "3"},
+								//{Name: "Bronze", Value: "2"},
+							},
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "country",
+							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
 							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "limit",
+							Description: "Number of results to show (1-25, default: 10)",
+							Required:    false,
+							MinValue:    &minLimit,
+							MaxValue:    maxLimit,
 						},
 					},
 				},
@@ -97,11 +124,25 @@ func (d *DiscordNotifier) StartCommands() error {
 			// Parse Nested Options inside the subcommand
 			optMap := make(map[string]string)
 			specInput := ""
+			// Robust Option Parsing based on Type
 			for _, opt := range subcommand.Options {
-				if opt.Name == "spec" {
-					specInput = opt.StringValue()
-				} else {
-					optMap[opt.Name] = opt.StringValue()
+				switch opt.Type {
+				case discordgo.ApplicationCommandOptionString:
+					if opt.Name == "spec" {
+						specInput = opt.StringValue()
+					} else {
+						optMap[opt.Name] = opt.StringValue()
+					}
+				case discordgo.ApplicationCommandOptionInteger:
+					// Convert integers to string for map storage
+					val := strconv.FormatInt(opt.IntValue(), 10)
+					if opt.Name == "spec" {
+						// Handle cached/legacy spec as integer
+						specInput = val
+					} else {
+						// Handles "limit" and any other future ints
+						optMap[opt.Name] = val
+					}
 				}
 			}
 			// Dispatch based on Subcommand Name
@@ -277,9 +318,8 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 		return
 	}
 	fmt.Println("full url:", fullURL)
-	// 5. Build LIST Message (Clean & Mobile Friendly)
+	// 5. Build LIST 1 (Clean & Mobile Friendly)
 	var sb strings.Builder
-
 	// Header Information
 	sb.WriteString(fmt.Sprintf("# Initial D Rankings (%s)\n", "Time Trial"))
 	sb.WriteString(fmt.Sprintf("🗾 : %s |  🌎 : %s |  🚗 : %s\n\n",
@@ -312,12 +352,173 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 }
 
 func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
-	// Placeholder logic for Team Mode
-	// You can add logic here to fetch team rankings later
+	// 1. Fetch Current Round Info
+	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
+	respRound, err := http.Get(roundURL)
+	if err != nil {
+		sendError(s, i, "Error fetching round info.")
+		return
+	}
+	defer respRound.Body.Close()
+
+	bodyBytes, err := io.ReadAll(respRound.Body)
+	if err != nil {
+		sendError(s, i, "Error reading round info.")
+		return
+	}
+
+	roundStr := strings.TrimSpace(string(bodyBytes))
+	roundNum, err := strconv.Atoi(roundStr)
+	if err != nil {
+		sendError(s, i, fmt.Sprintf("Error parsing round number: %s", roundStr))
+		return
+	}
+
+	// 2. Resolve Country Filter
+	filterCountryID := -1
+	filterCountryName := "All"
+	if countryInput, ok := optMap["country"]; ok && countryInput != "" {
+		areaCode := countryInput
+		normalizedInput := strings.ToLower(countryInput)
+		if val, ok := domain.AreaAliases[normalizedInput]; ok {
+			areaCode = val
+		}
+		if strings.HasPrefix(areaCode, "area-") {
+			idStr := strings.TrimPrefix(areaCode, "area-")
+			if id, err := strconv.Atoi(idStr); err == nil {
+				filterCountryID = id
+				if name, ok := domain.AreaDisplayNameByCode[areaCode]; ok {
+					filterCountryName = name
+				}
+			}
+		}
+	}
+
+	// 3. Parse Limit
+	limit := 10
+	if limitStr, ok := optMap["limit"]; ok {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	// 4. Determine Target Ranks (Single or All)
+	rankCodeInput := optMap["rank"]
+	targetRanks := []string{}
+
+	if rankCodeInput == "all" {
+		// All ranks: Master(6) down to Bronze(2)
+		targetRanks = []string{"6", "5", "4", "3"}
+	} else {
+		targetRanks = []string{rankCodeInput}
+	}
+
+	// 5. Fetch and Aggregate Records
+	var allRecords []domain.TeamRecord
+	// We only show errors if it's a single fetch. If "all", we skip failing ranks silently (optional choice).
+
+	for _, code := range targetRanks {
+		records, err := fetchTeamRankings(roundNum, code)
+		if err != nil {
+			if len(targetRanks) == 1 {
+				sendError(s, i, fmt.Sprintf("Error fetching data for rank %s: %v", code, err))
+				return
+			}
+			continue // Skip this rank if one fails in "all" mode
+		}
+		allRecords = append(allRecords, records...)
+	}
+
+	// 6. Sort Combined Records by Points (Descending)
+	sort.Slice(allRecords, func(i, j int) bool {
+		p1, _ := strconv.Atoi(allRecords[i].Point)
+		p2, _ := strconv.Atoi(allRecords[j].Point)
+		return p1 > p2
+	})
+
+	// 7. Filter and Build Message
+	var sb strings.Builder
+
+	rankDisplayName := "Unknown"
+	if rankCodeInput == "all" {
+		rankDisplayName = "All Classes"
+	} else {
+		switch rankCodeInput {
+		case "6":
+			rankDisplayName = "Master"
+		case "5":
+			rankDisplayName = "Platinum"
+		case "4":
+			rankDisplayName = "Gold"
+		case "3":
+			rankDisplayName = "Silver"
+			//case "2":
+			//	rankDisplayName = "Bronze"
+		}
+	}
+
+	sb.WriteString(fmt.Sprintf("# Initial D Team Rankings (Round %d)\n", roundNum))
+	sb.WriteString(fmt.Sprintf("**Class:** %s | **Region:** %s\n\n", rankDisplayName, filterCountryName))
+
+	foundCount := 0
+	for _, r := range allRecords {
+		// Apply Filter
+		if filterCountryID != -1 && r.Country != filterCountryID {
+			continue
+		}
+
+		if foundCount < limit {
+			// Calculate display rank. If "All" mode, r.Rank is just the rank within its class.
+			// We can use (foundCount + 1) as the global rank in this sorted view.
+			globalRank := foundCount + 1
+			// SANITIZE: Robust whitespace cleanup (handles \n, \r, \t, etc.)
+			// strings.Fields splits by any whitespace, strings.Join puts it back with single spaces
+			teamName := strings.Join(strings.Fields(r.TeamName), " ")
+
+			sb.WriteString(fmt.Sprintf("%d. **%s** (%s pts)\n", globalRank, teamName, r.Point))
+			sb.WriteString(fmt.Sprintf("Ace: %s | Leader: %s\n\n", r.AceUserName, r.LeaderUserName))
+		}
+		foundCount++
+	}
+
+	if foundCount == 0 {
+		sb.WriteString("No teams found matching criteria.")
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Content: sb.String()},
+	})
+}
+
+// Helper to fetch records for a specific round/rank
+func fetchTeamRankings(roundNum int, rankCode string) ([]domain.TeamRecord, error) {
+	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
+	fmt.Printf("Fetching ranking data from %s\n", rankURL)
+	resp, err := http.Get(rankURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code %d", resp.StatusCode)
+	}
+
+	var data domain.TeamRankingResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return data.Records, nil
+}
+
+// Helper to send ephemeral error messages
+func sendError(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "🏁 **Team Ranking Mode**\nThis feature is currently under construction.",
+			Content: "⚠️ " + msg,
+			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 }
