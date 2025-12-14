@@ -17,6 +17,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 
 	"McQueens_Tea_Cup/internal/domain"
+	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
 )
 
 //go:embed resource/nuhuh.gif
@@ -34,7 +35,15 @@ func (d *DiscordNotifier) StartCommands() error {
 	// Constants for limits
 	minLimit := 1.0
 	maxLimit := 1000.0 // Cap at 25 to prevent exceeding Discord's 2000 char limit
-
+	// Helper to build Track Choices (Pre-defined list)
+	// Discord limits choices to 25. You have exactly 24 tracks in the map above. Perfect.
+	trackChoices := []*discordgo.ApplicationCommandOptionChoice{}
+	for _, name := range idac_domain.GetTrackNames() {
+		trackChoices = append(trackChoices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  name,
+			Value: name,
+		})
+	}
 	commands := []*discordgo.ApplicationCommand{
 		{
 			Name:        "status",
@@ -72,9 +81,17 @@ func (d *DiscordNotifier) StartCommands() error {
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "course",
-							Description: "Course ID or Alias (e.g. 'iro', 'course-16')",
-							Required:    true, // Strictly required for TA
+							Name:        "track", // Changed from 'course'
+							Description: "Select the track",
+							Required:    true,
+							Choices:     trackChoices, // User picks from list
+						},
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "variant", // New field
+							Description:  "Select direction/condition (Downhill, Uphill, etc)",
+							Required:     true,
+							Autocomplete: true, // Triggers dynamic behavior
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
@@ -90,7 +107,7 @@ func (d *DiscordNotifier) StartCommands() error {
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "car-spec",
+							Name:        "spec",
 							Description: "Car spec variant (AR, HC, etc)",
 							Required:    false,
 						},
@@ -196,7 +213,7 @@ func (d *DiscordNotifier) StartCommands() error {
 			for _, opt := range subcommand.Options {
 				switch opt.Type {
 				case discordgo.ApplicationCommandOptionString:
-					if opt.Name == "car-spec" {
+					if opt.Name == "spec" {
 						specInput = opt.StringValue()
 					} else {
 						optMap[opt.Name] = opt.StringValue()
@@ -204,7 +221,7 @@ func (d *DiscordNotifier) StartCommands() error {
 				case discordgo.ApplicationCommandOptionInteger:
 					// Convert integers to string for map storage
 					val := strconv.FormatInt(opt.IntValue(), 10)
-					if opt.Name == "car-spec" {
+					if opt.Name == "spec" {
 						// Handle cached/legacy spec as integer
 						specInput = val
 					} else {
@@ -301,15 +318,66 @@ func (d *DiscordNotifier) StartCommands() error {
 		},
 	}
 
-	// 3. Register Handler to Router
-	d.session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		// FIX: Check if the interaction is actually a Command before accessing CommandData
-		if i.Type != discordgo.InteractionApplicationCommand {
+	// 3. Define Autocomplete Handler
+	// This function figures out which variants to show based on the selected track
+	autocompleteHandler := func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		data := i.ApplicationCommandData()
+		if data.Name != "idac" {
 			return
 		}
 
-		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
+		// Find the subcommand options
+		// structure: idac -> [time-attack] -> [track, variant, area...]
+		if len(data.Options) == 0 {
+			return
+		}
+		subCmd := data.Options[0]
+
+		var selectedTrack string
+
+		// 1. Find what the user has currently selected for "track"
+		for _, opt := range subCmd.Options {
+			if opt.Name == "track" {
+				selectedTrack = opt.StringValue()
+			}
+		}
+
+		// 2. Generate choices for "variant"
+		var choices []*discordgo.ApplicationCommandOptionChoice
+
+		if variants, ok := idac_domain.TrackRegistry[selectedTrack]; ok {
+			for _, v := range variants {
+				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+					Name:  v.Name, // Display: "Downhill"
+					Value: v.ID,   // Value passed to handler: "course-12"
+				})
+			}
+		} else {
+			// Default hint if no track selected yet
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  "Select a track first",
+				Value: "none",
+			})
+		}
+
+		// 3. Send choices back to Discord
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{
+				Choices: choices,
+			},
+		})
+	}
+
+	// 4. Register Router
+	d.session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
+				h(s, i)
+			}
+		case discordgo.InteractionApplicationCommandAutocomplete:
+			autocompleteHandler(s, i)
 		}
 	})
 
@@ -322,50 +390,50 @@ func (d *DiscordNotifier) StartCommands() error {
 }
 
 func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string, specInput string) {
+	var err error
 	// 1. DEFER
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 
-	// Helper for errors
 	sendDeferredError := func(msg string) {
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 
-	var err error
-
 	// 2. Validate Inputs
-	if optMap["course"] == "" || optMap["area"] == "" {
-		sendDeferredError("⚠️ **Missing Arguments**\nFor Time Attack, provide `course` and `area`.")
+	// We look for 'variant' because that holds the actual Course ID now
+	if optMap["variant"] == "" || optMap["variant"] == "none" || optMap["area"] == "" {
+		sendDeferredError("⚠️ **Missing Arguments**\nPlease select both a **Track** and a **Variant**, plus an Area.")
 		return
 	}
-
-	// Defaults & Aliases
+	// Defaults
 	if _, ok := optMap["car"]; !ok {
 		optMap["car"] = "car-all"
 	}
+	// The User selected: Track="Akina", Variant="course-12" (Downhill)
+	// We only care about the Variant ID now.
+	finalCourseID := optMap["variant"]
 
-	courseInput := strings.ToLower(optMap["course"])
-	if val, ok := domain.CourseAliases[courseInput]; ok {
-		optMap["course"] = val
-	}
-
+	// Resolve Area Alias
 	areaInput := strings.ToLower(optMap["area"])
 	if val, ok := domain.AreaAliases[areaInput]; ok {
 		optMap["area"] = val
 	}
 
-	// Resolve IDs & Names
+	// Resolve Car
 	finalCarID := domain.ResolveCarID(optMap["car"], specInput)
-	courseName := optMap["course"]
-	if val, ok := domain.CourseDisplayNameByCode[courseName]; ok {
-		courseName = val
+
+	// Display Names (Optional: Lookup ID back to Name for pretty printing)
+	courseName := domain.CourseDisplayNameByCode[finalCourseID]
+	if courseName == "" {
+		// Fallback
+		courseName = optMap["track"]
 	}
+
 	areaName := optMap["area"]
 	if val, ok := domain.AreaDisplayNameByCode[areaName]; ok {
 		areaName = val
 	}
-
 	carDisplayName := finalCarID
 	baseCar := domain.ResolveCarID(optMap["car"], "")
 	if optMap["car"] == "car-all" {
@@ -392,7 +460,8 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 
 	// 3. Fetch Data
 	baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
-	filename := fmt.Sprintf("ta_%s_%s_%s.json", optMap["course"], optMap["area"], finalCarID)
+	//filename := fmt.Sprintf("ta_%s_%s_%s.json", optMap["course"], optMap["area"], finalCarID)
+	filename := fmt.Sprintf("ta_%s_%s_%s.json", finalCourseID, optMap["area"], finalCarID)
 	fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
 
 	resp, err := http.Get(fullURL)
