@@ -196,7 +196,7 @@ func (d *DiscordNotifier) StartCommands() error {
 			for _, opt := range subcommand.Options {
 				switch opt.Type {
 				case discordgo.ApplicationCommandOptionString:
-					if opt.Name == "spec" {
+					if opt.Name == "car-spec" {
 						specInput = opt.StringValue()
 					} else {
 						optMap[opt.Name] = opt.StringValue()
@@ -204,7 +204,7 @@ func (d *DiscordNotifier) StartCommands() error {
 				case discordgo.ApplicationCommandOptionInteger:
 					// Convert integers to string for map storage
 					val := strconv.FormatInt(opt.IntValue(), 10)
-					if opt.Name == "spec" {
+					if opt.Name == "car-spec" {
 						// Handle cached/legacy spec as integer
 						specInput = val
 					} else {
@@ -462,33 +462,35 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 }
 
 func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
-	//0. DEFER INTERACTION: Acknowledge immediately to avoid 3s timeout
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 0. DEFER INTERACTION
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
-	if err != nil {
-		return
+
+	// Error Helper
+	sendDeferredError := func(msg string) {
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 
 	// 1. Fetch Current Round Info
 	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
 	respRound, err := http.Get(roundURL)
 	if err != nil {
-		sendError(s, i, "Error fetching round info.")
+		sendDeferredError("⚠️ Error fetching round info.")
 		return
 	}
 	defer respRound.Body.Close()
 
 	bodyBytes, err := io.ReadAll(respRound.Body)
 	if err != nil {
-		sendError(s, i, "Error reading round info.")
+		sendDeferredError("⚠️ Error reading round info.")
 		return
 	}
 
 	roundStr := strings.TrimSpace(string(bodyBytes))
 	roundNum, err := strconv.Atoi(roundStr)
 	if err != nil {
-		sendError(s, i, fmt.Sprintf("Error parsing round number: %s", roundStr))
+		sendDeferredError(fmt.Sprintf("⚠️ Error parsing round number: %s", roundStr))
 		return
 	}
 
@@ -520,48 +522,16 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 		}
 	}
 
-	// 4. Determine Target Ranks (Single or All)
+	// 4. Determine Target Ranks
 	rankCodeInput := optMap["rank"]
 	targetRanks := []string{}
-
-	if rankCodeInput == "all" {
-		// All ranks: Master(6) down to Bronze(2)
-		targetRanks = []string{"6", "5", "4", "3"}
-	} else {
-		targetRanks = []string{rankCodeInput}
-	}
-
-	// 5. Fetch and Aggregate Records
-	var allRecords []domain.TeamRecord
-	for _, code := range targetRanks {
-		records, err := fetchTeamRankings(roundNum, code)
-		if err != nil {
-			if len(targetRanks) == 1 {
-				sendError(s, i, fmt.Sprintf("Error fetching data for rank %s: %v", code, err))
-				return
-			}
-			continue // Skip this rank if one fails in "all" mode
-		}
-		allRecords = append(allRecords, records...)
-	}
-
-	// 6. Sort Combined Records by Points (Descending)
-	sort.Slice(allRecords, func(i, j int) bool {
-		p1, _ := strconv.Atoi(allRecords[i].Point)
-		p2, _ := strconv.Atoi(allRecords[j].Point)
-		return p1 > p2
-	})
-
-	// 7. Filter and Build Message
-	var sb strings.Builder
-	// Filter and Build Messages (Splitting)
-	var messages []string
-	var currentMessage strings.Builder
-
 	rankDisplayName := "Unknown"
+
 	if rankCodeInput == "all" {
+		targetRanks = []string{"6", "5", "4", "3"}
 		rankDisplayName = "All Classes"
 	} else {
+		targetRanks = []string{rankCodeInput}
 		switch rankCodeInput {
 		case "6":
 			rankDisplayName = "Master"
@@ -571,62 +541,96 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 			rankDisplayName = "Gold"
 		case "3":
 			rankDisplayName = "Silver"
-			//case "2":
-			//	rankDisplayName = "Bronze"
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("# Initial D Team Rankings (Round %d)\n", roundNum))
-	sb.WriteString(fmt.Sprintf("**Class:** %s | **Region:** %s\n", rankDisplayName, filterCountryName))
+	// 5. Fetch and Aggregate Records
+	var allRecords []domain.TeamRecord
+	for _, code := range targetRanks {
+		records, err := fetchTeamRankings(roundNum, code)
+		if err != nil {
+			if len(targetRanks) == 1 {
+				sendDeferredError(fmt.Sprintf("⚠️ Error fetching data for rank %s", code))
+				return
+			}
+			continue
+		}
+		allRecords = append(allRecords, records...)
+	}
 
+	if len(allRecords) == 0 {
+		sendDeferredError("No records found.")
+		return
+	}
+
+	// 6. Sort Combined Records by Points (Descending)
+	sort.Slice(allRecords, func(i, j int) bool {
+		p1, _ := strconv.Atoi(allRecords[i].Point)
+		p2, _ := strconv.Atoi(allRecords[j].Point)
+		return p1 > p2
+	})
+
+	// 7. Filter and Build Pages
+	var pages []string
+	var currentMessage strings.Builder
+	itemsInChunk := 0
 	foundCount := 0
+
+	// Pre-calculate Header (will be added to every page)
+	header := fmt.Sprintf("# Initial D Team Rankings (Round %d)\n", roundNum)
+	header += fmt.Sprintf("**Class:** %s | **Region:** %s\n\n", rankDisplayName, filterCountryName)
+
+	// Add header to the first page buffer
+	currentMessage.WriteString(header)
+
 	for _, r := range allRecords {
-		// Apply Filter
+		// Apply Country Filter
 		if filterCountryID != -1 && r.Country != filterCountryID {
 			continue
 		}
+		// Stop if overall limit reached
 		if foundCount >= limit {
 			break
 		}
-		// Calculate display rank. If "All" mode, r.Rank is just the rank within its class.
-		// We can use (foundCount + 1) as the global rank in this sorted view.
+
+		// Calculate display rank
 		globalRank := foundCount + 1
 		countryFlag := domain.GetCountryFlag(r.Country)
 
+		// Format Entry
 		entry := fmt.Sprintf("%d. %s **%s** \n", globalRank, r.LeagueEmoji, r.TeamName)
 		entry += fmt.Sprintf("+ **Country:** %s\n", countryFlag)
 		entry += fmt.Sprintf("+ **Points:** %s\n", r.Point)
 		entry += fmt.Sprintf("+ **Ace:** %s | **Leader:** %s\n\n", r.AceUserName, r.LeaderUserName)
-		if currentMessage.Len()+len(entry) > 1900 {
-			messages = append(messages, currentMessage.String())
+
+		// Check Splitting Condition (Every 5 teams OR 1900 chars)
+		// Teams take up more vertical space, so 5 items per page is usually safer/cleaner than 10.
+		// You can change `itemsInChunk >= 5` to 10 if you prefer.
+		if itemsInChunk >= 5 || currentMessage.Len()+len(entry) > 1900 {
+			pages = append(pages, currentMessage.String())
+
 			currentMessage.Reset()
+			currentMessage.WriteString(header) // Add header to next page
+			itemsInChunk = 0
 		}
+
 		currentMessage.WriteString(entry)
+		itemsInChunk++
 		foundCount++
 	}
+
+	// Append whatever is left
 	if currentMessage.Len() > 0 {
-		messages = append(messages, currentMessage.String())
+		pages = append(pages, currentMessage.String())
 	}
-	// Send Results
-	if len(messages) == 0 {
-		noRes := "No teams found matching criteria."
-		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &noRes,
-		})
+
+	if len(pages) == 0 {
+		sendDeferredError("No teams found matching criteria.")
 		return
 	}
-	// 1. Edit the deferred message with the FIRST chunk
-	firstChunk := messages[0]
-	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: &firstChunk,
-	})
 
-	// 2. Send remaining chunks as Followups
-	for _, msg := range messages[1:] {
-		s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: msg,
-		})
-	}
+	// 8. Send via Pagination Helper
+	sendPagination(s, i, pages)
 }
 
 // Helper to fetch records for a specific round/rank
