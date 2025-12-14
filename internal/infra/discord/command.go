@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -89,9 +90,17 @@ func (d *DiscordNotifier) StartCommands() error {
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "spec",
-							Description: "Spec Variant (AR, HC, etc)",
+							Name:        "car-spec",
+							Description: "Car spec variant (AR, HC, etc)",
 							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "limit",
+							Description: "Number of results to show (1-25, default: 10)",
+							Required:    false,
+							MinValue:    &minLimit,
+							MaxValue:    maxLimit,
 						},
 					},
 				},
@@ -227,35 +236,18 @@ func (d *DiscordNotifier) StartCommands() error {
 			// 1. DEFER: Buy 15 minutes of processing time
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Brewing tea...",
+				},
 			})
-
-			// 2. WORK: Download the GIF
-			resp, err := http.Get("https://c.tenor.com/SCfWfZvA8_0AAAAd/tenor.gif")
-			if err != nil {
-				errStr := "❌ Failed to retrieve GIF (Network Error)."
-				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-					Content: &errStr,
-				})
-				return
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				errStr := fmt.Sprintf("❌ Failed to retrieve GIF (Status: %d).", resp.StatusCode)
-				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-					Content: &errStr,
-				})
-				return
-			}
-
-			// 3. LOGIC: Parse Options
+			// 2. LOGIC: Parse Options
 			options := i.ApplicationCommandData().Options
 			var content string
 			for _, opt := range options {
 				if opt.Name == "user" {
 					targetID := opt.Value.(string)
 					if targetID == s.State.User.ID {
-						content = "Nice try, but **nuh-uh**"
+						content = "Nice try, but ***nuh-uh***"
 					} else {
 						content = fmt.Sprintf("<@%s>", targetID)
 					}
@@ -311,6 +303,11 @@ func (d *DiscordNotifier) StartCommands() error {
 
 	// 3. Register Handler to Router
 	d.session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// FIX: Check if the interaction is actually a Command before accessing CommandData
+		if i.Type != discordgo.InteractionApplicationCommand {
+			return
+		}
+
 		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
 			h(s, i)
 		}
@@ -325,23 +322,29 @@ func (d *DiscordNotifier) StartCommands() error {
 }
 
 func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string, specInput string) {
+	// 1. DEFER
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	// Helper for errors
+	sendDeferredError := func(msg string) {
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+	}
+
 	var err error
-	// 0. Validate Inputs (Since they are now optional at command level)
+
+	// 2. Validate Inputs
 	if optMap["course"] == "" || optMap["area"] == "" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "⚠️ **Missing Arguments**\nFor Time Attack (`ta`) mode, you must provide a `course` and an `area`.",
-			},
-		})
+		sendDeferredError("⚠️ **Missing Arguments**\nFor Time Attack, provide `course` and `area`.")
 		return
 	}
-	// Defaults
+
+	// Defaults & Aliases
 	if _, ok := optMap["car"]; !ok {
 		optMap["car"] = "car-all"
 	}
 
-	// --- 1.5 RESOLVE ALIASES (Using domain package) ---
 	courseInput := strings.ToLower(optMap["course"])
 	if val, ok := domain.CourseAliases[courseInput]; ok {
 		optMap["course"] = val
@@ -352,15 +355,12 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 		optMap["area"] = val
 	}
 
-	// Resolve Car with Spec (New Logic)
+	// Resolve IDs & Names
 	finalCarID := domain.ResolveCarID(optMap["car"], specInput)
-
-	// Resolve Display Names
 	courseName := optMap["course"]
 	if val, ok := domain.CourseDisplayNameByCode[courseName]; ok {
 		courseName = val
 	}
-
 	areaName := optMap["area"]
 	if val, ok := domain.AreaDisplayNameByCode[areaName]; ok {
 		areaName = val
@@ -368,104 +368,97 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 
 	carDisplayName := finalCarID
 	baseCar := domain.ResolveCarID(optMap["car"], "")
-	if val, ok := domain.CarDisplayNameByCode[baseCar]; ok {
-		if emoji, ok := domain.SpecEmojis[strings.ToLower(specInput)]; ok {
-			carDisplayName = fmt.Sprintf("%s %s", emoji, val)
-		}
-	}
 	if optMap["car"] == "car-all" {
 		carDisplayName = "All"
+	} else if val, ok := domain.CarDisplayNameByCode[baseCar]; ok {
+		if emoji, ok := domain.SpecEmojis[strings.ToLower(specInput)]; ok {
+			carDisplayName = fmt.Sprintf("%s %s", emoji, val)
+		} else {
+			carDisplayName = val
+		}
 	}
-	// Check limit Alias
+
+	// Check Limit
 	var limit int
 	if _, ok := optMap["limit"]; ok {
 		limit, err = strconv.Atoi(optMap["limit"])
 		if err != nil {
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "⚠️ Limit must be a number",
-				},
-			})
+			sendDeferredError("⚠️ Limit must be a number")
 			return
 		}
 	} else {
 		limit = 10
 	}
 
-	// 2. Construct URL
-	modeFolder := "timeTrial"
-	//if optMap["mode"] != "ta" {
-	//	modeFolder = optMap["mode"]
-	//}
-
-	baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
-	filename := fmt.Sprintf("%s_%s_%s_%s.json", "ta", optMap["course"], optMap["area"], finalCarID)
-	fullURL := fmt.Sprintf("%s/%s/%s", baseURL, modeFolder, filename)
-
 	// 3. Fetch Data
+	baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
+	filename := fmt.Sprintf("ta_%s_%s_%s.json", optMap["course"], optMap["area"], finalCarID)
+	fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
+
 	resp, err := http.Get(fullURL)
 	if err != nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "Error contacting SEGA server."},
-		})
+		sendDeferredError("❌ Error contacting SEGA server.")
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Failed to fetch data. Status: %d\nURL tried: `%s`", resp.StatusCode, fullURL),
-			},
-		})
+		sendDeferredError(fmt.Sprintf("❌ Failed to fetch data (Status: %d).", resp.StatusCode))
 		return
 	}
 
-	// 4. Parse JSON
 	body, _ := io.ReadAll(resp.Body)
 	var data domain.IdacResponse
 	if err := json.Unmarshal(body, &data); err != nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "Error parsing JSON data."},
-		})
+		sendDeferredError("❌ Error parsing JSON.")
 		return
 	}
-	fmt.Println("full url:", fullURL)
-	// 5. Build LIST 1 (Clean & Mobile Friendly)
-	var sb strings.Builder
-	// Header Information
-	sb.WriteString(fmt.Sprintf("# Initial D Rankings (%s)\n", "Time Trial"))
-	sb.WriteString(fmt.Sprintf("🗾 : %s |  🌎 : %s |  🚗 : %s\n\n",
-		domain.CourseDisplayNameByCode[optMap["course"]],
-		domain.AreaDisplayNameByCode[optMap["area"]],
-		carDisplayName,
-	))
+
 	if len(data.Records) == 0 {
-		sb.WriteString("No records found.")
-	} else {
-		if len(data.Records) < limit {
-			limit = len(data.Records)
-		}
-
-		for j := 0; j < limit; j++ {
-			r := data.Records[j]
-
-			// Compact Single-Line Format:
-			// **1. DriverName** (CarName) — `Time`
-			sb.WriteString(fmt.Sprintf("%s. **%s** — %s — `%s`\n", r.Rank, r.Name, r.CarName, r.Record))
-
-		}
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: sb.String(),
-			},
-		})
+		msg := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\nNo records found.", courseName, areaName, carDisplayName)
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+		return
 	}
+
+	if len(data.Records) < limit {
+		limit = len(data.Records)
+	}
+
+	// 4. Build Pages (Slice of Strings)
+	var pages []string
+	var currentMessage strings.Builder
+	itemsInChunk := 0
+
+	// Pre-calculate Header
+	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\n", courseName, areaName, carDisplayName)
+
+	// Initialize first page with header
+	currentMessage.WriteString(header)
+
+	for j := 0; j < limit; j++ {
+		r := data.Records[j]
+		entry := fmt.Sprintf("%s. **%s** — %s — `%s`\n", r.Rank, r.Name, r.CarName, r.Record)
+
+		// Split if 10 items OR length > 1900
+		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 1900 {
+			pages = append(pages, currentMessage.String())
+
+			currentMessage.Reset()
+			currentMessage.WriteString(header) // Add header to every page for clarity
+			itemsInChunk = 0
+		}
+
+		currentMessage.WriteString(entry)
+		itemsInChunk++
+	}
+
+	// Append final page
+	if currentMessage.Len() > 0 {
+		pages = append(pages, currentMessage.String())
+	}
+
+	// 5. Hand over to Pagination Helper
+	sendPagination(s, i, pages)
 }
 
 func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
@@ -476,13 +469,6 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 	if err != nil {
 		return
 	}
-	// Error Helper for Deferred Response
-	//fail := func(msg string) {
-	//	str := "⚠️ " + msg
-	//	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-	//		Content: &str,
-	//	})
-	//}
 
 	// 1. Fetch Current Round Info
 	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
@@ -815,4 +801,111 @@ func sendError(s *discordgo.Session, i *discordgo.InteractionCreate, msg string)
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
+}
+
+// sendPagination sends a paginated message with Next/Prev buttons
+func sendPagination(s *discordgo.Session, i *discordgo.InteractionCreate, pages []string) {
+	// If only 1 page, just send it without buttons
+	if len(pages) == 1 {
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &pages[0],
+		})
+		return
+	}
+
+	// Current Page Index
+	pageIndex := 0
+
+	// Helper to create buttons based on current page
+	getComponents := func(current int) []discordgo.MessageComponent {
+		prevDisabled := current == 0
+		nextDisabled := current == len(pages)-1
+
+		return []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "◀️ Previous",
+						Style:    discordgo.PrimaryButton,
+						CustomID: "pagination_prev",
+						Disabled: prevDisabled,
+					},
+					discordgo.Button{
+						Label:    fmt.Sprintf("Page %d/%d", current+1, len(pages)),
+						Style:    discordgo.SecondaryButton,
+						CustomID: "pagination_status",
+						Disabled: true, // Just a label
+					},
+					discordgo.Button{
+						Label:    "Next ▶️",
+						Style:    discordgo.PrimaryButton,
+						CustomID: "pagination_next",
+						Disabled: nextDisabled,
+					},
+				},
+			},
+		}
+	}
+
+	// 1. Send the FIRST page
+	components := getComponents(pageIndex)
+	msg, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content:    &pages[0],
+		Components: &components,
+	})
+	if err != nil {
+		return
+	}
+
+	// 2. Register a Handler for Button Clicks
+	// We use a closure so we can access 'pageIndex' and 'pages' safely
+	// We also need a "stop" channel to kill the listener after timeout
+	stop := make(chan struct{})
+
+	// Create the handler function
+	cleanup := s.AddHandler(func(s *discordgo.Session, ic *discordgo.InteractionCreate) {
+		// Filter: Must be Button click, match Message ID, and match User ID (optional security)
+		if ic.Type != discordgo.InteractionMessageComponent ||
+			ic.Message.ID != msg.ID ||
+			ic.Member.User.ID != i.Member.User.ID {
+			return
+		}
+
+		// Handle Buttons
+		switch ic.MessageComponentData().CustomID {
+		case "pagination_prev":
+			if pageIndex > 0 {
+				pageIndex--
+			}
+		case "pagination_next":
+			if pageIndex < len(pages)-1 {
+				pageIndex++
+			}
+		}
+
+		// Update the Message
+		newComps := getComponents(pageIndex)
+		s.InteractionRespond(ic.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    pages[pageIndex],
+				Components: newComps,
+			},
+		})
+	})
+
+	// 3. Cleanup Routine (Timeout after 2 minutes)
+	// We run this in a goroutine so we don't block
+	go func() {
+		select {
+		case <-time.After(2 * time.Minute):
+			// Remove buttons after timeout
+			s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+				Components: &[]discordgo.MessageComponent{}, // Empty components clears them
+			})
+			cleanup() // Remove the event handler
+		case <-stop:
+			cleanup()
+		}
+	}()
 }
