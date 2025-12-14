@@ -8,18 +8,13 @@ import (
 
 type IdacResponse struct {
 	CalcDate string             `json:"calcDate"`
-	Records  []TimeAttackRecord `json:"records"` // Sometimes it's "ranking" or "list"
+	Records  []TimeAttackRecord `json:"records"`
 }
 
 // --- Team Ranking Structures ---
 
-type CurrentRoundInfo struct {
-	Round int `json:"round"`
-	// Add other fields if needed, but we only need round number
-}
-
 type TeamRankingResponse struct {
-	Records []TeamRecord `json:"records"` // API likely returns "ranking" or "records", defaulting to "ranking" based on context
+	Records []TeamRecord `json:"records"`
 }
 
 type TeamRecord struct {
@@ -30,6 +25,7 @@ type TeamRecord struct {
 	AceUserName    string `json:"ace_user_name"`
 	LeaderUserName string `json:"leader_user_name"`
 	Point          string `json:"point"`
+	LeagueEmoji    string `json:"league_emoji"`
 }
 
 type TimeAttackRecord struct {
@@ -574,4 +570,52 @@ var SpecEmojis = map[string]string{
 	"dh": "<:dh:1448368217574740038>",
 	"ar": "<:ar:1448368501550092339>",
 	"hc": "<:hc:1448368366732447908>",
+}
+
+var TeamLeagueEmojis = map[string]string{
+	"6": "<:league_06_large:1449571849104130232>",
+	"5": "<:league_05_large:1449571870285238294>",
+	"4": "<:league_04_large:1449571893215756461>",
+	"3": "<:league_03_large:1449571909493850233>",
+}
+
+// Helper to map Country IDs to Flags
+
+func GetCountryFlag(id int) string {
+	if id >= 0 && id <= 46 {
+		return "🇯🇵" // Japan Prefectures
+	}
+	switch id {
+	case 47:
+		return "🇲🇴"
+	case 48:
+		return "🇭🇰"
+	case 49:
+		return "🇰🇷"
+	case 50:
+		return "🇲🇾"
+	case 51:
+		return "🇸🇬"
+	case 52:
+		return "🇹🇼"
+	case 53:
+		return "🇮🇩"
+	case 54:
+		return "🇵🇭"
+	case 55:
+		return "🇹🇭"
+	case 56:
+		return "🇺🇸"
+	case 57:
+		return "🇻🇳"
+	case 58:
+		return "🇲🇲"
+	case 59:
+		return "🇦🇺"
+	case 60:
+		return "🇳🇿"
+	case 61:
+		return "🇰🇭"
+	}
+	return "🏳️"
 }

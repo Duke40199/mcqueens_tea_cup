@@ -1,6 +1,8 @@
 package discord
 
 import (
+	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,12 +17,18 @@ import (
 	"McQueens_Tea_Cup/internal/domain"
 )
 
+//go:embed resource/nuhuh.gif
+var nuhuhGif []byte
+
+//go:embed resource/desuwa.gif
+var desuwaGif []byte
+
 // StartCommands registers the commands with Discord and sets up the listener
 func (d *DiscordNotifier) StartCommands() error {
 	// 1. Define Commands
 	// Constants for limits
 	minLimit := 1.0
-	maxLimit := 25.0 // Cap at 25 to prevent exceeding Discord's 2000 char limit
+	maxLimit := 1000.0 // Cap at 25 to prevent exceeding Discord's 2000 char limit
 
 	commands := []*discordgo.ApplicationCommand{
 		{
@@ -29,7 +37,15 @@ func (d *DiscordNotifier) StartCommands() error {
 		},
 		{
 			Name:        "nuhuh",
-			Description: "Your opinion is in the trash",
+			Description: "Reply with the nuh uh gif",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "user",
+					Description: "User to tag",
+					Required:    false,
+				},
+			},
 		},
 		{
 			Name:        "mckween",
@@ -163,20 +179,61 @@ func (d *DiscordNotifier) StartCommands() error {
 			})
 		},
 		"nuhuh": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// 1. DEFER: Buy 15 minutes of processing time
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "https://c.tenor.com/SCfWfZvA8_0AAAAd/tenor.gif",
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			})
+
+			// 2. WORK: Download the GIF
+			resp, err := http.Get("https://c.tenor.com/SCfWfZvA8_0AAAAd/tenor.gif")
+			if err != nil {
+				errStr := "❌ Failed to retrieve GIF (Network Error)."
+				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+					Content: &errStr,
+				})
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				errStr := fmt.Sprintf("❌ Failed to retrieve GIF (Status: %d).", resp.StatusCode)
+				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+					Content: &errStr,
+				})
+				return
+			}
+
+			// 3. LOGIC: Parse Options
+			options := i.ApplicationCommandData().Options
+			var content string
+			for _, opt := range options {
+				if opt.Name == "user" {
+					targetID := opt.Value.(string)
+					if targetID == s.State.User.ID {
+						content = "Nice try, but **nuh-uh**"
+					} else {
+						content = fmt.Sprintf("<@%s>", targetID)
+					}
+				}
+			}
+
+			// 4. EDIT: Attach File and Content to the original deferred message
+			// Note: If content is empty, pass nil to avoid overwriting existing (though here it's fresh)
+			var contentPtr *string
+			if content != "" {
+				contentPtr = &content
+			}
+
+			// 3. EDIT: Send embedded file
+			// Using bytes.NewReader(nuhuhGif) is extremely fast as it's just memory reading
+			s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+				Content: contentPtr,
+				Files: []*discordgo.File{
+					{Name: "nuhuh.gif", Reader: bytes.NewReader(nuhuhGif)},
 				},
 			})
 		},
-
 		"mckween": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			resp, err := http.Get("https://c.tenor.com/9HXPPljXLxUAAAAC/tenor.gif")
-			if err != nil {
-				log.Printf("Error fetching wink gif: %v", err)
-				return
-			}
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -184,7 +241,7 @@ func (d *DiscordNotifier) StartCommands() error {
 					Files: []*discordgo.File{
 						{
 							Name:   "desuwa.gif",
-							Reader: resp.Body,
+							Reader: bytes.NewReader(desuwaGif),
 						},
 					},
 				},
@@ -352,6 +409,21 @@ func handleTimeAttack(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 }
 
 func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
+	//0. DEFER INTERACTION: Acknowledge immediately to avoid 3s timeout
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+	if err != nil {
+		return
+	}
+	// Error Helper for Deferred Response
+	//fail := func(msg string) {
+	//	str := "⚠️ " + msg
+	//	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+	//		Content: &str,
+	//	})
+	//}
+
 	// 1. Fetch Current Round Info
 	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
 	respRound, err := http.Get(roundURL)
@@ -415,8 +487,6 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 	// 5. Fetch and Aggregate Records
 	var allRecords []domain.TeamRecord
-	// We only show errors if it's a single fetch. If "all", we skip failing ranks silently (optional choice).
-
 	for _, code := range targetRanks {
 		records, err := fetchTeamRankings(roundNum, code)
 		if err != nil {
@@ -438,6 +508,9 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 
 	// 7. Filter and Build Message
 	var sb strings.Builder
+	// Filter and Build Messages (Splitting)
+	var messages []string
+	var currentMessage strings.Builder
 
 	rankDisplayName := "Unknown"
 	if rankCodeInput == "all" {
@@ -458,7 +531,7 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 	}
 
 	sb.WriteString(fmt.Sprintf("# Initial D Team Rankings (Round %d)\n", roundNum))
-	sb.WriteString(fmt.Sprintf("**Class:** %s | **Region:** %s\n\n", rankDisplayName, filterCountryName))
+	sb.WriteString(fmt.Sprintf("**Class:** %s | **Region:** %s\n", rankDisplayName, filterCountryName))
 
 	foundCount := 0
 	for _, r := range allRecords {
@@ -466,29 +539,48 @@ func handleTeamRanking(s *discordgo.Session, i *discordgo.InteractionCreate, opt
 		if filterCountryID != -1 && r.Country != filterCountryID {
 			continue
 		}
-
-		if foundCount < limit {
-			// Calculate display rank. If "All" mode, r.Rank is just the rank within its class.
-			// We can use (foundCount + 1) as the global rank in this sorted view.
-			globalRank := foundCount + 1
-			// SANITIZE: Robust whitespace cleanup (handles \n, \r, \t, etc.)
-			// strings.Fields splits by any whitespace, strings.Join puts it back with single spaces
-			teamName := strings.Join(strings.Fields(r.TeamName), " ")
-
-			sb.WriteString(fmt.Sprintf("%d. **%s** (%s pts)\n", globalRank, teamName, r.Point))
-			sb.WriteString(fmt.Sprintf("Ace: %s | Leader: %s\n\n", r.AceUserName, r.LeaderUserName))
+		if foundCount >= limit {
+			break
 		}
+		// Calculate display rank. If "All" mode, r.Rank is just the rank within its class.
+		// We can use (foundCount + 1) as the global rank in this sorted view.
+		globalRank := foundCount + 1
+		countryFlag := domain.GetCountryFlag(r.Country)
+
+		entry := fmt.Sprintf("%d. %s **%s** \n", globalRank, r.LeagueEmoji, r.TeamName)
+		entry += fmt.Sprintf("+ **Country:** %s\n", countryFlag)
+		entry += fmt.Sprintf("+ **Points:** %s\n", r.Point)
+		entry += fmt.Sprintf("+ **Ace:** %s | **Leader:** %s\n\n", r.AceUserName, r.LeaderUserName)
+		if currentMessage.Len()+len(entry) > 1900 {
+			messages = append(messages, currentMessage.String())
+			currentMessage.Reset()
+		}
+		currentMessage.WriteString(entry)
 		foundCount++
 	}
-
-	if foundCount == 0 {
-		sb.WriteString("No teams found matching criteria.")
+	if currentMessage.Len() > 0 {
+		messages = append(messages, currentMessage.String())
 	}
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{Content: sb.String()},
+	// Send Results
+	if len(messages) == 0 {
+		noRes := "No teams found matching criteria."
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &noRes,
+		})
+		return
+	}
+	// 1. Edit the deferred message with the FIRST chunk
+	firstChunk := messages[0]
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &firstChunk,
 	})
+
+	// 2. Send remaining chunks as Followups
+	for _, msg := range messages[1:] {
+		s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: msg,
+		})
+	}
 }
 
 // Helper to fetch records for a specific round/rank
@@ -509,7 +601,13 @@ func fetchTeamRankings(roundNum int, rankCode string) ([]domain.TeamRecord, erro
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
-	return data.Records, nil
+	foundTeams := make([]domain.TeamRecord, 0)
+	// set league emoji values for each team
+	for _, foundTeam := range data.Records {
+		foundTeam.LeagueEmoji = domain.TeamLeagueEmojis[rankCode]
+		foundTeams = append(foundTeams, foundTeam)
+	}
+	return foundTeams, nil
 }
 
 // Helper to send ephemeral error messages
