@@ -35,7 +35,7 @@ var TrackRegistry = map[string][]TrackVariant{
 	},
 	"Irohazaka": {
 		{"Downhill", "course-16"},
-		{"Reverse/Uphill", "course-18"},
+		{"Uphill", "course-18"},
 	},
 	"Tsukuba": {
 		{"Outbound", "course-20"},
