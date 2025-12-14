@@ -11,3 +11,7 @@ type Item struct {
 	ImageURL    string
 	GUID        string
 }
+
+type MieMeBell struct {
+	Blocks []string `json:"blocks"`
+}

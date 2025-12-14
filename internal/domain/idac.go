@@ -619,3 +619,47 @@ func GetCountryFlag(id int) string {
 	}
 	return "🏳️"
 }
+
+// Helper: Parse "3'14"727" into milliseconds (int)
+func ParseIdacTime(timeStr string) (int, error) {
+	var m, s, ms int
+	// Standard format: M'SS"mmm
+	_, err := fmt.Sscanf(timeStr, "%d'%d\"%d", &m, &s, &ms)
+	if err != nil {
+		return 0, err
+	}
+	return (m * 60000) + (s * 1000) + ms, nil
+}
+
+// Helper: Format milliseconds back to "+M'SS"mmm" string
+func FormatIdacTimeDelta(diff int) string {
+	sign := "+"
+	if diff < 0 {
+		sign = "-"
+		diff = -diff
+	}
+	m := diff / 60000
+	rem := diff % 60000
+	s := rem / 1000
+	ms := rem % 1000
+	return fmt.Sprintf("%s%d'%02d\"%03d", sign, m, s, ms)
+}
+
+// NormalizeTextWidth converts Full-width (Zenkaku) characters to Half-width (ASCII).
+// E.g., "ＳＨＩＲＯ～" -> "SHIRO~"
+// E.g., "ＵｗＵ" -> "UwU"
+func NormalizeTextWidth(s string) string {
+	return strings.Map(func(r rune) rune {
+		// 1. Handle Full-width Space
+		if r == '\u3000' {
+			return ' '
+		}
+		// 2. Handle Full-width ASCII variants (！ to ～)
+		// Range: U+FF01 to U+FF5E
+		if r >= 0xFF01 && r <= 0xFF5E {
+			return r - 0xFEE0
+		}
+		// Return the character unchanged if it's not full-width
+		return r
+	}, s)
+}

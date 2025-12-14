@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"sort"
 	"strconv"
@@ -23,6 +24,9 @@ var nuhuhGif []byte
 //go:embed resource/desuwa.gif
 var desuwaGif []byte
 
+//go:embed resource/miemebell.json
+var miemebellJson []byte
+
 // StartCommands registers the commands with Discord and sets up the listener
 func (d *DiscordNotifier) StartCommands() error {
 	// 1. Define Commands
@@ -34,6 +38,10 @@ func (d *DiscordNotifier) StartCommands() error {
 		{
 			Name:        "status",
 			Description: "Show current bot status",
+		},
+		{
+			Name:        "miemebell",
+			Description: "A special-flavored tea.",
 		},
 		{
 			Name:        "nuhuh",
@@ -123,6 +131,41 @@ func (d *DiscordNotifier) StartCommands() error {
 						},
 					},
 				},
+				{
+					Name:        "player-info",
+					Description: "Find a player's rank on a specific course",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "ign",
+							Description: "Player Name (Case Insensitive)",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "course",
+							Description: "Course ID or Alias",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area",
+							Description: "Area ID or Alias",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "compare",
+							Description: "Compare scope",
+							Required:    false,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "Local", Value: "local"},
+								{Name: "World", Value: "world"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -168,6 +211,8 @@ func (d *DiscordNotifier) StartCommands() error {
 				handleTimeAttack(s, i, optMap, specInput)
 			case "team":
 				handleTeamRanking(s, i, optMap)
+			case "player-info":
+				handlePlayerInfo(s, i, optMap)
 			}
 		},
 		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -244,6 +289,21 @@ func (d *DiscordNotifier) StartCommands() error {
 							Reader: bytes.NewReader(desuwaGif),
 						},
 					},
+				},
+			})
+		},
+		"miemebell": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// 3. Unmarshal the embedded data into the struct
+			var data domain.MieMeBell
+			err := json.Unmarshal(miemebellJson, &data)
+			if err != nil {
+				log.Fatal("Error parsing JSON:", err)
+			}
+			randomIndex := rand.IntN(len(data.Blocks))
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: data.Blocks[randomIndex],
 				},
 			})
 		},
@@ -608,6 +668,142 @@ func fetchTeamRankings(roundNum int, rankCode string) ([]domain.TeamRecord, erro
 		foundTeams = append(foundTeams, foundTeam)
 	}
 	return foundTeams, nil
+}
+
+func handlePlayerInfo(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
+	// 0. DEFER
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	// 1. Validate & Parse Inputs
+	ign, hasIgn := optMap["ign"]
+	if !hasIgn || optMap["course"] == "" || optMap["area"] == "" {
+		errStr := "⚠️ Missing required arguments (ign, course, or area)."
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+		return
+	}
+	// --- NORMALIZE INPUT ---
+	// 1. Normalize width (ＳＨＩＲＯ -> SHIRO)
+	// 2. Lowercase (SHIRO -> shiro) for case-insensitive comparison
+	targetName := strings.ToLower(domain.NormalizeTextWidth(ign))
+	// Resolve Aliases
+	courseInput := strings.ToLower(optMap["course"])
+	if val, ok := domain.CourseAliases[courseInput]; ok {
+		courseInput = val
+	}
+	areaInput := strings.ToLower(optMap["area"])
+	if val, ok := domain.AreaAliases[areaInput]; ok {
+		areaInput = val
+	}
+
+	// 2. Construct URL
+	// We strictly use "car-all" to find the player regardless of what car they drove
+	baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
+	filename := fmt.Sprintf("ta_%s_%s_%s.json", courseInput, areaInput, "car-all")
+	fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
+
+	// 3. Fetch Data
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		errStr := "❌ Network error contacting SEGA."
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		errStr := fmt.Sprintf("❌ Failed to fetch ranking data (Status: %d). Check your course/area codes.", resp.StatusCode)
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+		return
+	}
+
+	// 4. Parse JSON
+	var data domain.IdacResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		errStr := "❌ Error parsing SEGA data."
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+		return
+	}
+
+	// 5. Search for Player
+	var foundRecord *domain.TimeAttackRecord
+	var leaderRecord *domain.TimeAttackRecord
+
+	for idx, r := range data.Records {
+		// Capture Leader
+		if idx == 0 {
+			val := r
+			leaderRecord = &val
+		}
+
+		// --- NORMALIZE RECORD NAME ---
+		// We normalize the record name from SEGA too, just in case
+		recordNameNormalized := strings.ToLower(domain.NormalizeTextWidth(r.Name))
+
+		if recordNameNormalized == targetName {
+			val := r
+			foundRecord = &val
+			break
+		}
+	}
+
+	// 6. Build Response
+	var sb strings.Builder
+
+	// Display Names
+	courseName := domain.CourseDisplayNameByCode[courseInput]
+	if courseName == "" {
+		courseName = courseInput
+	}
+
+	areaName := domain.AreaDisplayNameByCode[areaInput]
+	if areaName == "" {
+		areaName = areaInput
+	}
+
+	sb.WriteString(fmt.Sprintf("**Player Info**\n"))
+	sb.WriteString(fmt.Sprintf("**In-game Name:** `%s` | **Course:** %s | **Area:** %s\n\n", ign, courseName, areaName))
+
+	if foundRecord != nil {
+		// --- Calculate Delta ---
+		deltaStr := ""
+		if leaderRecord != nil && foundRecord.Name != leaderRecord.Name {
+			playerMs, err1 := domain.ParseIdacTime(foundRecord.Record)
+			leaderMs, err2 := domain.ParseIdacTime(leaderRecord.Record)
+
+			// Only calculate if parsing succeeded
+			if err1 == nil && err2 == nil {
+				diff := playerMs - leaderMs
+				deltaStr = fmt.Sprintf(" (%s)", domain.FormatIdacTimeDelta(diff))
+			}
+		}
+		// Player Found
+		sb.WriteString(fmt.Sprintf("## 📊 Rank #%s\n", foundRecord.Rank)) // Using string rank from JSON usually safest
+		sb.WriteString(fmt.Sprintf("** ⏱️Time:** `%s`\n", foundRecord.Record))
+		sb.WriteString(fmt.Sprintf("** 🚗Car:** %s\n", foundRecord.CarName))
+
+		// Comparison Logic
+		if leaderRecord != nil {
+			sb.WriteString("\n__**Leader Comparison:**__\n")
+			if foundRecord.Name == leaderRecord.Name {
+				sb.WriteString(fmt.Sprintf("🏆 **#1 %s**: `%s` (You are the leader! 👑)\n", leaderRecord.Name, leaderRecord.Record))
+			} else {
+				// Format: #1 LEADERNAME: 3'14"727 (+0'03"123)
+				sb.WriteString(fmt.Sprintf("🏆 **#1 %s**: `%s`%s\n", leaderRecord.Name, leaderRecord.Record, deltaStr))
+			}
+		}
+	} else {
+		// Player Not Found
+		sb.WriteString(fmt.Sprintf("❌ Player **%s** not found in the top %d records for this course/area.\n", ign, len(data.Records)))
+		sb.WriteString("> *Note: Ensure the IGN is exact (though case is ignored) and the Area is correct.*")
+	}
+
+	// Send Response
+	finalContent := sb.String()
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &finalContent,
+	})
 }
 
 // Helper to send ephemeral error messages
