@@ -1066,7 +1066,7 @@ func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, o
 		sb.WriteString(fmt.Sprintf("### %s (%s): ", label, areaName))
 		if p != nil {
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
-			sb.WriteString(fmt.Sprintf("- **Rank:** #%s\n", p.Rank))
+			sb.WriteString(fmt.Sprintf("- **Local Rank:** #%s\n", p.Rank))
 			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))
 			sb.WriteString(fmt.Sprintf("- **Car:** %s\n", p.CarName))
 		} else {
