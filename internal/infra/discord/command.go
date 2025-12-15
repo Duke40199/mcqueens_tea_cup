@@ -157,6 +157,7 @@ func (d *DiscordNotifier) StartCommands() error {
 						},
 					},
 				},
+				// Subcommand: Player Info
 				{
 					Name:        "player-info",
 					Description: "Find a player's rank on a specific course",
@@ -189,6 +190,52 @@ func (d *DiscordNotifier) StartCommands() error {
 								{Name: "Local", Value: "local"},
 								{Name: "World", Value: "world"},
 							},
+						},
+					},
+				},
+				// Player Compare Subcommand
+				{
+					Name:        "player-compare",
+					Description: "Compare times between two players on a specific course",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "ign1",
+							Description: "First Player Name",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area1",
+							Description: "Area for Player 1 (e.g. 'vn')",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "ign2",
+							Description: "Second Player Name",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area2",
+							Description: "Area for Player 2 (Optional, defaults to Area 1)",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "track",
+							Description: "Select the track",
+							Required:    true,
+							Choices:     trackChoices, // Reuses the list from time-attack
+						},
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "variant",
+							Description:  "Select direction/condition",
+							Required:     true,
+							Autocomplete: true, // Reuses the autocomplete handler
 						},
 					},
 				},
@@ -239,6 +286,8 @@ func (d *DiscordNotifier) StartCommands() error {
 				handleTeamRanking(s, i, optMap)
 			case "player-info":
 				handlePlayerInfo(s, i, optMap)
+			case "player-compare":
+				handlePlayerCompare(s, i, optMap) // Register the new function
 			}
 		},
 		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -859,6 +908,200 @@ func handlePlayerInfo(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 	}
 
 	// Send Response
+	finalContent := sb.String()
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &finalContent,
+	})
+}
+
+func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
+	// 1. DEFER
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	sendDeferredError := func(msg string) {
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+	}
+
+	// 2. Validate Inputs
+	if optMap["ign1"] == "" || optMap["ign2"] == "" || optMap["variant"] == "" || optMap["area1"] == "" {
+		sendDeferredError("⚠️ **Missing Arguments**\nPlease provide both IGNs, Track, Variant, and at least Area 1.")
+		return
+	}
+
+	// 3. Resolve Areas
+	resolveArea := func(input string) string {
+		normalized := strings.ToLower(input)
+		// Explicitly check for 'all' keyword if missing from map, just in case
+		if normalized == "world" || normalized == "global" {
+			return "all"
+		}
+
+		if val, ok := domain.AreaAliases[normalized]; ok {
+			return val
+		}
+		// Fallback: Return input as-is (allows 'all' to pass through if input is 'all')
+		return normalized
+	}
+
+	area1 := resolveArea(optMap["area1"])
+	area2 := ""
+
+	// Handle Area 2
+	if val, ok := optMap["area2"]; ok && val != "" {
+		area2 = resolveArea(val)
+	} else {
+		area2 = area1 // Default to Area 1
+	}
+
+	courseID := optMap["variant"]
+
+	// 4. Helper: Fetch Data & Find Player
+	fetchAndFind := func(areaCode, targetIgn string) (*domain.TimeAttackRecord, string, error) {
+		baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
+		// This URL structure supports "ta_course-12_all_car-all.json" perfectly
+		filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, areaCode, "car-all")
+		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
+		//fmt.Println("fullURL", fullURL)
+		resp, err := http.Get(fullURL)
+		if err != nil {
+			return nil, "", err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			return nil, fmt.Sprintf("Status %d", resp.StatusCode), nil
+		}
+
+		var data domain.IdacResponse
+		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+			return nil, "Parse Error", nil
+		}
+
+		// Find Player
+		normalizedTarget := strings.ToLower(domain.NormalizeTextWidth(targetIgn))
+		for _, r := range data.Records {
+			if strings.ToLower(domain.NormalizeTextWidth(r.Name)) == normalizedTarget {
+				val := r
+				return &val, "", nil
+			}
+		}
+		return nil, "", nil
+	}
+
+	// 5. Execution
+	var p1, p2 *domain.TimeAttackRecord
+	var errStr1, errStr2 string
+
+	// OPTIMIZATION: If areas are identical (e.g. both 'all'), fetch once
+	if area1 == area2 {
+		baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
+		filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, area1, "car-all")
+		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
+		resp, err := http.Get(fullURL)
+		if err == nil && resp.StatusCode == 200 {
+			var data domain.IdacResponse
+			_ = json.NewDecoder(resp.Body).Decode(&data)
+			resp.Body.Close()
+
+			target1 := strings.ToLower(domain.NormalizeTextWidth(optMap["ign1"]))
+			target2 := strings.ToLower(domain.NormalizeTextWidth(optMap["ign2"]))
+
+			for _, r := range data.Records {
+				if p1 != nil && p2 != nil {
+					break
+				}
+				normName := strings.ToLower(domain.NormalizeTextWidth(r.Name))
+				if p1 == nil && normName == target1 {
+					val := r
+					p1 = &val
+				}
+				if p2 == nil && normName == target2 {
+					val := r
+					p2 = &val
+				}
+			}
+		} else {
+			errStr1 = "Failed to fetch data"
+			errStr2 = "Failed to fetch data"
+		}
+	} else {
+		// Different Areas: Fetch Separate
+		var err error
+		p1, errStr1, err = fetchAndFind(area1, optMap["ign1"])
+		if err != nil {
+			errStr1 = "Network Error"
+		}
+
+		p2, errStr2, err = fetchAndFind(area2, optMap["ign2"])
+		if err != nil {
+			errStr2 = "Network Error"
+		}
+	}
+
+	// 6. Build Response
+	var sb strings.Builder
+
+	courseName := domain.CourseDisplayNameByCode[courseID]
+	if courseName == "" {
+		courseName = optMap["track"]
+	}
+
+	areaName1 := domain.AreaDisplayNameByCode[area1]
+	if areaName1 == "" {
+		areaName1 = area1
+	}
+
+	areaName2 := domain.AreaDisplayNameByCode[area2]
+	if areaName2 == "" {
+		areaName2 = area2
+	}
+
+	sb.WriteString(fmt.Sprintf("# Player Comparison\n"))
+	sb.WriteString(fmt.Sprintf("**Course:** %s\n", courseName))
+
+	// Helper to print
+	printPlayer := func(label, areaName, inputName, errStr string, p *domain.TimeAttackRecord) {
+		sb.WriteString(fmt.Sprintf("### %s (%s): ", label, areaName))
+		if p != nil {
+			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
+			sb.WriteString(fmt.Sprintf("- **Rank:** #%s\n", p.Rank))
+			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))
+			sb.WriteString(fmt.Sprintf("- **Car:** %s\n", p.CarName))
+		} else {
+			sb.WriteString(fmt.Sprintf("%s\n", inputName))
+			if errStr != "" {
+				sb.WriteString(fmt.Sprintf("- ⚠️ %s\n", errStr))
+			} else {
+				sb.WriteString("- ❌ **Not Found**\n")
+			}
+		}
+	}
+
+	printPlayer("Player 1", areaName1, optMap["ign1"], errStr1, p1)
+	printPlayer("Player 2", areaName2, optMap["ign2"], errStr2, p2)
+
+	// 7. Calculate Delta
+	if p1 != nil && p2 != nil {
+		sb.WriteString("\n---\n")
+		ms1, err1 := domain.ParseIdacTime(p1.Record)
+		ms2, err2 := domain.ParseIdacTime(p2.Record)
+
+		if err1 == nil && err2 == nil {
+			diff := ms1 - ms2
+			if diff < 0 {
+				gap := domain.FormatIdacTimeDelta(diff)
+				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p1.Name, strings.TrimPrefix(gap, "-")))
+			} else if diff > 0 {
+				gap := domain.FormatIdacTimeDelta(diff)
+				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p2.Name, strings.TrimPrefix(gap, "+")))
+			} else {
+				sb.WriteString("🤝 **It's a tie!** Exact same time.")
+			}
+		}
+	}
+
 	finalContent := sb.String()
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: &finalContent,
