@@ -193,12 +193,26 @@ func (d *DiscordNotifier) StartCommands() error {
 						},
 					},
 				},
-				// Player Compare Subcommand
+				// Subcommand: Player Compare Subcommand
 				{
 					Name:        "player-compare",
 					Description: "Compare times between two players on a specific course",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "track",
+							Description: "Select the track",
+							Required:    true,
+							Choices:     trackChoices, // Reuses the list from time-attack
+						},
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "variant",
+							Description:  "Select direction/condition",
+							Required:     true,
+							Autocomplete: true, // Reuses the autocomplete handler
+						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "ign1",
@@ -222,20 +236,6 @@ func (d *DiscordNotifier) StartCommands() error {
 							Name:        "area2",
 							Description: "Area for Player 2 (Optional, defaults to Area 1)",
 							Required:    false,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "track",
-							Description: "Select the track",
-							Required:    true,
-							Choices:     trackChoices, // Reuses the list from time-attack
-						},
-						{
-							Type:         discordgo.ApplicationCommandOptionString,
-							Name:         "variant",
-							Description:  "Select direction/condition",
-							Required:     true,
-							Autocomplete: true, // Reuses the autocomplete handler
 						},
 					},
 				},
@@ -287,7 +287,7 @@ func (d *DiscordNotifier) StartCommands() error {
 			case "player-info":
 				handlePlayerInfo(s, i, optMap)
 			case "player-compare":
-				handlePlayerCompare(s, i, optMap) // Register the new function
+				handlePlayerCompare(s, i, optMap)
 			}
 		},
 		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -434,7 +434,15 @@ func (d *DiscordNotifier) StartCommands() error {
 	// Note: We use empty string "" for GuildID to register globally.
 	// Global commands take up to 1 hour to update. For instant testing, put your Guild ID there.
 	log.Println("Registering commands...")
-	_, err := d.session.ApplicationCommandBulkOverwrite(d.session.State.User.ID, "", commands)
+	createdCommands, err := d.session.ApplicationCommandBulkOverwrite(d.session.State.User.ID, "", commands)
+	if err == nil {
+		for _, createdCommand := range createdCommands {
+			fmt.Println("Created command:", createdCommand.Name)
+		}
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
 	return err
 }
 
