@@ -1223,8 +1223,7 @@ func handlePlayerAliasSet(s *discordgo.Session, i *discordgo.InteractionCreate, 
 		area = val
 	}
 
-	// Normalize Key (If it's not a Discord ID/Number)
-	// This ensures "Rival" and "rival" are treated as the same tag
+	// Normalize Key (custom tags)
 	isNumeric := regexp.MustCompile(`^\d+$`).MatchString(key)
 	if !isNumeric {
 		key = strings.ToLower(key)
@@ -1242,9 +1241,20 @@ func handlePlayerAliasSet(s *discordgo.Session, i *discordgo.InteractionCreate, 
 			areaName = area
 		}
 
-		// Custom message based on whether it looks like a user ID
 		if isNumeric && len(key) > 15 {
-			msg = fmt.Sprintf("✅ **User Linked!**\n<@%s> → **%s** (%s)", key, ign, areaName)
+			// --- NEW: Fetch Username to avoid tagging ---
+			displayName := key // Fallback to ID if fetch fails
+
+			// Try fetching user from Discord
+			if u, err := s.User(key); err == nil {
+				displayName = u.Username
+				// Optional: Use u.GlobalName if you prefer the display name
+				if u.GlobalName != "" {
+					displayName = u.GlobalName
+				}
+			}
+
+			msg = fmt.Sprintf("✅ **User Linked:** %s → **%s** (%s)", displayName, ign, areaName)
 		} else {
 			msg = fmt.Sprintf("✅ **Tag Registered!**\nTag `%s` → **%s** (%s)\nUse it like: `/idac player-info player:%s`", key, ign, areaName, key)
 		}
@@ -1252,7 +1262,11 @@ func handlePlayerAliasSet(s *discordgo.Session, i *discordgo.InteractionCreate, 
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{Content: msg},
+		Data: &discordgo.InteractionResponseData{
+			Content: msg,
+			// Extra safety: explicit empty AllowedMentions ensures no one gets pinged even if you use <@ID>
+			AllowedMentions: &discordgo.MessageAllowedMentions{},
+		},
 	})
 }
 
