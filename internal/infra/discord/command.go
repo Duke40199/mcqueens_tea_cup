@@ -1000,46 +1000,33 @@ func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, o
 	sendDeferredError := func(msg string) {
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
-
-	// 1. Resolve Player 1
-	p1Name, p1Area, p1Found, err := idac_domain.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
+	// 2. Resolve Player 1
+	p1Name, p1Area, _, err := idac_domain.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
 		return
 	}
-	// If not found as alias and no area provided (Resolve returned empty)
-	if p1Name == "" && !p1Found {
-		sendDeferredError(fmt.Sprintf("⚠️ **Unknown Player 1:** Tag `%s` not found.\nProvide `area1` to search literally.", optMap["player1"]))
+	if p1Area == "" {
+		// This happens if "player1" wasn't a known alias AND "area1" was empty.
+		sendDeferredError(fmt.Sprintf("⚠️ **Unknown Player 1:** `%s`\nTag not found and no Area provided.", optMap["player1"]))
 		return
 	}
-	// 2. Resolve Player 2
-	// Note: We handle the optional Area2 default logic HERE, before calling Resolve
-	rawArea2 := optMap["area2"]
-	// If User did not provide Area2, AND Player2 is just an IGN (not a mention),
-	// we assume they mean the same area as Player 1.
-	if rawArea2 == "" && !strings.Contains(optMap["player2"], "<@") {
-		rawArea2 = p1Area
-	}
 
-	p2Name, p2Area, p2Found, err := idac_domain.ResolvePlayerCredential(optMap["player2"], rawArea2)
+	// 3. Resolve Player 2
+	p2Name, p2Area, _, err := idac_domain.ResolvePlayerCredential(optMap["player2"], optMap["area2"])
 	if err != nil {
-		// Specific error if they forgot area for P2 and it couldn't default
 		sendDeferredError("⚠️ **Player 2 Error:** " + err.Error())
 		return
 	}
-	// 2. If P2 was NOT an alias and NO area was provided...
-	//    Then we default to using Player 1's Area.
-	if !p2Found && optMap["area2"] == "" {
-		// Treat 'player2' input as a literal IGN in Player 1's area
-		p2Name = optMap["player2"]
+
+	// 4. Smart Inheritance for Player 2
+	// If P2 has no area (meaning it wasn't a complete alias, and user didn't type area2),
+	// we default to Player 1's area.
+	if p2Area == "" {
 		p2Area = p1Area
 	}
-	// Final check to ensure we have data
-	if p2Name == "" || p2Area == "" {
-		sendDeferredError(fmt.Sprintf("⚠️ **Unknown Player 2:** Tag `%s` not found.\nProvide `area2` or rely on P1's area.", optMap["player2"]))
-		return
-	}
-	// 3. Update Map for the rest of the logic
+
+	// 5. Update Map & Validate Track
 	optMap["ign1"] = p1Name
 	optMap["area1"] = p1Area
 	optMap["ign2"] = p2Name

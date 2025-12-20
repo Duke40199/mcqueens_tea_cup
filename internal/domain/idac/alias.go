@@ -95,51 +95,76 @@ func (s *AliasStore) Get(userID string) (PlayerAlias, bool) {
 	return val, ok
 }
 
-// ResolvePlayerCredential parses input for Mention vs Custom Alias vs Literal IGN
+// ResolvePlayerCredential prioritizes Aliases first, then falls back to literal input.
+// Returns: (FinalIGN, FinalArea, FoundAlias, Error)
 func ResolvePlayerCredential(input, manualArea string) (string, string, bool, error) {
-	// Regex for Mentions/IDs
+	// 1. Sanitize Inputs
+	cleanInput := strings.TrimSpace(input)
+	cleanArea := strings.TrimSpace(manualArea)
+
+	// 2. Regex for Discord Mention/ID
 	reMention := regexp.MustCompile(`^<@!?(\d+)>$`)
 	reID := regexp.MustCompile(`^\d{17,20}$`)
 
 	var lookupKey string
-
-	// 1. Check for Discord Mention/ID (<@123...>)
-	if match := reMention.FindStringSubmatch(input); len(match) > 1 {
-		lookupKey = match[1]
-	} else if reID.MatchString(input) {
-		lookupKey = input
+	if match := reMention.FindStringSubmatch(cleanInput); len(match) > 1 {
+		lookupKey = match[1] // Extract ID from <@123>
+	} else if reID.MatchString(cleanInput) {
+		lookupKey = cleanInput // Raw ID
 	}
 
-	// A. IT IS A DISCORD ID -> Force Lookup
+	// 3. Check Alias Store (The "Check First" Logic)
+	var aliasIgn, aliasArea string
+	var foundAlias bool
+
 	if lookupKey != "" {
-		alias, found := Aliases.Get(lookupKey)
-		if !found {
+		// Case A: Discord ID -> Strict Lookup
+		if val, ok := Aliases.Get(lookupKey); ok {
+			aliasIgn = val.Ign
+			aliasArea = val.Area
+			foundAlias = true
+		} else {
 			return "", "", false, fmt.Errorf("User <@%s> has no alias saved.", lookupKey)
 		}
-		return alias.Ign, alias.Area, true, nil
-	}
-
-	// 2. Check for Text Input
-
-	// CASE A: No Area provided -> Treat as ALIAS
-	if manualArea == "" {
-		// Check our aliases.json (case-insensitive key)
-		if alias, found := Aliases.Get(strings.ToLower(input)); found {
-			return alias.Ign, alias.Area, true, nil
+	} else {
+		// Case B: Text Input -> Try Custom Tag Lookup
+		// Use lowercase key for case-insensitive matching
+		if val, ok := Aliases.Get(strings.ToLower(cleanInput)); ok {
+			aliasIgn = val.Ign
+			aliasArea = val.Area
+			foundAlias = true
 		}
-		// Not found? Return error (we can't search server without an area)
-		return "", "", false, nil // "Not found as alias"
 	}
 
-	// CASE B: Area provided -> Treat as LITERAL IGN
-	// Resolve "world" -> "all", etc.
-	finalArea := strings.ToLower(manualArea)
-	if finalArea == "world" || finalArea == "global" {
-		finalArea = "all"
-	}
-	if val, ok := domain.AreaAliases[finalArea]; ok {
-		finalArea = val
+	// 4. Merge Logic (Alias vs Manual)
+	finalIgn := cleanInput
+	finalArea := cleanArea
+
+	if foundAlias {
+		finalIgn = aliasIgn
+		// If Manual Area is provided, it OVERRIDES the alias area.
+		// If not, we fall back to the alias area.
+		if finalArea == "" {
+			finalArea = aliasArea
+		}
 	}
 
-	return input, finalArea, false, nil
+	// 5. Normalize Final Area (Handle "world", "vn", etc.)
+	if finalArea != "" {
+		norm := strings.ToLower(finalArea)
+		if norm == "world" || norm == "global" {
+			norm = "all"
+		}
+		if val, ok := domain.AreaAliases[norm]; ok {
+			finalArea = val
+		}
+	}
+
+	// 6. Final check: Do we have an area?
+	// If no alias was found AND no manual area provided, we can't search.
+	if finalArea == "" {
+		return "", "", false, nil // Return empty to signal "Missing Area"
+	}
+
+	return finalIgn, finalArea, foundAlias, nil
 }
