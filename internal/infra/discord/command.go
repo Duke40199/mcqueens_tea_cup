@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -201,30 +202,6 @@ func (d *DiscordNotifier) StartCommands() error {
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "ign1",
-							Description: "First Player Name",
-							Required:    true,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "area1",
-							Description: "Area for Player 1 (e.g. 'vn')",
-							Required:    true,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "ign2",
-							Description: "Second Player Name",
-							Required:    true,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "area2",
-							Description: "Area for Player 2 (Optional, defaults to Area 1)",
-							Required:    false,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "track",
 							Description: "Select the track",
 							Required:    true,
@@ -237,6 +214,90 @@ func (d *DiscordNotifier) StartCommands() error {
 							Required:     true,
 							Autocomplete: true, // Reuses the autocomplete handler
 						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "player1",
+							Description: "Player 1 (IGN or @User)",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "player2",
+							Description: "Player 2 (IGN or @User)",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area1",
+							Description: "Area for Player 1 (e.g. 'vn')",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area2",
+							Description: "Area for Player 2 (Optional, defaults to Area 1)",
+							Required:    false,
+						},
+					},
+				},
+				// Player Alias
+				{
+					Name:        "player-alias",
+					Description: "Manage Player Aliases",
+					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+					Options: []*discordgo.ApplicationCommandOption{
+						// 1. Link Discord User
+						{
+							Name:        "set",
+							Description: "Link a Discord User to an IGN and Area",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+							Options: []*discordgo.ApplicationCommandOption{
+								{
+									Type:        discordgo.ApplicationCommandOptionUser,
+									Name:        "user",
+									Description: "The Discord User",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "ign",
+									Description: "In-Game Name",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "area",
+									Description: "Area Code",
+									Required:    true,
+								},
+							},
+						},
+						// 2. Link Custom Tag (For non-Discord players)
+						{
+							Name:        "set-custom",
+							Description: "Create a custom alias tag (e.g. 'rival', 'alt')",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+							Options: []*discordgo.ApplicationCommandOption{
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "tag",
+									Description: "Unique Tag Name (e.g. 'takumi', 'rival1')",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "ign",
+									Description: "In-Game Name",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "area",
+									Description: "Area Code",
+									Required:    true,
+								},
+							},
+						},
 					},
 				},
 			},
@@ -246,48 +307,66 @@ func (d *DiscordNotifier) StartCommands() error {
 	// 2. Define Handlers
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		// --- IDAC Handler ---
+		// ... Inside the "idac" handler ...
 		"idac": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			// The top-level options array contains the Subcommand as the first item
-			options := i.ApplicationCommandData().Options
-			if len(options) == 0 {
-				return
-			}
-			subcommand := options[0]
-			// Parse Nested Options inside the subcommand
-			optMap := make(map[string]string)
-			specInput := ""
-			// Robust Option Parsing based on Type
-			for _, opt := range subcommand.Options {
-				switch opt.Type {
-				case discordgo.ApplicationCommandOptionString:
-					if opt.Name == "spec" {
-						specInput = opt.StringValue()
+			rootOption := i.ApplicationCommandData().Options[0]
+			// ... inside the "idac" handler ...
+			// --- 1. HANDLE SUBCOMMAND GROUPS ("player-alias") ---
+			if rootOption.Type == discordgo.ApplicationCommandOptionSubCommandGroup {
+				subCmd := rootOption.Options[0]
+				optMap := make(map[string]string)
+
+				// Extract options
+				for _, opt := range subCmd.Options {
+					if opt.Type == discordgo.ApplicationCommandOptionUser {
+						optMap["user"] = opt.UserValue(s).ID
 					} else {
 						optMap[opt.Name] = opt.StringValue()
 					}
-				case discordgo.ApplicationCommandOptionInteger:
-					// Convert integers to string for map storage
-					val := strconv.FormatInt(opt.IntValue(), 10)
-					if opt.Name == "spec" {
-						// Handle cached/legacy spec as integer
-						specInput = val
-					} else {
-						// Handles "limit" and any other future ints
-						optMap[opt.Name] = val
+				}
+
+				if rootOption.Name == "player-alias" {
+					if subCmd.Name == "set" {
+						// Use Discord ID as the key
+						handlePlayerAliasSet(s, i, optMap["user"], optMap)
+					} else if subCmd.Name == "set-custom" {
+						// Use Custom Tag as the key
+						handlePlayerAliasSet(s, i, optMap["tag"], optMap)
 					}
 				}
+				return
 			}
-			// Dispatch based on Subcommand Name
+
+			// --- 2. HANDLE REGULAR SUBCOMMANDS ---
+			// (time-attack, team, player-info, etc.)
+
+			subcommand := rootOption // It's just a SubCommand
+
+			optMap := make(map[string]string)
+			specInput := ""
+
+			// Parse Options
+			for _, opt := range subcommand.Options {
+				if opt.Type == discordgo.ApplicationCommandOptionUser {
+					// Store User ID if provided (for player-info)
+					optMap["user"] = opt.UserValue(s).ID
+				} else if opt.Name == "spec" {
+					specInput = opt.StringValue()
+				} else if opt.Type == discordgo.ApplicationCommandOptionInteger {
+					optMap[opt.Name] = strconv.FormatInt(opt.IntValue(), 10)
+				} else {
+					optMap[opt.Name] = opt.StringValue()
+				}
+			}
 			switch subcommand.Name {
 			case "time-attack":
-				// Pass the parsed map and extra spec input
 				handleTimeAttack(s, i, optMap, specInput)
 			case "team":
 				handleTeamRanking(s, i, optMap)
 			case "player-info":
 				handlePlayerInfo(s, i, optMap)
 			case "player-compare":
-				handlePlayerCompare(s, i, optMap) // Register the new function
+				handlePlayerCompare(s, i, optMap)
 			}
 		},
 		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -434,7 +513,8 @@ func (d *DiscordNotifier) StartCommands() error {
 	// Note: We use empty string "" for GuildID to register globally.
 	// Global commands take up to 1 hour to update. For instant testing, put your Guild ID there.
 	log.Println("Registering commands...")
-	_, err := d.session.ApplicationCommandBulkOverwrite(d.session.State.User.ID, "", commands)
+	created, err := d.session.ApplicationCommandBulkOverwrite(d.session.State.User.ID, "", commands)
+	fmt.Println("created", created)
 	return err
 }
 
@@ -913,23 +993,62 @@ func handlePlayerInfo(s *discordgo.Session, i *discordgo.InteractionCreate, optM
 		Content: &finalContent,
 	})
 }
-
 func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, optMap map[string]string) {
-	// 1. DEFER
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
-
 	sendDeferredError := func(msg string) {
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 
-	// 2. Validate Inputs
-	if optMap["ign1"] == "" || optMap["ign2"] == "" || optMap["variant"] == "" || optMap["area1"] == "" {
-		sendDeferredError("⚠️ **Missing Arguments**\nPlease provide both IGNs, Track, Variant, and at least Area 1.")
+	// 1. Resolve Player 1
+	p1Name, p1Area, p1Found, err := idac_domain.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
+	if err != nil {
+		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
 		return
 	}
+	// If not found as alias and no area provided (Resolve returned empty)
+	if p1Name == "" && !p1Found {
+		sendDeferredError(fmt.Sprintf("⚠️ **Unknown Player 1:** Tag `%s` not found.\nProvide `area1` to search literally.", optMap["player1"]))
+		return
+	}
+	// 2. Resolve Player 2
+	// Note: We handle the optional Area2 default logic HERE, before calling Resolve
+	rawArea2 := optMap["area2"]
+	// If User did not provide Area2, AND Player2 is just an IGN (not a mention),
+	// we assume they mean the same area as Player 1.
+	if rawArea2 == "" && !strings.Contains(optMap["player2"], "<@") {
+		rawArea2 = p1Area
+	}
 
+	p2Name, p2Area, p2Found, err := idac_domain.ResolvePlayerCredential(optMap["player2"], rawArea2)
+	if err != nil {
+		// Specific error if they forgot area for P2 and it couldn't default
+		sendDeferredError("⚠️ **Player 2 Error:** " + err.Error())
+		return
+	}
+	// 2. If P2 was NOT an alias and NO area was provided...
+	//    Then we default to using Player 1's Area.
+	if !p2Found && optMap["area2"] == "" {
+		// Treat 'player2' input as a literal IGN in Player 1's area
+		p2Name = optMap["player2"]
+		p2Area = p1Area
+	}
+	// Final check to ensure we have data
+	if p2Name == "" || p2Area == "" {
+		sendDeferredError(fmt.Sprintf("⚠️ **Unknown Player 2:** Tag `%s` not found.\nProvide `area2` or rely on P1's area.", optMap["player2"]))
+		return
+	}
+	// 3. Update Map for the rest of the logic
+	optMap["ign1"] = p1Name
+	optMap["area1"] = p1Area
+	optMap["ign2"] = p2Name
+	optMap["area2"] = p2Area
+
+	if optMap["variant"] == "" {
+		sendDeferredError("⚠️ **Missing Track**\nPlease select a track variant.")
+		return
+	}
 	// 3. Resolve Areas
 	resolveArea := func(input string) string {
 		normalized := strings.ToLower(input)
@@ -1105,6 +1224,48 @@ func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, o
 	finalContent := sb.String()
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: &finalContent,
+	})
+}
+
+func handlePlayerAliasSet(s *discordgo.Session, i *discordgo.InteractionCreate, key string, optMap map[string]string) {
+	ign := optMap["ign"]
+	area := optMap["area"]
+
+	// Normalize Area
+	if val, ok := domain.AreaAliases[strings.ToLower(area)]; ok {
+		area = val
+	}
+
+	// Normalize Key (If it's not a Discord ID/Number)
+	// This ensures "Rival" and "rival" are treated as the same tag
+	isNumeric := regexp.MustCompile(`^\d+$`).MatchString(key)
+	if !isNumeric {
+		key = strings.ToLower(key)
+	}
+
+	// Save
+	err := idac_domain.Aliases.Set(key, ign, area)
+
+	msg := ""
+	if err != nil {
+		msg = "❌ Failed to save alias: " + err.Error()
+	} else {
+		areaName := domain.AreaDisplayNameByCode[area]
+		if areaName == "" {
+			areaName = area
+		}
+
+		// Custom message based on whether it looks like a user ID
+		if isNumeric && len(key) > 15 {
+			msg = fmt.Sprintf("✅ **User Linked!**\n<@%s> → **%s** (%s)", key, ign, areaName)
+		} else {
+			msg = fmt.Sprintf("✅ **Tag Registered!**\nTag `%s` → **%s** (%s)\nUse it like: `/idac player-info player:%s`", key, ign, areaName, key)
+		}
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Content: msg},
 	})
 }
 
