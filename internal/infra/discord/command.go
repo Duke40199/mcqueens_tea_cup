@@ -27,6 +27,9 @@ var nuhuhGif []byte
 //go:embed resource/desuwa.gif
 var desuwaGif []byte
 
+//go:embed resource/unauthorized.gif
+var unauthorizedGif []byte
+
 //go:embed resource/miemebell.json
 var miemebellJson []byte
 
@@ -310,9 +313,11 @@ func (d *DiscordNotifier) StartCommands() error {
 		// ... Inside the "idac" handler ...
 		"idac": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			rootOption := i.ApplicationCommandData().Options[0]
-			// ... inside the "idac" handler ...
 			// --- 1. HANDLE SUBCOMMAND GROUPS ("player-alias") ---
 			if rootOption.Type == discordgo.ApplicationCommandOptionSubCommandGroup {
+				if !isRequestFromOwner(s, i) {
+					return
+				}
 				subCmd := rootOption.Options[0]
 				optMap := make(map[string]string)
 
@@ -324,13 +329,10 @@ func (d *DiscordNotifier) StartCommands() error {
 						optMap[opt.Name] = opt.StringValue()
 					}
 				}
-
 				if rootOption.Name == "player-alias" {
 					if subCmd.Name == "set" {
-						// Use Discord ID as the key
 						handlePlayerAliasSet(s, i, optMap["user"], optMap)
 					} else if subCmd.Name == "set-custom" {
-						// Use Custom Tag as the key
 						handlePlayerAliasSet(s, i, optMap["tag"], optMap)
 					}
 				}
@@ -1190,7 +1192,7 @@ func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, o
 
 	// 7. Calculate Delta
 	if p1 != nil && p2 != nil {
-		sb.WriteString("\n---\n")
+		sb.WriteString("---\n")
 		ms1, err1 := domain.ParseIdacTime(p1.Record)
 		ms2, err2 := domain.ParseIdacTime(p2.Record)
 
@@ -1386,4 +1388,34 @@ func sendPagination(s *discordgo.Session, i *discordgo.InteractionCreate, pages 
 			cleanup()
 		}
 	}()
+}
+
+// isRequestFromOwner checks if the user is the owner.
+// If NOT, it sends the unauthorized GIF/Message and returns false.
+// If YES, it returns true.
+func isRequestFromOwner(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	// Replace with your actual Owner ID
+	const OwnerID = "384015507302383616"
+
+	// Check ID
+	if i.Member.User.ID == OwnerID {
+		return true
+	}
+	// 1. Respond immediately with just the GIF
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Are you the tea brewer? Let's check that real quick.",
+			Files: []*discordgo.File{
+				{Name: "unauthorized.gif", Reader: bytes.NewReader(unauthorizedGif)},
+			},
+		},
+	})
+
+	// 2. Send the text as a Follow-up (appears underneath)
+	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: "Guess not. You might have used a command which is only for the bot's creator." +
+			" If you need help, feel free to contact @spacepotato4109.",
+	})
+	return false
 }
