@@ -2,7 +2,6 @@ package discord
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"McQueens_Tea_Cup/internal/domain"
@@ -11,24 +10,15 @@ import (
 )
 
 type DiscordNotifier struct {
-	session *discordgo.Session
+	session   *discordgo.Session
+	channelID string
 }
 
-func NewDiscordNotifier(token string) (*DiscordNotifier, error) {
-	dg, err := discordgo.New("Bot " + token)
-	if err != nil {
-		return nil, err
+func NewDiscordNotifier(s *discordgo.Session, channelID string) *DiscordNotifier {
+	return &DiscordNotifier{
+		session:   s,
+		channelID: channelID, // Store channel ID here if your config has it
 	}
-	if err := dg.Open(); err != nil {
-		return nil, err
-	}
-
-	// Log user details
-	if u, err := dg.User("@me"); err == nil {
-		log.Printf("Connected to Discord as %s", u.Username)
-	}
-
-	return &DiscordNotifier{session: dg}, nil
 }
 
 func (d *DiscordNotifier) Close() error {

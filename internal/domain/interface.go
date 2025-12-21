@@ -1,5 +1,19 @@
 package domain
 
+// IdacRepository defines WHAT data we need, not HOW we get it.
+type IdacRepository interface {
+	GetTimeAttack(courseID, area, car, spec string) ([]TimeAttackRecord, error)
+	GetTeamRanking(round int, rankCode string) ([]TeamRecord, error)
+	GetCurrentRound() (int, error)
+}
+
+// AliasRepository defines how we interact with player aliases.
+type AliasRepository interface {
+	Get(discordID string) (PlayerAlias, bool)
+	Set(discordID, ign, area string) error
+	Load() error
+}
+
 // RSSFetcher defines how we get feeds (abstracts gofeed)
 type RSSFetcher interface {
 	Fetch(url string) ([]Item, error)
