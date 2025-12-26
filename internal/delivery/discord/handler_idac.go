@@ -3,7 +3,6 @@ package discord
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"sort"
@@ -84,9 +83,8 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	}
 
 	// 3. Fetch Data
-	finalCar := optMap["car"]
 	finalArea := optMap["area"]
-	records, err := h.SegaRepo.GetTimeAttack(finalCourseID, finalArea, finalCar, "")
+	records, err := h.SegaRepo.GetTimeAttack(finalCourseID, finalArea, finalCarID, specInput)
 
 	if len(records) == 0 {
 		msg := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\nNo records found.", courseName, areaName, carDisplayName)
@@ -184,8 +182,7 @@ func (h *Handler) HandlePlayerAliasSet(i *discordgo.InteractionCreate, key strin
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: msg,
-			// Extra safety: explicit empty AllowedMentions ensures no one gets pinged even if you use <@ID>
+			Content:         msg,
 			AllowedMentions: &discordgo.MessageAllowedMentions{},
 		},
 	})
@@ -201,29 +198,11 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 	sendDeferredError := func(msg string) {
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
-
-	// 1. Fetch Current Round Info
-	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
-	respRound, err := http.Get(roundURL)
+	roundNum, err := h.SegaRepo.GetCurrentRound()
 	if err != nil {
 		sendDeferredError("⚠️ Error fetching round info.")
 		return
 	}
-	defer respRound.Body.Close()
-
-	bodyBytes, err := io.ReadAll(respRound.Body)
-	if err != nil {
-		sendDeferredError("⚠️ Error reading round info.")
-		return
-	}
-
-	roundStr := strings.TrimSpace(string(bodyBytes))
-	roundNum, err := strconv.Atoi(roundStr)
-	if err != nil {
-		sendDeferredError(fmt.Sprintf("⚠️ Error parsing round number: %s", roundStr))
-		return
-	}
-
 	// 2. Resolve Country Filter
 	filterCountryID := -1
 	filterCountryName := "All"

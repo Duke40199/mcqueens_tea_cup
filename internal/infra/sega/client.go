@@ -62,7 +62,6 @@ func (c *Client) GetTimeAttack(courseID, area, carID, spec string) ([]domain.Tim
 	// 1. Construct URL (Logic moved from handler)
 	filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, area, carID)
 	fullURL := fmt.Sprintf("%s/timeTrial/%s", c.TimeTrailUrl, filename)
-
 	// 2. Fetch
 	resp, err := http.Get(fullURL)
 	if err != nil {
