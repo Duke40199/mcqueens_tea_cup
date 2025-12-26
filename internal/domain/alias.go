@@ -1,4 +1,4 @@
-package idac_domain
+package domain
 
 import (
 	"encoding/json"
@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-
-	"McQueens_Tea_Cup/internal/domain"
 )
 
 // PlayerAlias represents the saved data
@@ -155,7 +153,7 @@ func ResolvePlayerCredential(input, manualArea string) (string, string, bool, er
 		if norm == "world" || norm == "global" {
 			norm = "all"
 		}
-		if val, ok := domain.AreaAliases[norm]; ok {
+		if val, ok := AreaAliases[norm]; ok {
 			finalArea = val
 		}
 	}
