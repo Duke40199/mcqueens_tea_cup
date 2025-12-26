@@ -1,11 +1,12 @@
 package persistence
 
 import (
-	"McQueens_Tea_Cup/internal/domain"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
+
+	"McQueens_Tea_Cup/internal/domain"
 )
 
 // JSONAliasStore implements domain.AliasRepository

@@ -1,13 +1,14 @@
 package sega
 
 import (
-	"McQueens_Tea_Cup/internal/domain"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"McQueens_Tea_Cup/internal/domain"
 )
 
 type Client struct {

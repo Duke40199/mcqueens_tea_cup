@@ -1,9 +1,10 @@
 package discord
 
 import (
-	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
 	"fmt"
 	"time"
+
+	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
 
 	"github.com/bwmarrin/discordgo"
 )
