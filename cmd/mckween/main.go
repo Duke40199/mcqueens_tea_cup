@@ -7,9 +7,10 @@ import (
 	"syscall"
 	"time"
 
-	"McQueens_Tea_Cup/internal/delivery"
+	discord_handler "McQueens_Tea_Cup/internal/delivery/discord"
 	"McQueens_Tea_Cup/internal/infra"
 	"McQueens_Tea_Cup/internal/infra/config"
+	discord_infra "McQueens_Tea_Cup/internal/infra/discord"
 	persistence "McQueens_Tea_Cup/internal/infra/presistence"
 	"McQueens_Tea_Cup/internal/infra/sega"
 	"McQueens_Tea_Cup/internal/usecase"
@@ -41,7 +42,7 @@ func main() {
 
 	// A2. Init Delivery (The Command Controller)
 	// We inject the shared 'dg' session here
-	cmdHandler := delivery.NewHandler(dg, segaClient, aliasStore)
+	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasStore)
 
 	// A3. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {
@@ -60,7 +61,7 @@ func main() {
 	// B2. Init Notifier (Updated)
 	// NOTE: You must update NewDiscordNotifier to accept the existing 'dg' session
 	// instead of creating a new one internally.
-	rssNotifier := infra.NewDiscordNotifier(dg, cfg.ChannelID)
+	rssNotifier := discord_infra.NewDiscordNotifier(dg, "")
 
 	// B3. Init Use Case
 	feedLogic := usecase.NewFeedChecker(rssFetcher, rssNotifier, stateStore, translator)

@@ -22,8 +22,30 @@ func (c *Client) GetCurrentRound() (int, error) {
 }
 
 // GetTeamRanking implements [domain.IdacRepository].
-func (c *Client) GetTeamRanking(round int, rankCode string) ([]domain.TeamRecord, error) {
-	panic("unimplemented")
+func (c *Client) GetTeamRanking(roundNum int, rankCode string) ([]domain.TeamRecord, error) {
+	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
+	fmt.Printf("Fetching ranking data from %s\n", rankURL)
+	resp, err := http.Get(rankURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code %d", resp.StatusCode)
+	}
+
+	var data domain.TeamRankingResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	foundTeams := make([]domain.TeamRecord, 0)
+	// set league emoji values for each team
+	for _, foundTeam := range data.Records {
+		foundTeam.LeagueEmoji = domain.TeamLeagueEmojis[rankCode]
+		foundTeams = append(foundTeams, foundTeam)
+	}
+	return foundTeams, nil
 }
 
 func NewClient() *Client {

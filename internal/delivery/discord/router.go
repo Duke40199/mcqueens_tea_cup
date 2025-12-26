@@ -1,10 +1,12 @@
 package discord
 
 import (
-	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
 	_ "embed"
+	"fmt"
 	"log"
 	"strconv"
+
+	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -19,9 +21,16 @@ var desuwaGif []byte
 var miemebellJson []byte
 
 func (h *Handler) RegisterCommands() error {
-	// 1. Define Constants & Choices
-	// minLimit := 1.0
-	// maxLimit := 1000.0
+	// 1. Get Bot ID explicitly
+	// We use User("@me") because h.Session.State.User is nil until Open() is called.
+	u, err := h.Session.User("@me")
+	if err != nil {
+		return fmt.Errorf("failed to fetch bot ID: %w", err)
+	}
+	botID := u.ID
+
+	minLimit := 1.0
+	maxLimit := 1000.0
 
 	trackChoices := []*discordgo.ApplicationCommandOptionChoice{}
 	for _, name := range idac_domain.GetTrackNames() {
@@ -36,10 +45,234 @@ func (h *Handler) RegisterCommands() error {
 		// --- IDAC Complex Command ---
 		{
 			Name:        "idac",
-			Description: "Get Initial D Arcade Rankings",
-			Options:     []*discordgo.ApplicationCommandOption{
-				// [Insert your full IDAC options list here: time-attack, team, player-info, player-compare, player-alias]
-				// (Omitted for brevity, paste your existing IDAC options struct here)
+			Description: "Commands related to the game Initial D The Arcade",
+			Options: []*discordgo.ApplicationCommandOption{
+				// Subcommand: Time Attack
+				{
+					Name:        "time-attack",
+					Description: "Get Time Attack Rankings",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "track",
+							Description: "Select the track",
+							Required:    true,
+							Choices:     trackChoices,
+						},
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "variant",
+							Description:  "Select direction/condition (Downhill, Uphill, etc)",
+							Required:     true,
+							Autocomplete: true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area",
+							Description: "Area ID or Alias (e.g. 'vn', 'area-57')",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "car",
+							Description: "Car Option (default: car-all)",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "spec",
+							Description: "Car spec variant (AR, HC, etc)",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "limit",
+							Description: "Number of results to show (1-25, default: 10)",
+							Required:    false,
+							MinValue:    &minLimit,
+							MaxValue:    maxLimit,
+						},
+					},
+				},
+				// Subcommand: Team
+				{
+					Name:        "team",
+					Description: "Get Team Rankings",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "rank",
+							Description: "Get Team Class & Rankings",
+							Required:    true,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "All", Value: "all"},
+								{Name: "Master", Value: "6"},
+								{Name: "Platinum", Value: "5"},
+								{Name: "Gold", Value: "4"},
+								{Name: "Silver", Value: "3"},
+								//{Name: "Bronze", Value: "2"},
+							},
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "country",
+							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "limit",
+							Description: "Number of results to show (1-25, default: 10)",
+							Required:    false,
+							MinValue:    &minLimit,
+							MaxValue:    maxLimit,
+						},
+					},
+				},
+				// Player Compare Subcommand
+				{
+					Name:        "player-compare",
+					Description: "Compare times between two players on a specific course",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "track",
+							Description: "Select the track",
+							Required:    true,
+							Choices:     trackChoices, // Reuses the list from time-attack
+						},
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "variant",
+							Description:  "Select direction/condition",
+							Required:     true,
+							Autocomplete: true, // Reuses the autocomplete handler
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "player1",
+							Description: "Player 1 (IGN or @User)",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "player2",
+							Description: "Player 2 (IGN or @User)",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area1",
+							Description: "Area for Player 1 (e.g. 'vn')",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area2",
+							Description: "Area for Player 2 (Optional, defaults to Area 1)",
+							Required:    false,
+						},
+					},
+				},
+				// Player Alias
+				{
+					Name:        "player-alias",
+					Description: "Manage Player Aliases",
+					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+					Options: []*discordgo.ApplicationCommandOption{
+						// 1. Link Discord User
+						{
+							Name:        "set",
+							Description: "Link a Discord User to an IGN and Area",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+							Options: []*discordgo.ApplicationCommandOption{
+								{
+									Type:        discordgo.ApplicationCommandOptionUser,
+									Name:        "user",
+									Description: "The Discord User",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "ign",
+									Description: "In-Game Name",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "area",
+									Description: "Area Code",
+									Required:    true,
+								},
+							},
+						},
+						// 2. Link Custom Tag (For non-Discord players)
+						{
+							Name:        "set-custom",
+							Description: "Create a custom alias tag (e.g. 'rival', 'alt')",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+							Options: []*discordgo.ApplicationCommandOption{
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "tag",
+									Description: "Unique Tag Name (e.g. 'takumi', 'rival1')",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "ign",
+									Description: "In-Game Name",
+									Required:    true,
+								},
+								{
+									Type:        discordgo.ApplicationCommandOptionString,
+									Name:        "area",
+									Description: "Area Code",
+									Required:    true,
+								},
+							},
+						},
+					},
+				},
+				// Subcommand: Player Info
+				{
+					Name:        "player-info",
+					Description: "Find a player's rank on a specific course",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "ign",
+							Description: "Player Name (Case Insensitive)",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "course",
+							Description: "Course ID or Alias",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area",
+							Description: "Area ID or Alias",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "compare",
+							Description: "Compare scope",
+							Required:    false,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "Local", Value: "local"},
+								{Name: "World", Value: "world"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// --- Simple Commands ---
@@ -84,7 +317,7 @@ func (h *Handler) RegisterCommands() error {
 
 	// 4. Register with Discord
 	log.Println("Registering commands...")
-	_, err := h.Session.ApplicationCommandBulkOverwrite(h.Session.State.User.ID, "", commands)
+	_, err = h.Session.ApplicationCommandBulkOverwrite(botID, "", commands)
 	return err
 }
 
@@ -98,11 +331,10 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 
 	// --- 1. HANDLE SUBCOMMAND GROUPS ("player-alias") ---
 	if rootOption.Type == discordgo.ApplicationCommandOptionSubCommandGroup {
-		// Owner Check
-		// if !h.checkOwnerPermission(i) {
-		// 	return
-		// }
-
+		//Owner Check
+		if !h.IsRequestFromOwner(h.Session, i) {
+			return
+		}
 		subCmd := rootOption.Options[0]
 		optMap := make(map[string]string)
 
@@ -114,18 +346,16 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 				optMap[opt.Name] = opt.StringValue()
 			}
 		}
-
 		if rootOption.Name == "player-alias" {
-			if subCmd.Name == "set" {
-				// Assumes you have moved handlePlayerAliasSet to be a method on Handler
+			switch subCmd.Name {
+			case "set":
 				h.HandlePlayerAliasSet(i, optMap["user"], optMap)
-			} else if subCmd.Name == "set-custom" {
+			case "set-custom":
 				h.HandlePlayerAliasSet(i, optMap["tag"], optMap)
 			}
 		}
 		return
 	}
-
 	// --- 2. HANDLE REGULAR SUBCOMMANDS ---
 	// (time-attack, team, player-info, player-compare)
 	subcommand := rootOption
@@ -155,18 +385,9 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandleTimeAttack(i, optMap, specInput)
 	case "team":
 		h.HandleTeamRanking(i, optMap)
-		// case "player-info":
-		// 	h.HandlePlayerInfo(i, optMap)
-		// case "player-compare":
-		// 	h.HandlePlayerCompare(i, optMap)
+	case "player-info":
+		h.HandlePlayerInfo(i, optMap)
+	case "player-compare":
+		h.HandlePlayerCompare(i, optMap)
 	}
-}
-
-func (h *Handler) HandleStatus(i *discordgo.InteractionCreate) {
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "I am running and monitoring your feeds! 📡",
-		},
-	})
 }

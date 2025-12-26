@@ -21,16 +21,12 @@ import (
 	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
 )
 
-//go:embed resource/nuhuh.gif
 var nuhuhGif []byte
 
-//go:embed resource/desuwa.gif
 var desuwaGif []byte
 
-//go:embed resource/unauthorized.gif
 var unauthorizedGif []byte
 
-//go:embed resource/miemebell.json
 var miemebellJson []byte
 
 // StartCommands registers the commands with Discord and sets up the listener
@@ -1003,7 +999,7 @@ func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, o
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 	// 2. Resolve Player 1
-	p1Name, p1Area, _, err := idac_domain.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
+	p1Name, p1Area, _, err := domain.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
 		return
@@ -1015,7 +1011,7 @@ func handlePlayerCompare(s *discordgo.Session, i *discordgo.InteractionCreate, o
 	}
 
 	// 3. Resolve Player 2
-	p2Name, p2Area, _, err := idac_domain.ResolvePlayerCredential(optMap["player2"], optMap["area2"])
+	p2Name, p2Area, _, err := domain.ResolvePlayerCredential(optMap["player2"], optMap["area2"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 2 Error:** " + err.Error())
 		return
@@ -1232,7 +1228,7 @@ func handlePlayerAliasSet(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	}
 
 	// Save
-	err := idac_domain.Aliases.Set(key, ign, area)
+	err := domain.Aliases.Set(key, ign, area)
 
 	msg := ""
 	if err != nil {
