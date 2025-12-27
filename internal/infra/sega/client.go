@@ -17,11 +17,6 @@ type Client struct {
 	TeamRankingUrl  string
 }
 
-// GetCurrentRound implements [domain.IdacRepository].
-func (c *Client) GetCurrentRound() (int, error) {
-	panic("unimplemented")
-}
-
 // GetTeamRanking implements [domain.IdacRepository].
 func (c *Client) GetTeamRanking(roundNum int, rankCode string) ([]domain.TeamRecord, error) {
 	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
@@ -82,7 +77,7 @@ func (c *Client) GetTimeAttack(courseID, area, carID, spec string) ([]domain.Tim
 	return data.Records, nil
 }
 
-func (c *Client) FetchCurrentRoundNum(roundNum int, rankCode string) (int, error) {
+func (c *Client) GetCurrentRound() (int, error) {
 	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
 	respRound, err := http.Get(roundURL)
 	if err != nil {
@@ -98,7 +93,7 @@ func (c *Client) FetchCurrentRoundNum(roundNum int, rankCode string) (int, error
 	}
 
 	roundStr := strings.TrimSpace(string(bodyBytes))
-	roundNum, _ = strconv.Atoi(roundStr)
+	roundNum, _ := strconv.Atoi(roundStr)
 	return roundNum, nil
 }
 
