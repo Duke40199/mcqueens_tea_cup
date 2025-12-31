@@ -3,6 +3,7 @@ package usecase
 import (
 	"log"
 
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain"
 )
 
@@ -22,7 +23,7 @@ func NewFeedChecker(rss domain.RSSFetcher, not domain.Notifier, state domain.Sta
 	}
 }
 
-func (fc *FeedChecker) Check(feeds []domain.FeedConfig) {
+func (fc *FeedChecker) Check(feeds []config.FeedConfig) {
 	for _, feedConf := range feeds {
 		items, err := fc.rss.Fetch(feedConf.URL)
 		if err != nil {

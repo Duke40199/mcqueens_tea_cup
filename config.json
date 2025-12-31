@@ -1,18 +1,14 @@
-{
-  "token": "MTQ0MTM2MTQwOTEyNzQ4NTQ5MA.GK9NTM.YAOqBU-kJTIjgFuCogGzlLBqPcoKeAwiSvksUo",
-  "check_interval_minutes": 15,
-  "feeds": [
-    {
-      "title": "Initial D The Arcade - Official News",
-      "url": "https://info-initialdac.sega.jp/feed",
-      "source_language": "ja",
-      "channel_id": "1440771328587202771"
-    },
-    {
-      "title": "Umamusume: Pretty Derby - Twitter",
-      "url": "https://nitter.poast.org/umamusume_eng/rss",
-      "source_language": "en",
-      "channel_id": "1440578176299434005"
-    }
-  ]
-}
+[
+  {
+    "title": "Initial D The Arcade - Official News",
+    "url": "https://info-initialdac.sega.jp/feed",
+    "source_language": "ja",
+    "channel_id": "1440771328587202771"
+  },
+  {
+    "title": "Umamusume: Pretty Derby - Twitter",
+    "url": "https://nitter.poast.org/umamusume_eng/rss",
+    "source_language": "en",
+    "channel_id": "1440578176299434005"
+  }
+]

@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"time"
 
+	"McQueens_Tea_Cup/internal/config"
 	discord_handler "McQueens_Tea_Cup/internal/delivery/discord"
 	"McQueens_Tea_Cup/internal/infra"
-	"McQueens_Tea_Cup/internal/infra/config"
 	discord_infra "McQueens_Tea_Cup/internal/infra/discord"
 	persistence "McQueens_Tea_Cup/internal/infra/presistence"
 	"McQueens_Tea_Cup/internal/infra/sega"
@@ -20,14 +20,14 @@ import (
 
 func main() {
 	// 1. Config
-	cfg, err := config.LoadConfig("config.json")
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatal("Config error:", err)
 	}
 
 	// 2. SHARED INFRASTRUCTURE: Create Discord Session ONCE
 	// We do not Open() it yet. We just create the struct.
-	dg, err := discordgo.New("Bot " + cfg.Token)
+	dg, err := discordgo.New("Bot " + cfg.DiscordCfg.Token)
 	if err != nil {
 		log.Fatal("Discord creation error:", err)
 	}
@@ -72,7 +72,7 @@ func main() {
 
 	// 3. Open Connection
 	// This starts the WebSocket listener for Commands AND enables sending for RSS
-	if err := dg.Open(); err != nil {
+	if err = dg.Open(); err != nil {
 		log.Fatal("Error opening connection:", err)
 	}
 	defer dg.Close()
@@ -80,11 +80,11 @@ func main() {
 	log.Println("✅ Bot is running. Press CTRL-C to exit.")
 
 	// 4. Run RSS Ticker in a Goroutine (Background)
-	ticker := time.NewTicker(time.Duration(cfg.Interval) * time.Minute)
+	ticker := time.NewTicker(time.Duration(cfg.RSSCfg.Interval) * time.Minute)
 	defer ticker.Stop()
 
 	// Run immediately once on startup
-	go feedLogic.Check(cfg.Feeds)
+	go feedLogic.Check(cfg.RSSCfg.Feeds)
 
 	// Handle OS Signals (Graceful Shutdown)
 	stop := make(chan os.Signal, 1)
@@ -93,7 +93,7 @@ func main() {
 	// Loop
 	go func() {
 		for range ticker.C {
-			feedLogic.Check(cfg.Feeds)
+			feedLogic.Check(cfg.RSSCfg.Feeds)
 		}
 	}()
 
