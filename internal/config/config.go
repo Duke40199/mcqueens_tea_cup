@@ -82,11 +82,11 @@ func LoadConfig() (*AppConfig, error) {
 
 // --- Global Variables ---
 var (
-	stateFile = "feed_state.json"
+	feedsPath = "./config.json"
 )
 
 func LoadRSSConfig() ([]FeedConfig, error) {
-	file, err := os.ReadFile(stateFile)
+	file, err := os.ReadFile(feedsPath)
 	if err != nil {
 		return nil, err
 	}

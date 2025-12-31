@@ -1,4 +1,4 @@
-package persistence
+package db
 
 import (
 	"encoding/json"
