@@ -35,7 +35,7 @@ func (h *Handler) HandleStatus(i *discordgo.InteractionCreate) {
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "I am running and monitoring your feeds! 📡",
+			Content: "Up and running, desuwa~",
 		},
 	})
 }

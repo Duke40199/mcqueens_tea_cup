@@ -15,3 +15,7 @@ type Item struct {
 type MieMeBell struct {
 	Blocks []string `json:"blocks"`
 }
+
+type MeoMeoRequest struct {
+	Blocks map[string][]string `json:blocks`
+}
