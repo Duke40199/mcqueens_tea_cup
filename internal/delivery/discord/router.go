@@ -20,6 +20,24 @@ var desuwaGif []byte
 //go:embed resource/miemebell.json
 var miemebellJson []byte
 
+//go:embed resource/meomeo.json
+var meomeoJson []byte
+
+var languageChoice = []*discordgo.ApplicationCommandOptionChoice{
+	{
+		Name:  "Vietnamese",
+		Value: "vn",
+	},
+	{
+		Name:  "English",
+		Value: "en",
+	},
+	{
+		Name:  "Desuwa",
+		Value: "desuwa",
+	},
+}
+
 func (h *Handler) RegisterCommands() error {
 	// 1. Get Bot ID explicitly
 	// We use User("@me") because h.Session.State.User is nil until Open() is called.
@@ -281,11 +299,36 @@ func (h *Handler) RegisterCommands() error {
 			Name:        "nuhuh",
 			Description: "Reply with the nuh uh gif",
 			Options: []*discordgo.ApplicationCommandOption{
-				{Type: discordgo.ApplicationCommandOptionUser, Name: "user", Description: "User to tag", Required: false},
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "user",
+					Description: "User to tag",
+					Required:    false,
+				},
 			},
 		},
 		{Name: "mckween", Description: "desuwa"},
-		{Name: "miemebell", Description: "Get a random Mieme quote"},
+		{Name: "miemebell", Description: "Mie me bell"},
+		{
+			Name:        "meomeo",
+			Description: "For glazing an user for their exceptional IDAC skills.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "user",
+					Description: "(Optional) User to tag",
+					Required:    false,
+				},
+
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "language",
+					Description: "(Optional) Choose a language",
+					Required:    false,
+					Choices:     languageChoice,
+				},
+			},
+		},
 	}
 
 	// 3. Register Event Router
@@ -305,6 +348,8 @@ func (h *Handler) RegisterCommands() error {
 				h.HandleMckween(i)
 			case "miemebell":
 				h.HandleMiemebell(i)
+			case "meomeo":
+				h.HandleMeoMeo(i)
 			}
 
 		// B. Handle Autocomplete
