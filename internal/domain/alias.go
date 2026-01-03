@@ -7,12 +7,19 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // PlayerAlias represents the saved data
 type PlayerAlias struct {
-	Ign  string `json:"ign"`
-	Area string `json:"area"`
+	ID        uuid.UUID `json:"id"`
+	Ign       string    `json:"ign"`
+	AliasKey  string    `json:"alias_key"`
+	Area      string    `json:"area"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // AliasStore handles storage

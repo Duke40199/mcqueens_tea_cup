@@ -9,7 +9,9 @@ type IdacRepository interface {
 
 // AliasRepository defines how we interact with player aliases.
 type AliasRepository interface {
-	Get(discordID string) (PlayerAlias, bool)
+	GetByAliasKey(discordID string) (PlayerAlias, bool, error)
+	GetByIgn(ign string) (PlayerAlias, bool)
+
 	Set(discordID, ign, area string) error
 	Load() error
 }

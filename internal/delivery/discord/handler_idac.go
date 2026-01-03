@@ -569,12 +569,15 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	})
 
 	// 1. Validate & Parse Inputs
-	ign, hasIgn := optMap["ign"]
-	if !hasIgn || optMap["course"] == "" || optMap["area"] == "" {
+	_, hasIgn := optMap["user"]
+	if !hasIgn || optMap["course"] == "" {
 		errStr := "⚠️ Missing required arguments (ign, course, or area)."
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
 		return
 	}
+
+	ign, areaInput, _, err := h.ResolvePlayerCredentialDB(optMap["user"], "")
+
 	// --- NORMALIZE INPUT ---
 	// 1. Normalize width (ＳＨＩＲＯ -> SHIRO)
 	// 2. Lowercase (SHIRO -> shiro) for case-insensitive comparison
@@ -584,10 +587,10 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	if val, ok := domain.CourseAliases[courseInput]; ok {
 		courseInput = val
 	}
-	areaInput := strings.ToLower(optMap["area"])
-	if val, ok := domain.AreaAliases[areaInput]; ok {
-		areaInput = val
-	}
+	//areaInput := strings.ToLower(optMap["area"])
+	//if val, ok := domain.AreaAliases[areaInput]; ok {
+	//	areaInput = val
+	//}
 
 	// 2. Construct URL
 	// We strictly use "car-all" to find the player regardless of what car they drove
@@ -696,4 +699,80 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: &finalContent,
 	})
+}
+
+func (h *Handler) ResolvePlayerCredentialDB(input, manualArea string) (string, string, bool, error) {
+	// 1. Sanitize Inputs
+	cleanInput := strings.TrimSpace(input)
+
+	// 2. Regex for Discord Mention/ID
+	reMention := regexp.MustCompile(`^<@!?(\d+)>$`)
+	reID := regexp.MustCompile(`^\d{17,20}$`)
+
+	var lookupKey string
+	if match := reMention.FindStringSubmatch(cleanInput); len(match) > 1 {
+		lookupKey = match[1] // Extract ID from <@123>
+	} else if reID.MatchString(cleanInput) {
+		lookupKey = cleanInput // Raw ID
+	}
+
+	// 3. Check Alias Store (The "Check First" Logic)
+	var aliasIgn, aliasArea string
+	var foundAlias bool
+
+	if lookupKey != "" {
+		// Case A: Discord ID -> Strict Lookup
+		playerAlias, isFound, err := h.AliasRepo.GetByAliasKey(lookupKey)
+		if err != nil {
+			fmt.Println(err)
+			return "", "", false, err
+		}
+		if !isFound {
+			return "", "", false, fmt.Errorf("couldn't find a matching alias")
+		}
+		foundAlias = true
+		aliasIgn = playerAlias.Ign
+		aliasArea = playerAlias.Area
+	}
+	//else {
+	//	// Case B: Text Input -> Try Custom Tag Lookup
+	//	// Use lowercase key for case-insensitive matching
+	//	if val, ok := Aliases.Get(strings.ToLower(cleanInput)); ok {
+	//		aliasIgn = val.Ign
+	//		aliasArea = val.Area
+	//		foundAlias = true
+	//	}
+	//}
+
+	// 4. Merge Logic (Alias vs Manual)
+	finalIgn := cleanInput
+	finalArea := aliasArea
+
+	if foundAlias {
+		finalIgn = aliasIgn
+		// If Manual Area is provided, it OVERRIDES the alias area.
+		// If not, we fall back to the alias area.
+		if finalArea == "" {
+			finalArea = aliasArea
+		}
+	}
+
+	//// 5. Normalize Final Area (Handle "world", "vn", etc.)
+	//if finalArea != "" {
+	//	norm := strings.ToLower(finalArea)
+	//	if norm == "world" || norm == "global" {
+	//		norm = "all"
+	//	}
+	//	//if val, ok := AreaAliases[norm]; ok {
+	//	//	finalArea = val
+	//	//}
+	//}
+
+	// 6. Final check: Do we have an area?
+	// If no alias was found AND no manual area provided, we can't search.
+	if finalArea == "" {
+		return "", "", false, nil // Return empty to signal "Missing Area"
+	}
+
+	return finalIgn, finalArea, foundAlias, nil
 }

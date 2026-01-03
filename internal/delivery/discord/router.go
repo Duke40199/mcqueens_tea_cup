@@ -262,21 +262,15 @@ func (h *Handler) RegisterCommands() error {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "ign",
-							Description: "Player Name (Case Insensitive)",
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "User info (IGN or @User)",
 							Required:    true,
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "course",
 							Description: "Course ID or Alias",
-							Required:    true,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "area",
-							Description: "Area ID or Alias",
 							Required:    true,
 						},
 						{

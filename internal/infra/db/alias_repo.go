@@ -19,10 +19,29 @@ func NewPostgresAliasRepo(db *sql.DB) *AliasRepo {
 }
 
 // Get fetches alias from DB
-func (a *AliasRepo) Get(key string) (domain.PlayerAlias, bool) {
-	query := `SELECT ign, area FROM player_aliases WHERE alias_key = $1`
+func (a *AliasRepo) GetByAliasKey(key string) (domain.PlayerAlias, bool, error) {
+	query := `SELECT ign, area FROM player_alias WHERE alias_key = $1`
 
 	row := a.DB.QueryRow(query, key)
+
+	var alias domain.PlayerAlias
+	err := row.Scan(&alias.Ign, &alias.Area)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return domain.PlayerAlias{}, false, err // Not found
+		}
+		// Log error in a real app
+		fmt.Println("DB Error:", err)
+		return domain.PlayerAlias{}, false, err
+	}
+
+	return alias, true, nil
+}
+
+func (a *AliasRepo) GetByIgn(ign string) (domain.PlayerAlias, bool) {
+	query := `SELECT ign, area FROM player_alias WHERE ign = $1`
+
+	row := a.DB.QueryRow(query, ign)
 
 	var alias domain.PlayerAlias
 	err := row.Scan(&alias.Ign, &alias.Area)
