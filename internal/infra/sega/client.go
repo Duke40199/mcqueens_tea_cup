@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type Client struct {
@@ -18,7 +18,7 @@ type Client struct {
 }
 
 // GetTeamRanking implements [domain.IdacRepository].
-func (c *Client) GetTeamRanking(roundNum int, rankCode string) ([]domain.TeamRecord, error) {
+func (c *Client) GetTeamRanking(roundNum int, rankCode string) ([]entity.TeamRecord, error) {
 	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
 	fmt.Printf("Fetching ranking data from %s\n", rankURL)
 	resp, err := http.Get(rankURL)
@@ -31,14 +31,14 @@ func (c *Client) GetTeamRanking(roundNum int, rankCode string) ([]domain.TeamRec
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
-	var data domain.TeamRankingResponse
+	var data entity.TeamRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
-	foundTeams := make([]domain.TeamRecord, 0)
+	foundTeams := make([]entity.TeamRecord, 0)
 	// set league emoji values for each team
 	for _, foundTeam := range data.Records {
-		foundTeam.LeagueEmoji = domain.TeamLeagueEmojis[rankCode]
+		foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
 		foundTeams = append(foundTeams, foundTeam)
 	}
 	return foundTeams, nil
@@ -53,7 +53,7 @@ func NewClient() *Client {
 }
 
 // GetTimeAttack implements domain.IdacRepository
-func (c *Client) GetTimeAttack(courseID, area, carID, spec string) ([]domain.TimeAttackRecord, error) {
+func (c *Client) GetTimeAttack(courseID, area, carID, spec string) ([]entity.TimeAttackRecord, error) {
 	// 1. Construct URL (Logic moved from handler)
 	filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, area, carID)
 	fullURL := fmt.Sprintf("%s/timeTrial/%s", c.TimeTrailUrl, filename)
@@ -69,7 +69,7 @@ func (c *Client) GetTimeAttack(courseID, area, carID, spec string) ([]domain.Tim
 	}
 
 	// 3. Parse
-	var data domain.IdacResponse
+	var data entity.IdacResponse
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) GetCurrentRound() (int, error) {
 	return roundNum, nil
 }
 
-func (c *Client) FetchTeamRankings(roundNum int, rankCode string) ([]domain.TeamRecord, error) {
+func (c *Client) FetchTeamRankings(roundNum int, rankCode string) ([]entity.TeamRecord, error) {
 	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
 	fmt.Printf("Fetching ranking data from %s\n", rankURL)
 	resp, err := http.Get(rankURL)
@@ -110,14 +110,14 @@ func (c *Client) FetchTeamRankings(roundNum int, rankCode string) ([]domain.Team
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
-	var data domain.TeamRankingResponse
+	var data entity.TeamRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
-	foundTeams := make([]domain.TeamRecord, 0)
+	foundTeams := make([]entity.TeamRecord, 0)
 	// set league emoji values for each team
 	for _, foundTeam := range data.Records {
-		foundTeam.LeagueEmoji = domain.TeamLeagueEmojis[rankCode]
+		foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
 		foundTeams = append(foundTeams, foundTeam)
 	}
 	return foundTeams, nil

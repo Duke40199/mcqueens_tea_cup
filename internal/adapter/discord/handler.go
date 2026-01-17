@@ -4,7 +4,8 @@ import (
 	"bytes"
 	_ "embed"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -16,13 +17,13 @@ var unauthorizedGif []byte
 // It doesn't know about HTTP, it only knows "IdacRepository".
 type Handler struct {
 	Session   *discordgo.Session
-	SegaRepo  domain.IdacRepository
-	AliasRepo domain.AliasRepository
+	SegaRepo  entity.IdacRepository
+	AliasRepo postgres.AliasRepository
 	OwnerID   string
 }
 
 // NewHandler creates our controller
-func NewHandler(s *discordgo.Session, sega domain.IdacRepository, alias domain.AliasRepository) *Handler {
+func NewHandler(s *discordgo.Session, sega entity.IdacRepository, alias postgres.AliasRepository) *Handler {
 	return &Handler{
 		Session:   s,
 		SegaRepo:  sega,

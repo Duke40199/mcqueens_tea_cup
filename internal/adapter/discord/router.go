@@ -6,9 +6,9 @@ import (
 	"log"
 	"strconv"
 
-	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
-
 	"github.com/bwmarrin/discordgo"
+
+	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
 )
 
 //go:embed resource/nuhuh.gif
@@ -262,21 +262,15 @@ func (h *Handler) RegisterCommands() error {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "ign",
-							Description: "Player Name (Case Insensitive)",
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "User info (IGN or @User)",
 							Required:    true,
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "course",
 							Description: "Course ID or Alias",
-							Required:    true,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "area",
-							Description: "Area ID or Alias",
 							Required:    true,
 						},
 						{
@@ -394,9 +388,9 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		if rootOption.Name == "player-alias" {
 			switch subCmd.Name {
 			case "set":
-				h.HandlePlayerAliasSet(i, optMap["user"], optMap)
+				h.HandleSetPlayerAlias(i, optMap["user"], optMap)
 			case "set-custom":
-				h.HandlePlayerAliasSet(i, optMap["tag"], optMap)
+				h.HandleSetPlayerAlias(i, optMap["tag"], optMap)
 			}
 		}
 		return
