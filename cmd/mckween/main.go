@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	discord_handler "McQueens_Tea_Cup/internal/adapter/discord"
 	"McQueens_Tea_Cup/internal/config"
-	discord_handler "McQueens_Tea_Cup/internal/delivery/discord"
 	"McQueens_Tea_Cup/internal/infra"
-	db "McQueens_Tea_Cup/internal/infra/db"
+	"McQueens_Tea_Cup/internal/infra/db"
 	discord_infra "McQueens_Tea_Cup/internal/infra/discord"
 	"McQueens_Tea_Cup/internal/infra/sega"
 	"McQueens_Tea_Cup/internal/usecase"

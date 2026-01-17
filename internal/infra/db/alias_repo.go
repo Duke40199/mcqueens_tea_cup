@@ -4,61 +4,61 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
 )
 
-type AliasRepo struct {
+type AliasRespository struct {
 	DB *sql.DB
 }
 
 // NewPostgresAliasRepo returns the struct that satisfies AliasRepository
-func NewPostgresAliasRepo(db *sql.DB) *AliasRepo {
-	return &AliasRepo{DB: db}
+func NewPostgresAliasRepo(db *sql.DB) *AliasRespository {
+	return &AliasRespository{DB: db}
 }
 
-// Get fetches alias from DB
-func (a *AliasRepo) GetByAliasKey(key string) (domain.PlayerAlias, bool, error) {
+// GetByAliasKey fetches alias from DB
+func (a *AliasRespository) GetByAliasKey(key string) (entity.PlayerAlias, bool, error) {
 	query := `SELECT ign, area FROM player_alias WHERE alias_key = $1`
 
 	row := a.DB.QueryRow(query, key)
 
-	var alias domain.PlayerAlias
+	var alias entity.PlayerAlias
 	err := row.Scan(&alias.Ign, &alias.Area)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return domain.PlayerAlias{}, false, err // Not found
+			return entity.PlayerAlias{}, false, err // Not found
 		}
 		// Log error in a real app
 		fmt.Println("DB Error:", err)
-		return domain.PlayerAlias{}, false, err
+		return entity.PlayerAlias{}, false, err
 	}
 
 	return alias, true, nil
 }
 
-func (a *AliasRepo) GetByIgn(ign string) (domain.PlayerAlias, bool) {
+func (a *AliasRespository) GetByIgn(ign string) (entity.PlayerAlias, bool) {
 	query := `SELECT ign, area FROM player_alias WHERE ign = $1`
 
 	row := a.DB.QueryRow(query, ign)
 
-	var alias domain.PlayerAlias
+	var alias entity.PlayerAlias
 	err := row.Scan(&alias.Ign, &alias.Area)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return domain.PlayerAlias{}, false // Not found
+			return entity.PlayerAlias{}, false // Not found
 		}
 		// Log error in a real app
 		fmt.Println("DB Error:", err)
-		return domain.PlayerAlias{}, false
+		return entity.PlayerAlias{}, false
 	}
 
 	return alias, true
 }
 
-// Set inserts or updates alias
-func (a *AliasRepo) Set(key, ign, area string) error {
+// SetPlayerAlias inserts or updates alias
+func (a *AliasRespository) SetPlayerAlias(key, ign, area string) error {
 	// UPSERT: Insert, but if conflict (key exists), update the existing row
 	query := `
 		INSERT INTO player_aliases (alias_key, ign, area, updated_at)
@@ -71,6 +71,6 @@ func (a *AliasRepo) Set(key, ign, area string) error {
 }
 
 // Load is not needed for DB (Query on demand), so we leave it empty to satisfy interface
-func (a *AliasRepo) Load() error {
+func (a *AliasRespository) Load() error {
 	return nil
 }

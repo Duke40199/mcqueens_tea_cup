@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -40,30 +40,30 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	// Resolve Area Alias
 	areaInput := strings.ToLower(optMap["area"])
-	if val, ok := domain.AreaAliases[areaInput]; ok {
+	if val, ok := entity.AreaAliases[areaInput]; ok {
 		optMap["area"] = val
 	}
 
 	// Resolve Car
-	finalCarID := domain.ResolveCarID(optMap["car"], specInput)
+	finalCarID := entity.ResolveCarID(optMap["car"], specInput)
 
 	// Display Names (Optional: Lookup ID back to Name for pretty printing)
-	courseName := domain.CourseDisplayNameByCode[finalCourseID]
+	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
 		// Fallback
 		courseName = optMap["track"]
 	}
 
 	areaName := optMap["area"]
-	if val, ok := domain.AreaDisplayNameByCode[areaName]; ok {
+	if val, ok := entity.AreaDisplayNameByCode[areaName]; ok {
 		areaName = val
 	}
 	carDisplayName := finalCarID
-	baseCar := domain.ResolveCarID(optMap["car"], "")
+	baseCar := entity.ResolveCarID(optMap["car"], "")
 	if optMap["car"] == "car-all" {
 		carDisplayName = "All"
-	} else if val, ok := domain.CarDisplayNameByCode[baseCar]; ok {
-		if emoji, ok := domain.SpecEmojis[strings.ToLower(specInput)]; ok {
+	} else if val, ok := entity.CarDisplayNameByCode[baseCar]; ok {
+		if emoji, ok := entity.SpecEmojis[strings.ToLower(specInput)]; ok {
 			carDisplayName = fmt.Sprintf("%s %s", emoji, val)
 		} else {
 			carDisplayName = val
@@ -133,12 +133,12 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	h.SendPagination(i, pages)
 }
 
-func (h *Handler) HandlePlayerAliasSet(i *discordgo.InteractionCreate, key string, optMap map[string]string) {
+func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key string, optMap map[string]string) {
 	ign := optMap["ign"]
 	area := optMap["area"]
 
 	// Normalize Area
-	if val, ok := domain.AreaAliases[strings.ToLower(area)]; ok {
+	if val, ok := entity.AreaAliases[strings.ToLower(area)]; ok {
 		area = val
 	}
 
@@ -149,13 +149,12 @@ func (h *Handler) HandlePlayerAliasSet(i *discordgo.InteractionCreate, key strin
 	}
 
 	// Save
-	err := domain.Aliases.Set(key, ign, area)
-
+	err := h.AliasRepo.SetPlayerAlias(key, ign, area)
 	msg := ""
 	if err != nil {
 		msg = "❌ Failed to save alias: " + err.Error()
 	} else {
-		areaName := domain.AreaDisplayNameByCode[area]
+		areaName := entity.AreaDisplayNameByCode[area]
 		if areaName == "" {
 			areaName = area
 		}
@@ -172,14 +171,13 @@ func (h *Handler) HandlePlayerAliasSet(i *discordgo.InteractionCreate, key strin
 					displayName = u.GlobalName
 				}
 			}
-
 			msg = fmt.Sprintf("✅ **User Linked:** %s → **%s** (%s)", displayName, ign, areaName)
 		} else {
 			msg = fmt.Sprintf("✅ **Tag Registered!**\nTag `%s` → **%s** (%s)\nUse it like: `/idac player-info player:%s`", key, ign, areaName, key)
 		}
 	}
 
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	_ = h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content:         msg,
@@ -209,14 +207,14 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 	if countryInput, ok := optMap["country"]; ok && countryInput != "" {
 		areaCode := countryInput
 		normalizedInput := strings.ToLower(countryInput)
-		if val, ok := domain.AreaAliases[normalizedInput]; ok {
+		if val, ok := entity.AreaAliases[normalizedInput]; ok {
 			areaCode = val
 		}
 		if strings.HasPrefix(areaCode, "area-") {
 			idStr := strings.TrimPrefix(areaCode, "area-")
 			if id, err := strconv.Atoi(idStr); err == nil {
 				filterCountryID = id
-				if name, ok := domain.AreaDisplayNameByCode[areaCode]; ok {
+				if name, ok := entity.AreaDisplayNameByCode[areaCode]; ok {
 					filterCountryName = name
 				}
 			}
@@ -254,7 +252,7 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 	}
 
 	// 5. Fetch and Aggregate Records
-	var allRecords []domain.TeamRecord
+	var allRecords []entity.TeamRecord
 	for _, code := range targetRanks {
 		records, err := h.SegaRepo.GetTeamRanking(roundNum, code)
 		if err != nil {
@@ -304,7 +302,7 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 
 		// Calculate display rank
 		globalRank := foundCount + 1
-		countryFlag := domain.GetCountryFlag(r.Country)
+		countryFlag := entity.GetCountryFlag(r.Country)
 
 		// Format Entry
 		entry := fmt.Sprintf("%d. %s **%s** \n", globalRank, r.LeagueEmoji, r.TeamName)
@@ -349,7 +347,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 	// 2. Resolve Player 1
-	p1Name, p1Area, _, err := domain.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
+	p1Name, p1Area, _, err := entity.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
 		return
@@ -361,7 +359,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	}
 
 	// 3. Resolve Player 2
-	p2Name, p2Area, _, err := domain.ResolvePlayerCredential(optMap["player2"], optMap["area2"])
+	p2Name, p2Area, _, err := entity.ResolvePlayerCredential(optMap["player2"], optMap["area2"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 2 Error:** " + err.Error())
 		return
@@ -392,7 +390,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 			return "all"
 		}
 
-		if val, ok := domain.AreaAliases[normalized]; ok {
+		if val, ok := entity.AreaAliases[normalized]; ok {
 			return val
 		}
 		// Fallback: Return input as-is (allows 'all' to pass through if input is 'all')
@@ -412,7 +410,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	courseID := optMap["variant"]
 
 	// 4. Helper: Fetch Data & Find Player
-	fetchAndFind := func(areaCode, targetIgn string) (*domain.TimeAttackRecord, string, error) {
+	fetchAndFind := func(areaCode, targetIgn string) (*entity.TimeAttackRecord, string, error) {
 		baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
 		// This URL structure supports "ta_course-12_all_car-all.json" perfectly
 		filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, areaCode, "car-all")
@@ -428,15 +426,15 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 			return nil, fmt.Sprintf("Status %d", resp.StatusCode), nil
 		}
 
-		var data domain.IdacResponse
+		var data entity.IdacResponse
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 			return nil, "Parse Error", nil
 		}
 
 		// Find Player
-		normalizedTarget := strings.ToLower(domain.NormalizeTextWidth(targetIgn))
+		normalizedTarget := strings.ToLower(entity.NormalizeTextWidth(targetIgn))
 		for _, r := range data.Records {
-			if strings.ToLower(domain.NormalizeTextWidth(r.Name)) == normalizedTarget {
+			if strings.ToLower(entity.NormalizeTextWidth(r.Name)) == normalizedTarget {
 				val := r
 				return &val, "", nil
 			}
@@ -445,7 +443,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	}
 
 	// 5. Execution
-	var p1, p2 *domain.TimeAttackRecord
+	var p1, p2 *entity.TimeAttackRecord
 	var errStr1, errStr2 string
 
 	// OPTIMIZATION: If areas are identical (e.g. both 'all'), fetch once
@@ -455,18 +453,18 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
 		resp, err := http.Get(fullURL)
 		if err == nil && resp.StatusCode == 200 {
-			var data domain.IdacResponse
+			var data entity.IdacResponse
 			_ = json.NewDecoder(resp.Body).Decode(&data)
 			resp.Body.Close()
 
-			target1 := strings.ToLower(domain.NormalizeTextWidth(optMap["ign1"]))
-			target2 := strings.ToLower(domain.NormalizeTextWidth(optMap["ign2"]))
+			target1 := strings.ToLower(entity.NormalizeTextWidth(optMap["ign1"]))
+			target2 := strings.ToLower(entity.NormalizeTextWidth(optMap["ign2"]))
 
 			for _, r := range data.Records {
 				if p1 != nil && p2 != nil {
 					break
 				}
-				normName := strings.ToLower(domain.NormalizeTextWidth(r.Name))
+				normName := strings.ToLower(entity.NormalizeTextWidth(r.Name))
 				if p1 == nil && normName == target1 {
 					val := r
 					p1 = &val
@@ -497,17 +495,17 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	// 6. Build Response
 	var sb strings.Builder
 
-	courseName := domain.CourseDisplayNameByCode[courseID]
+	courseName := entity.CourseDisplayNameByCode[courseID]
 	if courseName == "" {
 		courseName = optMap["track"]
 	}
 
-	areaName1 := domain.AreaDisplayNameByCode[area1]
+	areaName1 := entity.AreaDisplayNameByCode[area1]
 	if areaName1 == "" {
 		areaName1 = area1
 	}
 
-	areaName2 := domain.AreaDisplayNameByCode[area2]
+	areaName2 := entity.AreaDisplayNameByCode[area2]
 	if areaName2 == "" {
 		areaName2 = area2
 	}
@@ -516,7 +514,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	sb.WriteString(fmt.Sprintf("**Course:** %s\n", courseName))
 
 	// Helper to print
-	printPlayer := func(label, areaName, inputName, errStr string, p *domain.TimeAttackRecord) {
+	printPlayer := func(label, areaName, inputName, errStr string, p *entity.TimeAttackRecord) {
 		sb.WriteString(fmt.Sprintf("### %s (%s): ", label, areaName))
 		if p != nil {
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
@@ -539,16 +537,16 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	// 7. Calculate Delta
 	if p1 != nil && p2 != nil {
 		sb.WriteString("---\n")
-		ms1, err1 := domain.ParseIdacTime(p1.Record)
-		ms2, err2 := domain.ParseIdacTime(p2.Record)
+		ms1, err1 := entity.ParseIdacTime(p1.Record)
+		ms2, err2 := entity.ParseIdacTime(p2.Record)
 
 		if err1 == nil && err2 == nil {
 			diff := ms1 - ms2
 			if diff < 0 {
-				gap := domain.FormatIdacTimeDelta(diff)
+				gap := entity.FormatIdacTimeDelta(diff)
 				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p1.Name, strings.TrimPrefix(gap, "-")))
 			} else if diff > 0 {
-				gap := domain.FormatIdacTimeDelta(diff)
+				gap := entity.FormatIdacTimeDelta(diff)
 				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p2.Name, strings.TrimPrefix(gap, "+")))
 			} else {
 				sb.WriteString("🤝 **It's a tie!** Exact same time.")
@@ -575,16 +573,14 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
 		return
 	}
-
 	ign, areaInput, _, err := h.ResolvePlayerCredentialDB(optMap["user"], "")
-
 	// --- NORMALIZE INPUT ---
 	// 1. Normalize width (ＳＨＩＲＯ -> SHIRO)
 	// 2. Lowercase (SHIRO -> shiro) for case-insensitive comparison
-	targetName := strings.ToLower(domain.NormalizeTextWidth(ign))
+	targetName := strings.ToLower(entity.NormalizeTextWidth(ign))
 	// Resolve Aliases
 	courseInput := strings.ToLower(optMap["course"])
-	if val, ok := domain.CourseAliases[courseInput]; ok {
+	if val, ok := entity.CourseAliases[courseInput]; ok {
 		courseInput = val
 	}
 	//areaInput := strings.ToLower(optMap["area"])
@@ -614,7 +610,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	}
 
 	// 4. Parse JSON
-	var data domain.IdacResponse
+	var data entity.IdacResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		errStr := "❌ Error parsing SEGA data."
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
@@ -622,8 +618,8 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	}
 
 	// 5. Search for Player
-	var foundRecord *domain.TimeAttackRecord
-	var leaderRecord *domain.TimeAttackRecord
+	var foundRecord *entity.TimeAttackRecord
+	var leaderRecord *entity.TimeAttackRecord
 
 	for idx, r := range data.Records {
 		// Capture Leader
@@ -634,7 +630,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 
 		// --- NORMALIZE RECORD NAME ---
 		// We normalize the record name from SEGA too, just in case
-		recordNameNormalized := strings.ToLower(domain.NormalizeTextWidth(r.Name))
+		recordNameNormalized := strings.ToLower(entity.NormalizeTextWidth(r.Name))
 
 		if recordNameNormalized == targetName {
 			val := r
@@ -647,12 +643,12 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	var sb strings.Builder
 
 	// Display Names
-	courseName := domain.CourseDisplayNameByCode[courseInput]
+	courseName := entity.CourseDisplayNameByCode[courseInput]
 	if courseName == "" {
 		courseName = courseInput
 	}
 
-	areaName := domain.AreaDisplayNameByCode[areaInput]
+	areaName := entity.AreaDisplayNameByCode[areaInput]
 	if areaName == "" {
 		areaName = areaInput
 	}
@@ -664,13 +660,13 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 		// --- Calculate Delta ---
 		deltaStr := ""
 		if leaderRecord != nil && foundRecord.Name != leaderRecord.Name {
-			playerMs, err1 := domain.ParseIdacTime(foundRecord.Record)
-			leaderMs, err2 := domain.ParseIdacTime(leaderRecord.Record)
+			playerMs, err1 := entity.ParseIdacTime(foundRecord.Record)
+			leaderMs, err2 := entity.ParseIdacTime(leaderRecord.Record)
 
 			// Only calculate if parsing succeeded
 			if err1 == nil && err2 == nil {
 				diff := playerMs - leaderMs
-				deltaStr = fmt.Sprintf(" (%s)", domain.FormatIdacTimeDelta(diff))
+				deltaStr = fmt.Sprintf(" (%s)", entity.FormatIdacTimeDelta(diff))
 			}
 		}
 		// Player Found

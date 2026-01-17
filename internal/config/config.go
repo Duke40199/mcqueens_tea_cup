@@ -23,7 +23,7 @@ type AppConfig struct {
 
 // DiscordConfig holds Discord Integration configuration
 type DiscordConfig struct {
-	Token string
+	Token string `json:"token"`
 }
 
 type RSSConfig struct {
@@ -63,7 +63,6 @@ func LoadConfig() (*AppConfig, error) {
 	cfg.DatabaseCfg.Password = os.Getenv("DB_PASSWORD")
 	cfg.DatabaseCfg.Name = os.Getenv("DB_NAME")
 
-	// Helper to parse Port (string -> int)
 	portStr := os.Getenv("DB_PORT")
 	if port, err := strconv.Atoi(portStr); err == nil {
 		cfg.DatabaseCfg.Port = port

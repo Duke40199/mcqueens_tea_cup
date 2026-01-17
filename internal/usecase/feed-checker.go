@@ -4,17 +4,17 @@ import (
 	"log"
 
 	"McQueens_Tea_Cup/internal/config"
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type FeedChecker struct {
-	rss        domain.RSSFetcher
-	notifier   domain.Notifier
-	state      domain.StateStore
-	translator domain.Translator
+	rss        entity.RSSFetcher
+	notifier   entity.Notifier
+	state      entity.StateStore
+	translator entity.Translator
 }
 
-func NewFeedChecker(rss domain.RSSFetcher, not domain.Notifier, state domain.StateStore, trans domain.Translator) *FeedChecker {
+func NewFeedChecker(rss entity.RSSFetcher, not entity.Notifier, state entity.StateStore, trans entity.Translator) *FeedChecker {
 	return &FeedChecker{
 		rss:        rss,
 		notifier:   not,
@@ -38,7 +38,7 @@ func (fc *FeedChecker) Check(feeds []config.FeedConfig) {
 		lastSeenID, exists := fc.state.GetLastSeen(feedConf.URL)
 
 		// Logic to filter new items vs old items
-		var newItems []domain.Item
+		var newItems []entity.Item
 
 		if !exists {
 			// Cold start logic: just mark the latest as seen without posting

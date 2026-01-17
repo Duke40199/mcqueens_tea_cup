@@ -1,4 +1,4 @@
-package domain
+package entity
 
 type FeedState map[string]string // Map of FeedURL -> LastSeenGUID
 

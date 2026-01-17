@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
-
 	"github.com/bwmarrin/discordgo"
+
+	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
 )
 
 // sendPagination sends a paginated message with Next/Prev buttons

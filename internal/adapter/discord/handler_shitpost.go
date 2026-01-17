@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -26,7 +26,7 @@ func (h *Handler) HandleMckween(i *discordgo.InteractionCreate) {
 }
 
 func (h *Handler) HandleMiemebell(i *discordgo.InteractionCreate) {
-	var data domain.MieMeBell
+	var data entity.MieMeBell
 	// Assuming miemebellJson is accessible here (package level or struct field)
 	if err := json.Unmarshal(miemebellJson, &data); err != nil {
 		log.Println("Error parsing JSON:", err)
@@ -76,7 +76,7 @@ func (h *Handler) HandleNuhuh(i *discordgo.InteractionCreate) {
 }
 
 func (h *Handler) HandleMeoMeo(i *discordgo.InteractionCreate) {
-	var data domain.MeoMeoRequest
+	var data entity.MeoMeoRequest
 	var selectedUserID string
 	var selectedLang string
 

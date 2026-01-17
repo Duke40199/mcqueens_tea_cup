@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"regexp"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -18,13 +18,13 @@ func NewGoFeedFetcher() *GoFeedFetcher {
 	return &GoFeedFetcher{parser: gofeed.NewParser()}
 }
 
-func (g *GoFeedFetcher) Fetch(url string) ([]domain.Item, error) {
+func (g *GoFeedFetcher) Fetch(url string) ([]entity.Item, error) {
 	feed, err := g.parser.ParseURL(url)
 	if err != nil {
 		return nil, err
 	}
 
-	var items []domain.Item
+	var items []entity.Item
 	for _, i := range feed.Items {
 		guid := i.GUID
 		if guid == "" {
@@ -42,7 +42,7 @@ func (g *GoFeedFetcher) Fetch(url string) ([]domain.Item, error) {
 		}
 
 		// CLEANING HAPPENS HERE:
-		items = append(items, domain.Item{
+		items = append(items, entity.Item{
 			Title:    i.Title,
 			Content:  cleanHTML(rawContent), // <--- HTML stripped here
 			Link:     normalizeLink(i.Link), // <--- Twitter links fixed here

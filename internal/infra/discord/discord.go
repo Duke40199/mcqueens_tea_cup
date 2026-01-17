@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -25,7 +25,7 @@ func (d *DiscordNotifier) Close() error {
 	return d.session.Close()
 }
 
-func (d *DiscordNotifier) Send(channelID string, item domain.Item, feedTitle string, transEN, transVN string) error {
+func (d *DiscordNotifier) Send(channelID string, item entity.Item, feedTitle string, transEN, transVN string) error {
 	// Reconstruct the message body logic
 	msgBody := fmt.Sprintf("**%s**\n\n", feedTitle)
 

@@ -6,9 +6,9 @@ import (
 	"log"
 	"strconv"
 
-	idac_domain "McQueens_Tea_Cup/internal/domain/idac"
-
 	"github.com/bwmarrin/discordgo"
+
+	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
 )
 
 //go:embed resource/nuhuh.gif
@@ -388,9 +388,9 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		if rootOption.Name == "player-alias" {
 			switch subCmd.Name {
 			case "set":
-				h.HandlePlayerAliasSet(i, optMap["user"], optMap)
+				h.HandleSetPlayerAlias(i, optMap["user"], optMap)
 			case "set-custom":
-				h.HandlePlayerAliasSet(i, optMap["tag"], optMap)
+				h.HandleSetPlayerAlias(i, optMap["tag"], optMap)
 			}
 		}
 		return

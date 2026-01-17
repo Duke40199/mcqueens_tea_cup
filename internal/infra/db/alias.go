@@ -6,20 +6,20 @@ import (
 	"os"
 	"sync"
 
-	"McQueens_Tea_Cup/internal/domain"
+	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 // JSONAliasStore implements domain.AliasRepository
 type JSONAliasStore struct {
 	mu       sync.RWMutex
-	data     map[string]domain.PlayerAlias
+	data     map[string]entity.PlayerAlias
 	filename string
 }
 
 // NewJSONAliasStore creates the store and loads existing data immediately
 func NewJSONAliasStore(filename string) *JSONAliasStore {
 	store := &JSONAliasStore{
-		data:     make(map[string]domain.PlayerAlias),
+		data:     make(map[string]entity.PlayerAlias),
 		filename: filename,
 	}
 
@@ -34,7 +34,7 @@ func NewJSONAliasStore(filename string) *JSONAliasStore {
 }
 
 // Get retrieves an alias (Thread-safe)
-func (s *JSONAliasStore) Get(key string) (domain.PlayerAlias, bool) {
+func (s *JSONAliasStore) Get(key string) (entity.PlayerAlias, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.data[key]
@@ -44,7 +44,7 @@ func (s *JSONAliasStore) Get(key string) (domain.PlayerAlias, bool) {
 // Set updates an alias and saves to disk (Thread-safe)
 func (s *JSONAliasStore) Set(key, ign, area string) error {
 	s.mu.Lock()
-	s.data[key] = domain.PlayerAlias{Ign: ign, Area: area}
+	s.data[key] = entity.PlayerAlias{Ign: ign, Area: area}
 	s.mu.Unlock()
 
 	return s.save()
