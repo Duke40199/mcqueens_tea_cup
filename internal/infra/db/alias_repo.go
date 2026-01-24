@@ -38,23 +38,25 @@ func (a *AliasRespository) GetByAliasKey(key string) (entity.PlayerAlias, bool, 
 	return alias, true, nil
 }
 
-func (a *AliasRespository) GetByIgn(ign string) (entity.PlayerAlias, bool) {
-	query := `SELECT ign, area FROM player_alias WHERE ign = $1`
-
-	row := a.DB.QueryRow(query, ign)
+func (a *AliasRespository) GetByIgnAndAreaCode(ign, areaCode string) (entity.PlayerAlias, bool, error) {
+	query := `SELECT ign, area FROM player_alias 
+              WHERE lower(normalize(ign, NFKC)) = lower(normalize($1, NFKC))
+              AND area = $2
+              LIMIT 1`
+	row := a.DB.QueryRow(query, ign, areaCode)
 
 	var alias entity.PlayerAlias
 	err := row.Scan(&alias.Ign, &alias.Area)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return entity.PlayerAlias{}, false // Not found
+			return entity.PlayerAlias{}, false, err // Not found
 		}
 		// Log error in a real app
 		fmt.Println("DB Error:", err)
-		return entity.PlayerAlias{}, false
+		return entity.PlayerAlias{}, false, err
 	}
 
-	return alias, true
+	return alias, true, nil
 }
 
 // SetPlayerAlias inserts or updates alias

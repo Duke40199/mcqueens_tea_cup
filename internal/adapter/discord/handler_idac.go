@@ -347,7 +347,8 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 	// 2. Resolve Player 1
-	p1Name, p1Area, _, err := entity.ResolvePlayerCredential(optMap["player1"], optMap["area1"])
+	fmt.Println("===== p1Area:", optMap["area1"])
+	p1Name, p1Area, _, err := h.ResolvePlayerCredentialDB(optMap["player1"], optMap["area1"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
 		return
@@ -359,7 +360,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	}
 
 	// 3. Resolve Player 2
-	p2Name, p2Area, _, err := entity.ResolvePlayerCredential(optMap["player2"], optMap["area2"])
+	p2Name, p2Area, _, err := h.ResolvePlayerCredentialDB(optMap["player2"], optMap["area2"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 2 Error:** " + err.Error())
 		return
@@ -729,16 +730,19 @@ func (h *Handler) ResolvePlayerCredentialDB(input, manualArea string) (string, s
 		foundAlias = true
 		aliasIgn = playerAlias.Ign
 		aliasArea = playerAlias.Area
+	} else {
+		areaCode := entity.AreaAliases[manualArea]
+		// Case B: Text Input -> Try Custom Tag Lookup
+		// Use lowercase key for case-insensitive matching
+		val, ok, err := h.AliasRepo.GetByIgnAndAreaCode(strings.ToLower(cleanInput), areaCode)
+		if ok && err == nil {
+			aliasIgn = val.Ign
+			aliasArea = val.Area
+			foundAlias = true
+		} else {
+			return "", "", false, fmt.Errorf("couldn't find a matching alias")
+		}
 	}
-	//else {
-	//	// Case B: Text Input -> Try Custom Tag Lookup
-	//	// Use lowercase key for case-insensitive matching
-	//	if val, ok := Aliases.Get(strings.ToLower(cleanInput)); ok {
-	//		aliasIgn = val.Ign
-	//		aliasArea = val.Area
-	//		foundAlias = true
-	//	}
-	//}
 
 	// 4. Merge Logic (Alias vs Manual)
 	finalIgn := cleanInput

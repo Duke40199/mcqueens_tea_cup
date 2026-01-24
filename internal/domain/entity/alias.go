@@ -35,15 +35,15 @@ var Aliases = &AliasStore{
 	File: "aliases.json",
 }
 
-// --- FIX: Auto-load on startup ---
-func init() {
-	// This runs automatically when the program starts
-	if err := Aliases.Load(); err != nil {
-		fmt.Println("⚠️ No aliases loaded (starting fresh).")
-	} else {
-		fmt.Printf("✅ Automatically loaded %d aliases from %s\n", len(Aliases.Data), Aliases.File)
-	}
-}
+//// --- FIX: Auto-load on startup ---
+//func init() {
+//	// This runs automatically when the program starts
+//	if err := Aliases.Load(); err != nil {
+//		fmt.Println("⚠️ No aliases loaded (starting fresh).")
+//	} else {
+//		fmt.Printf("✅ Automatically loaded %d aliases from %s\n", len(Aliases.Data), Aliases.File)
+//	}
+//}
 
 // Load reads from disk
 func (s *AliasStore) Load() error {
