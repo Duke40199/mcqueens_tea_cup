@@ -427,7 +427,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 			return nil, fmt.Sprintf("Status %d", resp.StatusCode), nil
 		}
 
-		var data entity.IdacResponse
+		var data entity.IdacTimeAttackRecordResponse
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 			return nil, "Parse Error", nil
 		}
@@ -454,7 +454,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
 		resp, err := http.Get(fullURL)
 		if err == nil && resp.StatusCode == 200 {
-			var data entity.IdacResponse
+			var data entity.IdacTimeAttackRecordResponse
 			_ = json.NewDecoder(resp.Body).Decode(&data)
 			resp.Body.Close()
 
@@ -611,7 +611,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	}
 
 	// 4. Parse JSON
-	var data entity.IdacResponse
+	var data entity.IdacTimeAttackRecordResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		errStr := "❌ Error parsing SEGA data."
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})

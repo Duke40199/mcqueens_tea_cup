@@ -31,7 +31,7 @@ func (c *Client) GetTeamRanking(roundNum int, rankCode string) ([]entity.TeamRec
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
-	var data entity.TeamRankingResponse
+	var data entity.IdacTeamRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (c *Client) GetTimeAttack(courseID, area, carID, spec string) ([]entity.Tim
 	}
 
 	// 3. Parse
-	var data entity.IdacResponse
+	var data entity.IdacTimeAttackRecordResponse
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (c *Client) FetchTeamRankings(roundNum int, rankCode string) ([]entity.Team
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
-	var data entity.TeamRankingResponse
+	var data entity.IdacTeamRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
