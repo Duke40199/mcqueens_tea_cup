@@ -59,7 +59,7 @@ type OBRankingRecord struct {
 func (r OBRankingRecord) GetDisplayStarCount() string {
 	var displayStar string
 	for i := 0; i < r.StarCnt; i++ {
-		displayStar += "⭐"
+		displayStar += "★"
 	}
 	return displayStar
 }
