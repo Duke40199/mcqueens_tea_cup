@@ -16,19 +16,21 @@ var unauthorizedGif []byte
 // Handler holds dependencies.
 // It doesn't know about HTTP, it only knows "IdacRepository".
 type Handler struct {
-	Session   *discordgo.Session
-	SegaRepo  entity.IdacRepository
-	AliasRepo postgres.AliasRepository
-	OwnerID   string
+	Session          *discordgo.Session
+	SegaClient       entity.SegaClient
+	AliasRepo        postgres.AliasRepository
+	OBRankingCfgRepo postgres.OBRankingCfgRepository
+	OwnerID          string
 }
 
 // NewHandler creates our controller
-func NewHandler(s *discordgo.Session, sega entity.IdacRepository, alias postgres.AliasRepository) *Handler {
+func NewHandler(s *discordgo.Session, sega entity.SegaClient, alias postgres.AliasRepository, obRankingCfg postgres.OBRankingCfgRepository) *Handler {
 	return &Handler{
-		Session:   s,
-		SegaRepo:  sega,
-		AliasRepo: alias,
-		OwnerID:   "384015507302383616",
+		Session:          s,
+		SegaClient:       sega,
+		AliasRepo:        alias,
+		OBRankingCfgRepo: obRankingCfg,
+		OwnerID:          "384015507302383616",
 	}
 }
 

@@ -4,22 +4,25 @@ import (
 	"database/sql"
 	"fmt"
 
+	"McQueens_Tea_Cup/internal/adapter/postgres"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
 )
 
-type AliasRespository struct {
+type AliasRepository struct {
 	DB *sql.DB
 }
 
 // NewPostgresAliasRepo returns the struct that satisfies AliasRepository
-func NewPostgresAliasRepo(db *sql.DB) *AliasRespository {
-	return &AliasRespository{DB: db}
+func NewPostgresAliasRepo(db *sql.DB) postgres.AliasRepository {
+	return &AliasRepository{
+		DB: db,
+	}
 }
 
 // GetByAliasKey fetches alias from DB
-func (a *AliasRespository) GetByAliasKey(key string) (entity.PlayerAlias, bool, error) {
+func (a *AliasRepository) GetByAliasKey(key string) (entity.PlayerAlias, bool, error) {
 	query := `SELECT ign, area FROM player_alias WHERE alias_key = $1`
 
 	row := a.DB.QueryRow(query, key)
@@ -38,7 +41,7 @@ func (a *AliasRespository) GetByAliasKey(key string) (entity.PlayerAlias, bool, 
 	return alias, true, nil
 }
 
-func (a *AliasRespository) GetByIgnAndAreaCode(ign, areaCode string) (entity.PlayerAlias, bool, error) {
+func (a *AliasRepository) GetByIgnAndAreaCode(ign, areaCode string) (entity.PlayerAlias, bool, error) {
 	query := `SELECT ign, area FROM player_alias 
               WHERE lower(normalize(ign, NFKC)) = lower(normalize($1, NFKC))
               AND area = $2
@@ -60,7 +63,7 @@ func (a *AliasRespository) GetByIgnAndAreaCode(ign, areaCode string) (entity.Pla
 }
 
 // SetPlayerAlias inserts or updates alias
-func (a *AliasRespository) SetPlayerAlias(key, ign, area string) error {
+func (a *AliasRepository) SetPlayerAlias(key, ign, area string) error {
 	// UPSERT: Insert, but if conflict (key exists), update the existing row
 	query := `
 		INSERT INTO player_aliases (alias_key, ign, area, updated_at)
@@ -73,6 +76,6 @@ func (a *AliasRespository) SetPlayerAlias(key, ign, area string) error {
 }
 
 // Load is not needed for DB (Query on demand), so we leave it empty to satisfy interface
-func (a *AliasRespository) Load() error {
+func (a *AliasRepository) Load() error {
 	return nil
 }
