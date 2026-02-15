@@ -285,6 +285,42 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
+				// Subcommand: Team
+				{
+					Name:        "online-battle",
+					Description: "Get Battle Online Rankings",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "rank",
+							Description: "Filter results by rank",
+							Required:    true,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "Pride", Value: "pride"},
+								{Name: "Ruby", Value: "ruby"},
+								{Name: "Emerald", Value: "emerald"},
+								{Name: "Red", Value: "red"},
+								{Name: "Blue", Value: "blue"},
+								{Name: "Green", Value: "green"},
+							},
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "country",
+							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "limit",
+							Description: "Number of results to show (1-25, default: 10)",
+							Required:    false,
+							MinValue:    &minLimit,
+							MaxValue:    maxLimit,
+						},
+					},
+				},
 			},
 		},
 		// --- Simple Commands ---
