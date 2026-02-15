@@ -287,7 +287,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Subcommand: Team
 				{
-					Name:        "online-battle",
+					Name:        "ob-ranking",
 					Description: "Get Battle Online Rankings",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -295,7 +295,7 @@ func (h *Handler) RegisterCommands() error {
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "rank",
 							Description: "Filter results by rank",
-							Required:    true,
+							Required:    false,
 							Choices: []*discordgo.ApplicationCommandOptionChoice{
 								{Name: "Pride", Value: "pride"},
 								{Name: "Ruby", Value: "ruby"},
@@ -307,8 +307,14 @@ func (h *Handler) RegisterCommands() error {
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "country",
+							Name:        "area",
 							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "round",
+							Description: "Filter by round (number or \"all\"). If left empty, will use current round.",
 							Required:    false,
 						},
 						{
@@ -464,5 +470,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandlePlayerInfo(i, optMap)
 	case "player-compare":
 		h.HandlePlayerCompare(i, optMap)
+	case "ob-ranking":
+		h.HandleOBRanking(i, optMap)
 	}
 }

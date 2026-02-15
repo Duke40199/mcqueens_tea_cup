@@ -51,8 +51,11 @@ func (c *AppConfig) GetRSSCfg() RSSConfig {
 
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*AppConfig, error) {
-	_ = godotenv.Load()
-
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Cannot load cfg: %s", err)
+		return nil, err
+	}
 	cfg := &AppConfig{}
 
 	// discord

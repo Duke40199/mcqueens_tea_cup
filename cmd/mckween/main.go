@@ -34,6 +34,8 @@ func main() {
 		log.Fatal(err)
 	}
 	aliasRepo := db.NewPostgresAliasRepo(dbConn)
+	obRankingCfgRepo := db.NewOBRankingCfgRepository(dbConn)
+
 	// 2. SHARED INFRASTRUCTURE: Create Discord Session ONCE
 	// We do not Open() it yet. We just create the struct.
 	dg, err := discordgo.New("Bot " + cfg.DiscordCfg.Token)
@@ -50,7 +52,7 @@ func main() {
 
 	// A2. Init Delivery (The Command Controller)
 	// We inject the shared 'dg' session here
-	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasRepo)
+	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasRepo, obRankingCfgRepo)
 
 	// A3. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {

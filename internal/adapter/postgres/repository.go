@@ -10,3 +10,9 @@ type AliasRepository interface {
 	SetPlayerAlias(discordID, ign, area string) error
 	Load() error
 }
+
+// AliasRepository defines how we interact with player aliases.
+type OBRankingCfgRepository interface {
+	GetRankingCfgMap() (map[string]entity.OBRankingCfg, error)
+	GetBySegaID(segaID string) (*entity.OBRankingCfg, error)
+}

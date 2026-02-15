@@ -16,9 +16,9 @@ type IdacTeamRankingResponse struct {
 	Records []TeamRecord `json:"records"`
 }
 
-type IdacBattleRecordResponse struct {
-	CalcDate string         `json:"calcDate"`
-	Records  []BattleRecord `json:"records"`
+type IdacOBRankingResponse struct {
+	CalcDate string            `json:"calcDate"`
+	Records  []OBRankingRecord `json:"records"`
 }
 
 type TeamRecord struct {
@@ -42,7 +42,7 @@ type TimeAttackRecord struct {
 	UpdateDate string `json:"updateDate"`
 }
 
-type BattleRecord struct {
+type OBRankingRecord struct {
 	Rank       string `json:"rank"`
 	Name       string `json:"name"`
 	ShopName   string `json:"shopname"`
@@ -54,6 +54,14 @@ type BattleRecord struct {
 	PridePoint         int    `json:"pridePoint"`
 	OnlineBattleRankId string `json:"onlineBattleRankId"`
 	StarCnt            int    `json:"starCnt"`
+}
+
+func (r OBRankingRecord) GetDisplayStarCount() string {
+	var displayStar string
+	for i := 0; i < r.StarCnt; i++ {
+		displayStar += "⭐"
+	}
+	return displayStar
 }
 
 var OnlineBattleRankDisplayNameByCode = map[string]string{
