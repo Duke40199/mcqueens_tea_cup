@@ -786,29 +786,6 @@ func (h *Handler) HandleOBRanking(i *discordgo.InteractionCreate, optMap map[str
 	sendDeferredError := func(msg string) {
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
-	// // 2. Validate Inputs
-	// // We look for 'variant' because that holds the actual Course ID now
-	// if optMap["variant"] == "" || optMap["variant"] == "none" || optMap["area"] == "" {
-	// 	sendDeferredError("⚠️ **Missing Arguments**\nPlease select both a **Track** and a **Variant**, plus an Area.")
-	// 	return
-	// }
-	// // Defaults
-	// if _, ok := optMap["car"]; !ok {
-	// 	optMap["car"] = "car-all"
-	// }
-	// // The User selected: Track="Akina", Variant="course-12" (Downhill)
-	// // We only care about the Variant ID now.
-	// finalCourseID := optMap["variant"]
-
-	// // Resolve Area Alias
-	// areaInput := strings.ToLower(optMap["area"])
-	// if val, ok := entity.AreaAliases[areaInput]; ok {
-	// 	optMap["area"] = val
-	// }
-
-	// // Resolve Car
-	// finalCarID := entity.ResolveCarID(optMap["car"], specInput)
-
 	// 3. Parsing Inputs
 	var limit int
 	if _, ok := optMap["limit"]; ok {
@@ -862,7 +839,7 @@ func (h *Handler) HandleOBRanking(i *discordgo.InteractionCreate, optMap map[str
 	// Pre-calculate Header
 	header := fmt.Sprintf("# Initial D Rankings (Online Battle)\n"+
 		"### 🌎 : %s | Round: %s\n"+
-		"### Calculated at: %s\n\n", areaName, finalRound, records.CalcDate)
+		"### Calculated at: %s (JST time, local time coming soon.)\n\n", areaName, finalRound, records.CalcDate)
 
 	// Initialize first page with header
 	currentMessage.WriteString(header)
