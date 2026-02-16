@@ -7,15 +7,18 @@ import (
 	"strings"
 )
 
-type IdacResponse struct {
+type IdacTimeAttackRecordResponse struct {
 	CalcDate string             `json:"calcDate"`
 	Records  []TimeAttackRecord `json:"records"`
 }
 
-// --- Team Ranking Structures ---
-
-type TeamRankingResponse struct {
+type IdacTeamRankingResponse struct {
 	Records []TeamRecord `json:"records"`
+}
+
+type IdacOBRankingResponse struct {
+	CalcDate string            `json:"calcDate"`
+	Records  []OBRankingRecord `json:"records"`
 }
 
 type TeamRecord struct {
@@ -37,6 +40,37 @@ type TimeAttackRecord struct {
 	CarName    string `json:"carname"`
 	MyTitleID  string `json:"mytitleId"`
 	UpdateDate string `json:"updateDate"`
+}
+
+type OBRankingRecord struct {
+	Rank       string `json:"rank"`
+	Name       string `json:"name"`
+	ShopName   string `json:"shopname"`
+	UpdateDate string `json:"updateDate"`
+	CarName    string `json:"carname"`
+	Point      string `json:"point"`
+	//MytitleId          string `json:"mytitleId"`
+	PrideId            string `json:"prideId"`
+	PridePoint         int    `json:"pridePoint"`
+	OnlineBattleRankId string `json:"onlineBattleRankId"`
+	StarCnt            int    `json:"starCnt"`
+}
+
+func (r OBRankingRecord) GetDisplayStarCount() string {
+	var displayStar string
+	for i := 0; i < r.StarCnt; i++ {
+		displayStar += "★"
+	}
+	return displayStar
+}
+
+var OnlineBattleRankDisplayNameByCode = map[string]string{
+	"dcb98f86f149cf71d3707a1592072e7838f0811140c24238820dff2b82602a85": "Ruby",
+	"dcb98f86f149cf71d3707a1592072e78f41e679a54f693d3574f499da9559173": "Sapphire",
+	"dcb98f86f149cf71d3707a1592072e78b6e12126e2a1e4802ed8674342c946c2": "Emerald",
+	"dcb98f86f149cf71d3707a1592072e786401fd58eb36b5000ac46b76b01cbba6": "Red",
+	"dcb98f86f149cf71d3707a1592072e78b49ea4af21de42fa72062961ba565479": "Blue",
+	"dcb98f86f149cf71d3707a1592072e781508dd5785ba6ef82abb079722176702": "Green",
 }
 
 // --- ALIAS CONFIGURATION ---

@@ -84,7 +84,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	// 3. Fetch Data
 	finalArea := optMap["area"]
-	records, err := h.SegaRepo.GetTimeAttack(finalCourseID, finalArea, finalCarID, specInput)
+	records, err := h.SegaClient.GetTimeAttack(finalCourseID, finalArea, finalCarID, specInput)
 
 	if len(records) == 0 {
 		msg := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\nNo records found.", courseName, areaName, carDisplayName)
@@ -196,7 +196,7 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 	sendDeferredError := func(msg string) {
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
-	roundNum, err := h.SegaRepo.GetCurrentRound()
+	roundNum, err := h.SegaClient.GetCurrentRound()
 	if err != nil {
 		sendDeferredError("⚠️ Error fetching round info.")
 		return
@@ -254,7 +254,7 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 	// 5. Fetch and Aggregate Records
 	var allRecords []entity.TeamRecord
 	for _, code := range targetRanks {
-		records, err := h.SegaRepo.GetTeamRanking(roundNum, code)
+		records, err := h.SegaClient.GetTeamRanking(roundNum, code)
 		if err != nil {
 			if len(targetRanks) == 1 {
 				sendDeferredError(fmt.Sprintf("⚠️ Error fetching data for rank %s", code))
@@ -427,7 +427,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 			return nil, fmt.Sprintf("Status %d", resp.StatusCode), nil
 		}
 
-		var data entity.IdacResponse
+		var data entity.IdacTimeAttackRecordResponse
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 			return nil, "Parse Error", nil
 		}
@@ -454,7 +454,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
 		resp, err := http.Get(fullURL)
 		if err == nil && resp.StatusCode == 200 {
-			var data entity.IdacResponse
+			var data entity.IdacTimeAttackRecordResponse
 			_ = json.NewDecoder(resp.Body).Decode(&data)
 			resp.Body.Close()
 
@@ -611,7 +611,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	}
 
 	// 4. Parse JSON
-	var data entity.IdacResponse
+	var data entity.IdacTimeAttackRecordResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		errStr := "❌ Error parsing SEGA data."
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})

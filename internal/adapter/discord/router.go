@@ -285,8 +285,6 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
-<<<<<<< Updated upstream
-=======
 				// Subcommand: Online Battle
 				{
 					Name:        "ob-ranking",
@@ -364,7 +362,6 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
->>>>>>> Stashed changes
 			},
 		},
 		// --- Simple Commands ---
@@ -508,12 +505,9 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandlePlayerInfo(i, optMap)
 	case "player-compare":
 		h.HandlePlayerCompare(i, optMap)
-<<<<<<< Updated upstream
-=======
 	case "ob-ranking":
 		h.HandleOBRanking(i, optMap)
 	case "ob-meta":
 		h.HandleOBMeta(i, optMap)
->>>>>>> Stashed changes
 	}
 }
