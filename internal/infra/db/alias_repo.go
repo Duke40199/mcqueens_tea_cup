@@ -66,7 +66,7 @@ func (a *AliasRepository) GetByIgnAndAreaCode(ign, areaCode string) (entity.Play
 func (a *AliasRepository) SetPlayerAlias(key, ign, area string) error {
 	// UPSERT: Insert, but if conflict (key exists), update the existing row
 	query := `
-		INSERT INTO player_aliases (alias_key, ign, area, updated_at)
+		INSERT INTO player_alias (alias_key, ign, area, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (alias_key) 
 		DO UPDATE SET ign = EXCLUDED.ign, area = EXCLUDED.area, updated_at = NOW();

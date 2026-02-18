@@ -55,18 +55,18 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 			if calcDateStart > -1 && calcDateEnd > -1 {
 				calcDate := msg[calcDateStart : calcDateStart+calcDateEnd]
 				if s.MetaLogic.IsDataFresh(calcDate) {
-					log.Printf("✅ Data is fresh (CalcDate: %s). Proceeding...", calcDate)
+					log.Printf("✅ MetaSyncService: Data is fresh (CalcDate: %s). Proceeding...", calcDate)
 					detectionTime = time.Now().In(time.FixedZone("JST", 9*60*60)).Format("2006/01/02 15:04:05")
 					break
 				}
 
 				if time.Since(startTime) > maxPollingDuration {
-					log.Printf("❌ Max polling duration reached. Sega is significantly late. Using latest available data.")
+					log.Printf("❌ MetaSyncService: Max polling duration reached. Sega is significantly late. Using latest available data.")
 					detectionTime = time.Now().In(time.FixedZone("JST", 9*60*60)).Format("2006/01/02 15:04:05")
 					break
 				}
 
-				log.Printf("⚠️ Sega is late (CalcDate: %s). Polling again in %v...", calcDate, pollingInterval)
+				log.Printf("⚠️ MetaSyncService: Sega is late (CalcDate: %s). Polling again in %v...", calcDate, pollingInterval)
 			}
 		}
 

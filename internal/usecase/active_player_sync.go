@@ -104,6 +104,8 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 				if detectionTime == "" {
 					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 				}
+			} else {
+				log.Printf("✅ ActivePlayerSyncService: Data is fresh (CalcDate: %s). Proceeding...", resp.CalcDate)
 			}
 
 			calcTime, err := time.ParseInLocation(segaTimeLayout, resp.CalcDate, jstLoc)
