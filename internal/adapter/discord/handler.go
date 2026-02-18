@@ -20,16 +20,18 @@ type Handler struct {
 	SegaClient       entity.SegaClient
 	AliasRepo        postgres.AliasRepository
 	OBRankingCfgRepo postgres.OBRankingCfgRepository
+	CarRepo          postgres.CarRepository
 	OwnerID          string
 }
 
 // NewHandler creates our controller
-func NewHandler(s *discordgo.Session, sega entity.SegaClient, alias postgres.AliasRepository, obRankingCfg postgres.OBRankingCfgRepository) *Handler {
+func NewHandler(s *discordgo.Session, segaClient entity.SegaClient, alias postgres.AliasRepository, obRankingCfg postgres.OBRankingCfgRepository, carRepo postgres.CarRepository) *Handler {
 	return &Handler{
 		Session:          s,
-		SegaClient:       sega,
+		SegaClient:       segaClient,
 		AliasRepo:        alias,
 		OBRankingCfgRepo: obRankingCfg,
+		CarRepo:          carRepo,
 		OwnerID:          "384015507302383616",
 	}
 }

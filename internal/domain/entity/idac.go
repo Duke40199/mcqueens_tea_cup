@@ -717,9 +717,11 @@ var SpecAliases = map[string]int{
 
 // SpecEmojis maps spec codes to emojis (Unicode or Custom Discord IDs)
 var SpecEmojis = map[string]string{
-	"dh": "<:dh:1448368217574740038>",
-	"ar": "<:ar:1448368501550092339>",
-	"hc": "<:hc:1448368366732447908>",
+	"dh":    "<:dh:1448368217574740038>",
+	"ar":    "<:ar:1448368501550092339>",
+	"hc":    "<:hc:1448368366732447908>",
+	"speed": "<:speed:1473575226418790551>",
+	"tech":  "<:tech:1473575264171851817>",
 }
 
 var TeamLeagueEmojis = map[string]string{
@@ -812,4 +814,65 @@ func NormalizeTextWidth(s string) string {
 		// Return the character unchanged if it's not full-width
 		return r
 	}, s)
+}
+
+type IdacConstResponse struct {
+	Cars   []CarMetadata      `json:"car"`
+	Styles []CarStyleMetadata `json:"style"`
+}
+
+// CarSpecInfo holds the canonical model code and base spec for lookups
+type CarSpecInfo struct {
+	Maker     string
+	CarName   string
+	ModelCode string // Canonical model code (e.g. "CZ4A")
+	BaseSpec  string // "speed" or "tech"
+}
+
+type CarMetadata struct {
+	ID                  string  `json:"id"` // pk
+	SegaCarID           int64   `json:"car_id"`
+	Name                string  `json:"car_name"`
+	ModelCode           string  `json:"model_code"`
+	Maker               string  `json:"maker_name"`
+	BaseStyleName       string  `json:"base_style_name"`
+	NormalizedBaseStyle string  `json:"normalized_base_style"`
+	CarStyleIDs         []int64 `json:"style_car_id"`
+}
+
+func (c *CarMetadata) GetNormalizedBaseStyle() string {
+	switch c.BaseStyleName {
+	case "テクニカル":
+		return "tech"
+	case "高速":
+		return "speed"
+	default:
+		return c.BaseStyleName
+	}
+}
+func (c *CarMetadata) GetNormalisedCarName() string {
+	return strings.Split(c.Name, "(")[0]
+}
+
+func (c *CarMetadata) GetNormalisedMakerName() string {
+	return strings.ToLower(c.Maker)
+}
+
+// GetCarModelCode extracts the text inside the last set of parentheses from a display name.
+// e.g. "SPRINTER TRUENO GT-APEX (AE86)" -> "AE86"
+func (c *CarMetadata) GetCarModelCode() string {
+	start := strings.LastIndex(c.Name, "(")
+	end := strings.LastIndex(c.Name, ")")
+	if start == -1 || end == -1 || end <= start {
+		return "" // No valid brackets found
+	}
+	return c.Name[start+1 : end]
+}
+
+type CarStyleMetadata struct {
+	ID             string `json:"id"` // pk
+	StyleCarID     int64  `json:"style_car_id"`
+	CarID          string `json:"car_id"` // fk of cars
+	Name           string `json:"style_name"`
+	RouteStyleName string `json:"route_style_name"`
 }

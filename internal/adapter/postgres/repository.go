@@ -1,6 +1,9 @@
 package postgres
 
-import "McQueens_Tea_Cup/internal/domain/entity"
+import (
+	"McQueens_Tea_Cup/internal/domain/entity"
+	"context"
+)
 
 // AliasRepository defines how we interact with player aliases.
 type AliasRepository interface {
@@ -15,4 +18,10 @@ type AliasRepository interface {
 type OBRankingCfgRepository interface {
 	GetRankingCfgMap() (map[string]entity.OBRankingCfg, error)
 	GetBySegaID(segaID string) (*entity.OBRankingCfg, error)
+}
+
+type CarRepository interface {
+	UpsertCars(ctx context.Context, cars []entity.CarMetadata) error
+	UpsertCarStyles(ctx context.Context, styles []entity.CarStyleMetadata) error
+	GetBaseSpecMap(ctx context.Context) (map[string]entity.CarSpecInfo, error)
 }

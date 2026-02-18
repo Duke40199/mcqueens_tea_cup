@@ -148,3 +148,23 @@ func (c *SegaClient) GetListOBRanking(roundNum string, areaCode string) (*entity
 	// }
 	return &data, nil
 }
+
+func (c *SegaClient) FetchConst() (*entity.IdacConstResponse, error) {
+	constURL := "https://initiald.sega.jp/inidac/json/ranking/v1/const.json"
+	fmt.Printf("Fetching const data from %s\n", constURL)
+	resp, err := http.Get(constURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code %d", resp.StatusCode)
+	}
+
+	var data entity.IdacConstResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return &data, nil
+}

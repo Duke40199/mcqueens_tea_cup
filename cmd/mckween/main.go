@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -49,15 +50,40 @@ func main() {
 
 	// A1. Init Repositories (Data Access)
 	segaClient := sega.NewClient() // Handles HTTP to SEGA
+	carRepo := db.NewCarRepository(dbConn)
 
 	// A2. Init Delivery (The Command Controller)
 	// We inject the shared 'dg' session here
-	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasRepo, obRankingCfgRepo)
+	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasRepo, obRankingCfgRepo, carRepo)
 
 	// A3. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {
 		log.Printf("⚠️ Failed to register commands: %v", err)
 	}
+
+	// ---------------------------------------------------------
+	// FEATURE C: CAR DATA SYNC (Cron)
+	// ---------------------------------------------------------
+	carSyncService := usecase.NewCarSyncService(segaClient, carRepo)
+
+	// Run Sync in background (every 24h)
+	go func() {
+		// Run once on startup
+		log.Println("⏳ Initializing Car Data Sync...")
+		if err := carSyncService.SyncData(context.Background()); err != nil {
+			log.Printf("❌ Initial Car Sync Failed: %v", err)
+		}
+
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			log.Println("⏰ Starting Scheduled Car Sync...")
+			if err := carSyncService.SyncData(context.Background()); err != nil {
+				log.Printf("❌ Scheduled Car Sync Failed: %v", err)
+			}
+		}
+	}()
 
 	// ---------------------------------------------------------
 	// FEATURE B: RSS FEED CHECKER (Existing Logic)

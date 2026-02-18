@@ -6,6 +6,7 @@ type SegaClient interface {
 	GetTeamRanking(round int, rankCode string) ([]TeamRecord, error)
 	GetListOBRanking(roundNum string, areaCode string) (*IdacOBRankingResponse, error)
 	GetCurrentRound() (int, error)
+	FetchConst() (*IdacConstResponse, error)
 }
 
 // RSSFetcher defines how we get feeds (abstracts gofeed)
