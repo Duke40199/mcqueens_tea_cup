@@ -3,9 +3,11 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"McQueens_Tea_Cup/internal/adapter/postgres"
 	"McQueens_Tea_Cup/internal/domain/entity"
@@ -181,4 +183,51 @@ func (s *MetaLogicService) getCarStatName(carStat *entity.CarSpecInfo, defaultCo
 		return defaultCode
 	}
 	return fmt.Sprintf("%s %s [%s]", strings.Title(carStat.Maker), strings.Title(carStat.CarName), strings.Title(carStat.ModelCode))
+}
+
+// SleepUntilNextSync calculates the wait time until the next Sega OB update (hh:02:02, 16:02, 31:02, 46:02)
+// and sleeps with a 5-second safety buffer.
+func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
+	targets := []int{2, 16, 31, 46}
+	buffer := 5 * time.Second
+
+	for {
+		now := time.Now().In(time.FixedZone("JST", 9*60*60)) // Use JST for Sega sync
+		currentMin := now.Minute()
+		currentSec := now.Second()
+
+		var nextMin int
+		found := false
+		for _, m := range targets {
+			if currentMin < m || (currentMin == m && currentSec < 2) {
+				nextMin = m
+				found = true
+				break
+			}
+		}
+
+		nextTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), nextMin, 2, 0, now.Location())
+		if !found {
+			// Next update is next hour at :02
+			nextTime = nextTime.Add(time.Hour)
+			nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), nextTime.Hour(), 2, 2, 0, nextTime.Location())
+		}
+
+		// Apply safety buffer
+		wakeTime := nextTime.Add(buffer)
+		waitDuration := time.Until(wakeTime)
+
+		if waitDuration > 0 {
+			log.Printf("😴 Sleeping for %v until next Sega update (%s)...", waitDuration.Round(time.Second), wakeTime.Format("15:04:05"))
+			timer := time.NewTimer(waitDuration)
+			select {
+			case <-timer.C:
+				return
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			}
+		}
+		// If we missed it somehow, loop again immediately for next target
+	}
 }

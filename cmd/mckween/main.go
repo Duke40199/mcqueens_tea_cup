@@ -137,20 +137,12 @@ func main() {
 
 	// Run Sync in background
 	go func() {
-		// Interval from config
-		interval := time.Duration(cfg.MetaSyncCfg.Interval) * time.Minute
-		metaTicker := time.NewTicker(interval)
-		defer metaTicker.Stop()
+		ctx := context.Background()
+		for {
+			metaLogic.SleepUntilNextSync(ctx)
 
-		// Run once on startup (after Discord is open)
-		time.Sleep(5 * time.Second) // Small delay to ensure bot is fully ready
-		log.Println("📊 Initializing OBMeta Sync...")
-		if err := metaSync.Sync(context.Background()); err != nil {
-			log.Printf("❌ Initial OBMeta Sync Failed: %v", err)
-		}
-
-		for range metaTicker.C {
-			if err := metaSync.Sync(context.Background()); err != nil {
+			log.Println("📊 Starting OBMeta Sync...")
+			if err := metaSync.Sync(ctx); err != nil {
 				log.Printf("❌ Scheduled OBMeta Sync Failed: %v", err)
 			}
 		}
@@ -163,19 +155,12 @@ func main() {
 
 	// Run Sync in background
 	go func() {
-		interval := time.Duration(cfg.ActivePlayersSyncCfg.Interval) * time.Minute
-		activeTicker := time.NewTicker(interval)
-		defer activeTicker.Stop()
+		ctx := context.Background()
+		for {
+			metaLogic.SleepUntilNextSync(ctx)
 
-		// Initial run on startup (with delay)
-		time.Sleep(10 * time.Second)
-		log.Println("🔍 Initializing Active Players SEA Sync...")
-		if err := activePlayersSync.Sync(context.Background()); err != nil {
-			log.Printf("❌ Initial Active Players Sync Failed: %v", err)
-		}
-
-		for range activeTicker.C {
-			if err := activePlayersSync.Sync(context.Background()); err != nil {
+			log.Println("🔍 Starting Active Players SEA Sync...")
+			if err := activePlayersSync.Sync(ctx); err != nil {
 				log.Printf("❌ Scheduled Active Players Sync Failed: %v", err)
 			}
 		}
