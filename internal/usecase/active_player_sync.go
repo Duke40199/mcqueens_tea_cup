@@ -81,88 +81,122 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	startTime := time.Now()
 	detectionTime := ""
 
-	for {
-		activePlayersByArea = make(map[string]areaActivity)
-		freshDataFound := false
+	// 4. Fetch existing messages to extract state (Source of Truth)
+	lastReportedTimeStr := ""
+	lastDetectedHeaderPrefix := "_Detected at: "
 
-		// 4. Check each area
-		jstLoc, _ := time.LoadLocation("Asia/Tokyo")
-		for _, area := range areas {
-			resp, err := s.SegaClient.GetListOBRanking(roundStr, area.AreaCode)
-			if err != nil {
-				log.Printf("⚠️ Error fetching ranking for %s (%s): %v", area.AreaName, area.AreaCode, err)
-				continue
-			}
-
-			if resp == nil || len(resp.Records) == 0 {
-				continue
-			}
-
-			// Validation: check if this data is fresh
-			if s.MetaLogic.IsDataFresh(resp.CalcDate) {
-				freshDataFound = true
-				if detectionTime == "" {
-					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
-				}
-			} else {
-				log.Printf("✅ ActivePlayerSyncService: Data is fresh (CalcDate: %s). Proceeding...", resp.CalcDate)
-			}
-
-			calcTime, err := time.ParseInLocation(segaTimeLayout, resp.CalcDate, jstLoc)
-			if err != nil {
-				continue
-			}
-
-			localLoc, err := time.LoadLocation(area.Timezone)
-			if err != nil {
-				localLoc = jstLoc
-			}
-
-			_, offsetSeconds := time.Now().In(localLoc).Zone()
-			offsetHours := offsetSeconds / 3600
-			gmtStr := fmt.Sprintf("GMT%+d", offsetHours)
-
-			var players []playerActivity
-			for _, record := range resp.Records {
-				updateTime, err := time.ParseInLocation(segaTimeLayout, record.UpdateDate, jstLoc)
-				if err != nil {
-					continue
-				}
-
-				if calcTime.Sub(updateTime) <= 15*time.Minute {
-					localTimeStr := updateTime.In(localLoc).Format("15:04:05")
-					players = append(players, playerActivity{
-						Record:    record,
-						LocalTime: localTimeStr,
-					})
-				}
-			}
-
-			if len(players) > 0 {
-				activePlayersByArea[area.AreaName] = areaActivity{
-					GMT:     gmtStr,
-					Players: players,
+	messages, err := s.Session.ChannelMessages(s.Config.ChannelID, 50, "", "", "")
+	var botMessages []*discordgo.Message
+	if err == nil {
+		for _, m := range messages {
+			if m.Author.ID == s.Session.State.User.ID {
+				botMessages = append(botMessages, m)
+				if lastReportedTimeStr == "" && strings.Contains(m.Content, lastDetectedHeaderPrefix) {
+					start := strings.Index(m.Content, lastDetectedHeaderPrefix) + len(lastDetectedHeaderPrefix)
+					end := strings.Index(m.Content[start:], " (JST)")
+					if end > -1 {
+						lastReportedTimeStr = m.Content[start : start+end]
+						log.Printf("📥 Found existing state in Discord. Last reported: %s", lastReportedTimeStr)
+					}
 				}
 			}
 		}
+	}
 
-		if freshDataFound || time.Since(startTime) > maxPollingDuration {
-			if !freshDataFound {
-				log.Printf("❌ Max polling duration reached for Active Players. Results might be 15m late.")
-				detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05") // Fallback detection time
-			} else {
-				log.Printf("✅ Fresh data found for Active Player Sync. Proceeding...")
+	// 5. Polling Phase (Canary Check)
+	jstLoc, _ := time.LoadLocation("Asia/Tokyo")
+	canaryArea := areas[0]
+
+	for {
+		resp, err := s.SegaClient.GetListOBRanking(roundStr, canaryArea.AreaCode)
+		if err != nil {
+			log.Printf("⚠️ Polling Error for Canary %s: %v", canaryArea.AreaName, err)
+		} else if resp != nil {
+			// State-Aware Refresh Check
+			isNewerThanDiscord := true
+			if lastReportedTimeStr != "" {
+				// resp.CalcDate vs lastReportedTimeStr
+				respTime, _ := time.ParseInLocation(segaTimeLayout, resp.CalcDate, jstLoc)
+				discordTime, _ := time.ParseInLocation(segaTimeLayout, lastReportedTimeStr, jstLoc)
+				isNewerThanDiscord = respTime.After(discordTime)
 			}
+
+			// Validation: Fresh by schedule AND newer than existing Discord state
+			if s.MetaLogic.IsDataFresh(resp.CalcDate) && isNewerThanDiscord {
+				log.Printf("✅ Fresh & Newer data detected via Canary (%s: %s). Proceeding to full sync...", canaryArea.AreaName, resp.CalcDate)
+				detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
+				break
+			}
+
+			if !isNewerThanDiscord {
+				log.Printf("😴 Sega Data (%s) is already reported in Discord (%s). Waiting for next block...", resp.CalcDate, lastReportedTimeStr)
+			} else {
+				log.Printf("⚠️ Sega is late (Canary %s: %s). Polling again in %v...", canaryArea.AreaName, resp.CalcDate, pollingInterval)
+			}
+		}
+
+		if time.Since(startTime) > maxPollingDuration {
+			log.Printf("❌ Max polling duration reached. Sega is significantly late. Using latest available data.")
+			detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 			break
 		}
-
-		log.Printf("⚠️ No fresh data found yet for any area. Polling again in %v...", pollingInterval)
 
 		select {
 		case <-time.After(pollingInterval):
 			// continue loop
 		case <-ctx.Done():
 			return "", ctx.Err()
+		}
+	}
+
+	// 6. Processing Phase (Fetch all areas)
+	activePlayersByArea = make(map[string]areaActivity)
+	for _, area := range areas {
+		resp, err := s.SegaClient.GetListOBRanking(roundStr, area.AreaCode)
+		if err != nil {
+			log.Printf("⚠️ Error fetching ranking for %s (%s): %v", area.AreaName, area.AreaCode, err)
+			continue
+		}
+
+		if resp == nil || len(resp.Records) == 0 {
+			continue
+		}
+
+		calcTime, err := time.ParseInLocation(segaTimeLayout, resp.CalcDate, jstLoc)
+		if err != nil {
+			continue
+		}
+
+		localLoc, err := time.LoadLocation(area.Timezone)
+		if err != nil {
+			localLoc = jstLoc
+		}
+
+		_, offsetSeconds := time.Now().In(localLoc).Zone()
+		offsetHours := offsetSeconds / 3600
+		gmtStr := fmt.Sprintf("GMT%+d", offsetHours)
+
+		var players []playerActivity
+		for _, record := range resp.Records {
+			updateTime, err := time.ParseInLocation(segaTimeLayout, record.UpdateDate, jstLoc)
+			if err != nil {
+				continue
+			}
+
+			if calcTime.Sub(updateTime) <= 15*time.Minute {
+				localTimeStr := updateTime.In(localLoc).Format("15:04:05")
+				players = append(players, playerActivity{
+					Record:    record,
+					LocalTime: localTimeStr,
+				})
+			}
+		}
+
+		if len(players) > 0 {
+			activePlayersByArea[area.AreaName] = areaActivity{
+				GMT:     gmtStr,
+				Players: players,
+			}
 		}
 	}
 
@@ -221,18 +255,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 		pages = append(pages, currentMessage.String())
 	}
 
-	// 5. Fetch existing bot messages to edit
-	messages, err := s.Session.ChannelMessages(s.Config.ChannelID, 50, "", "", "")
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch messages: %w", err)
-	}
-
-	var botMessages []*discordgo.Message
-	for _, m := range messages {
-		if m.Author.ID == s.Session.State.User.ID {
-			botMessages = append(botMessages, m)
-		}
-	}
+	// Step 6. Edit or Send (Reusing botMessages fetched in Phase 4)
 
 	// Reverse to get chronological order (oldest first)
 	for i, j := 0, len(botMessages)-1; i < j; i, j = i+1, j-1 {

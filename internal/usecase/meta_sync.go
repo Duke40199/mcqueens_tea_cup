@@ -40,8 +40,32 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 	startTime := time.Now()
 	detectionTime := ""
 
+	// 1. Fetch existing state from Discord
+	lastReportedTimeStr := ""
+	lastDetectedHeaderPrefix := "_Detected at: "
+
+	messages, err := s.Session.ChannelMessages(s.MetaCfg.ChannelID, 50, "", "", "")
+	var botMessages []*discordgo.Message
+	if err == nil {
+		for _, m := range messages {
+			if m.Author.ID == s.Session.State.User.ID {
+				botMessages = append(botMessages, m)
+				if lastReportedTimeStr == "" && strings.Contains(m.Content, lastDetectedHeaderPrefix) {
+					start := strings.Index(m.Content, lastDetectedHeaderPrefix) + len(lastDetectedHeaderPrefix)
+					end := strings.Index(m.Content[start:], " (JST)")
+					if end > -1 {
+						lastReportedTimeStr = m.Content[start : start+end]
+						log.Printf("📥 MetaSync: Found existing state in Discord. Last reported: %s", lastReportedTimeStr)
+					}
+				}
+			}
+		}
+	}
+
+	// Polling Phase
+	jstLoc := time.FixedZone("JST", 9*60*60)
 	for {
-		// 1. Get formatted pages (this also fetches from Sega internally)
+		// Get formatted pages (this also fetches from Sega internally)
 		pages, err = s.MetaLogic.GetOBMetaPages(ctx, 1000, "all")
 		if err != nil {
 			return "", fmt.Errorf("failed to get meta pages: %w", err)
@@ -54,19 +78,32 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 			calcDateEnd := strings.Index(msg[calcDateStart:], " (JST)")
 			if calcDateStart > -1 && calcDateEnd > -1 {
 				calcDate := msg[calcDateStart : calcDateStart+calcDateEnd]
-				if s.MetaLogic.IsDataFresh(calcDate) {
-					log.Printf("✅ MetaSyncService: Data is fresh (CalcDate: %s). Proceeding...", calcDate)
-					detectionTime = time.Now().In(time.FixedZone("JST", 9*60*60)).Format("2006/01/02 15:04:05")
+
+				// State-Aware Refresh Check
+				isNewerThanDiscord := true
+				if lastReportedTimeStr != "" {
+					respTime, _ := time.ParseInLocation("2006/01/02 15:04:05", calcDate, jstLoc)
+					discordTime, _ := time.ParseInLocation("2006/01/02 15:04:05", lastReportedTimeStr, jstLoc)
+					isNewerThanDiscord = respTime.After(discordTime)
+				}
+
+				if s.MetaLogic.IsDataFresh(calcDate) && isNewerThanDiscord {
+					log.Printf("✅ MetaSync: Data is fresh & newer (CalcDate: %s). Proceeding...", calcDate)
+					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 					break
 				}
 
 				if time.Since(startTime) > maxPollingDuration {
-					log.Printf("❌ MetaSyncService: Max polling duration reached. Sega is significantly late. Using latest available data.")
-					detectionTime = time.Now().In(time.FixedZone("JST", 9*60*60)).Format("2006/01/02 15:04:05")
+					log.Printf("❌ MetaSync: Max polling duration reached. Using latest available data.")
+					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 					break
 				}
 
-				log.Printf("⚠️ MetaSyncService: Sega is late (CalcDate: %s). Polling again in %v...", calcDate, pollingInterval)
+				if !isNewerThanDiscord {
+					log.Printf("😴 MetaSync: Data (%s) is already reported in Discord. Waiting...", calcDate)
+				} else {
+					log.Printf("⚠️ MetaSync: Sega is late (CalcDate: %s). Polling again...", calcDate)
+				}
 			}
 		}
 
@@ -78,18 +115,7 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 		}
 	}
 
-	// 2. Fetch existing bot messages to edit
-	messages, err := s.Session.ChannelMessages(s.MetaCfg.ChannelID, 50, "", "", "")
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch messages: %w", err)
-	}
-
-	var botMessages []*discordgo.Message
-	for _, m := range messages {
-		if m.Author.ID == s.Session.State.User.ID {
-			botMessages = append(botMessages, m)
-		}
-	}
+	// botMessages already fetched at beginning for state
 
 	// Reverse botMessages to get them in chronological order (oldest first)
 	for i, j := 0, len(botMessages)-1; i < j; i, j = i+1, j-1 {
