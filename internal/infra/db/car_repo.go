@@ -38,12 +38,11 @@ func (r *CarRepository) UpsertCars(ctx context.Context, cars []entity.CarMetadat
 	query += strings.Join(placeholders, ",")
 	query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name, maker = EXCLUDED.maker, base_spec = EXCLUDED.base_spec;`
 
-	res, err := r.DB.ExecContext(ctx, query, values...)
+	_, err := r.DB.ExecContext(ctx, query, values...)
 	if err != nil {
 		log.Println("error upserting cars:", err)
 		return err
 	}
-	log.Println("upserted cars:", res)
 	return err
 }
 

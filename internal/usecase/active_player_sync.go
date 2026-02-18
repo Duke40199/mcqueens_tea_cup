@@ -22,45 +22,47 @@ type ActivePlayerSyncService struct {
 	SegaClient       entity.SegaClient
 	AreaRepo         postgres.AreaRepository
 	OBRankingCfgRepo postgres.OBRankingCfgRepository
+	MetaLogic        *MetaLogicService
 	Config           config.ActivePlayersSyncConfig
 }
 
-func NewActivePlayerSyncService(s *discordgo.Session, client entity.SegaClient, areaRepo postgres.AreaRepository, obRepo postgres.OBRankingCfgRepository, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
+func NewActivePlayerSyncService(s *discordgo.Session, client entity.SegaClient, areaRepo postgres.AreaRepository, obRepo postgres.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
 	return &ActivePlayerSyncService{
 		Session:          s,
 		SegaClient:       client,
 		AreaRepo:         areaRepo,
 		OBRankingCfgRepo: obRepo,
+		MetaLogic:        logic,
 		Config:           cfg,
 	}
 }
 
-func (s *ActivePlayerSyncService) Sync(ctx context.Context) error {
+func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	if s.Config.ChannelID == "" {
-		return fmt.Errorf("ACTIVE_PLAYERS_CHANNEL_ID not configured")
+		return "", fmt.Errorf("ACTIVE_PLAYERS_CHANNEL_ID not configured")
 	}
 
 	// 1. Get active areas from DB
 	areas, err := s.AreaRepo.GetOBActiveAreas(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch active areas: %w", err)
+		return "", fmt.Errorf("failed to fetch active areas: %w", err)
 	}
 
 	if len(areas) == 0 {
 		log.Println("⚠️ No areas found for active player sync")
-		return nil
+		return "", nil
 	}
 
 	// 2. Get rank configs
 	obRankingCfgMap, err := s.OBRankingCfgRepo.GetRankingCfgMap()
 	if err != nil {
-		return fmt.Errorf("failed to get ranking cfg map: %w", err)
+		return "", fmt.Errorf("failed to get ranking cfg map: %w", err)
 	}
 
 	// 3. Get current round
 	currentRound, err := s.SegaClient.GetCurrentRound()
 	if err != nil {
-		return fmt.Errorf("failed to get current round: %w", err)
+		return "", fmt.Errorf("failed to get current round: %w", err)
 	}
 	roundStr := fmt.Sprintf("%d", currentRound)
 
@@ -72,66 +74,98 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) error {
 		GMT     string
 		Players []playerActivity
 	}
-	var activePlayersByArea = make(map[string]areaActivity)
 
-	// 4. Check each area
-	jstLoc, _ := time.LoadLocation("Asia/Tokyo")
-	for _, area := range areas {
-		resp, err := s.SegaClient.GetListOBRanking(roundStr, area.AreaCode)
-		if err != nil {
-			log.Printf("⚠️ Error fetching ranking for %s (%s): %v", area.AreaName, area.AreaCode, err)
-			continue
-		}
+	var activePlayersByArea map[string]areaActivity
+	maxPollingDuration := 14 * time.Minute
+	pollingInterval := 1 * time.Minute
+	startTime := time.Now()
+	detectionTime := ""
 
-		if resp == nil || len(resp.Records) == 0 {
-			continue
-		}
+	for {
+		activePlayersByArea = make(map[string]areaActivity)
+		freshDataFound := false
 
-		calcTime, err := time.ParseInLocation(segaTimeLayout, resp.CalcDate, jstLoc)
-		if err != nil {
-			log.Printf("⚠️ Error parsing CalcDate %s: %v", resp.CalcDate, err)
-			continue
-		}
+		// 4. Check each area
+		jstLoc, _ := time.LoadLocation("Asia/Tokyo")
+		for _, area := range areas {
+			resp, err := s.SegaClient.GetListOBRanking(roundStr, area.AreaCode)
+			if err != nil {
+				log.Printf("⚠️ Error fetching ranking for %s (%s): %v", area.AreaName, area.AreaCode, err)
+				continue
+			}
 
-		// Load area location
-		localLoc, err := time.LoadLocation(area.Timezone)
-		if err != nil {
-			log.Printf("⚠️ Warning: could not load timezone %s for %s, falling back to JST: %v", area.Timezone, area.AreaName, err)
-			localLoc = jstLoc
-		}
+			if resp == nil || len(resp.Records) == 0 {
+				continue
+			}
 
-		// Get GMT offset string for the header
-		_, offsetSeconds := time.Now().In(localLoc).Zone()
-		offsetHours := offsetSeconds / 3600
-		gmtStr := fmt.Sprintf("GMT%+d", offsetHours)
+			// Validation: check if this data is fresh
+			if s.MetaLogic.IsDataFresh(resp.CalcDate) {
+				freshDataFound = true
+				if detectionTime == "" {
+					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
+				}
+			}
 
-		var players []playerActivity
-		for _, record := range resp.Records {
-			updateTime, err := time.ParseInLocation(segaTimeLayout, record.UpdateDate, jstLoc)
+			calcTime, err := time.ParseInLocation(segaTimeLayout, resp.CalcDate, jstLoc)
 			if err != nil {
 				continue
 			}
 
-			// If UpdateDate is within 15 mins of CalcDate
-			if calcTime.Sub(updateTime) <= 15*time.Minute {
-				localTimeStr := updateTime.In(localLoc).Format("15:04:05")
-				players = append(players, playerActivity{
-					Record:    record,
-					LocalTime: localTimeStr,
-				})
+			localLoc, err := time.LoadLocation(area.Timezone)
+			if err != nil {
+				localLoc = jstLoc
+			}
+
+			_, offsetSeconds := time.Now().In(localLoc).Zone()
+			offsetHours := offsetSeconds / 3600
+			gmtStr := fmt.Sprintf("GMT%+d", offsetHours)
+
+			var players []playerActivity
+			for _, record := range resp.Records {
+				updateTime, err := time.ParseInLocation(segaTimeLayout, record.UpdateDate, jstLoc)
+				if err != nil {
+					continue
+				}
+
+				if calcTime.Sub(updateTime) <= 15*time.Minute {
+					localTimeStr := updateTime.In(localLoc).Format("15:04:05")
+					players = append(players, playerActivity{
+						Record:    record,
+						LocalTime: localTimeStr,
+					})
+				}
+			}
+
+			if len(players) > 0 {
+				activePlayersByArea[area.AreaName] = areaActivity{
+					GMT:     gmtStr,
+					Players: players,
+				}
 			}
 		}
 
-		if len(players) > 0 {
-			activePlayersByArea[area.AreaName] = areaActivity{
-				GMT:     gmtStr,
-				Players: players,
+		if freshDataFound || time.Since(startTime) > maxPollingDuration {
+			if !freshDataFound {
+				log.Printf("❌ Max polling duration reached for Active Players. Results might be 15m late.")
+				detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05") // Fallback detection time
+			} else {
+				log.Printf("✅ Fresh data found for Active Player Sync. Proceeding...")
 			}
+			break
+		}
+
+		log.Printf("⚠️ No fresh data found yet for any area. Polling again in %v...", pollingInterval)
+
+		select {
+		case <-time.After(pollingInterval):
+			// continue loop
+		case <-ctx.Done():
+			return "", ctx.Err()
 		}
 	}
 
 	if len(activePlayersByArea) == 0 {
-		return nil // No active players, no need to send message
+		return detectionTime, nil // No active players, but still return when we checked/detected
 	}
 
 	// 5. Format pages (Sorted by Area Name)
@@ -145,6 +179,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) error {
 	var currentMessage strings.Builder
 
 	header := "📡 **Active SEA OB Players (Live Update)**\n" +
+		fmt.Sprintf("_Detected at: %s (JST)_\n", detectionTime) +
 		fmt.Sprintf("_Refreshed every %d minutes_\n\n", s.Config.Interval)
 	currentMessage.WriteString(header)
 
@@ -187,7 +222,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) error {
 	// 5. Fetch existing bot messages to edit
 	messages, err := s.Session.ChannelMessages(s.Config.ChannelID, 50, "", "", "")
 	if err != nil {
-		return fmt.Errorf("failed to fetch messages: %w", err)
+		return "", fmt.Errorf("failed to fetch messages: %w", err)
 	}
 
 	var botMessages []*discordgo.Message
@@ -228,5 +263,5 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) error {
 	}
 
 	log.Printf("✅ Active Player Sync Completed for %d areas", len(activePlayersByArea))
-	return nil
+	return detectionTime, nil
 }

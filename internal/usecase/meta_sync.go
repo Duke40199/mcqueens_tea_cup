@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"McQueens_Tea_Cup/internal/config"
 
@@ -24,23 +26,62 @@ func NewMetaSyncService(s *discordgo.Session, logic *MetaLogicService, cfg confi
 	}
 }
 
-func (s *MetaSyncService) Sync(ctx context.Context) error {
+func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 	if s.MetaCfg.ChannelID == "" {
-		return fmt.Errorf("META_CHANNEL_ID not configured")
+		return "", fmt.Errorf("META_CHANNEL_ID not configured")
 	}
 
 	log.Printf("📊 Starting OBMeta Sync to channel %s...", s.MetaCfg.ChannelID)
 
-	// 1. Get formatted pages
-	pages, err := s.MetaLogic.GetOBMetaPages(ctx, 1000, "all")
-	if err != nil {
-		return fmt.Errorf("failed to get meta pages: %w", err)
+	var pages []string
+	var err error
+	maxPollingDuration := 14 * time.Minute
+	pollingInterval := 1 * time.Minute
+	startTime := time.Now()
+	detectionTime := ""
+
+	for {
+		// 1. Get formatted pages (this also fetches from Sega internally)
+		pages, err = s.MetaLogic.GetOBMetaPages(ctx, 1000, "all")
+		if err != nil {
+			return "", fmt.Errorf("failed to get meta pages: %w", err)
+		}
+
+		// Validation: check if data is fresh
+		if len(pages) > 0 {
+			msg := pages[0]
+			calcDateStart := strings.Index(msg, "Calculated at: ") + len("Calculated at: ")
+			calcDateEnd := strings.Index(msg[calcDateStart:], " (JST)")
+			if calcDateStart > -1 && calcDateEnd > -1 {
+				calcDate := msg[calcDateStart : calcDateStart+calcDateEnd]
+				if s.MetaLogic.IsDataFresh(calcDate) {
+					log.Printf("✅ Data is fresh (CalcDate: %s). Proceeding...", calcDate)
+					detectionTime = time.Now().In(time.FixedZone("JST", 9*60*60)).Format("2006/01/02 15:04:05")
+					break
+				}
+
+				if time.Since(startTime) > maxPollingDuration {
+					log.Printf("❌ Max polling duration reached. Sega is significantly late. Using latest available data.")
+					detectionTime = time.Now().In(time.FixedZone("JST", 9*60*60)).Format("2006/01/02 15:04:05")
+					break
+				}
+
+				log.Printf("⚠️ Sega is late (CalcDate: %s). Polling again in %v...", calcDate, pollingInterval)
+			}
+		}
+
+		select {
+		case <-time.After(pollingInterval):
+			// continue loop
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
 	}
 
 	// 2. Fetch existing bot messages to edit
 	messages, err := s.Session.ChannelMessages(s.MetaCfg.ChannelID, 50, "", "", "")
 	if err != nil {
-		return fmt.Errorf("failed to fetch messages: %w", err)
+		return "", fmt.Errorf("failed to fetch messages: %w", err)
 	}
 
 	var botMessages []*discordgo.Message
@@ -85,5 +126,5 @@ func (s *MetaSyncService) Sync(ctx context.Context) error {
 	}
 
 	log.Printf("✅ OBMeta Sync Completed")
-	return nil
+	return detectionTime, nil
 }

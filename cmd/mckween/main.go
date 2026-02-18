@@ -142,8 +142,11 @@ func main() {
 			metaLogic.SleepUntilNextSync(ctx)
 
 			log.Println("📊 Starting OBMeta Sync...")
-			if err := metaSync.Sync(ctx); err != nil {
+			detectTime, err := metaSync.Sync(ctx)
+			if err != nil {
 				log.Printf("❌ Scheduled OBMeta Sync Failed: %v", err)
+			} else {
+				log.Printf("✅ OBMeta Sync detected data at: %s", detectTime)
 			}
 		}
 	}()
@@ -151,7 +154,7 @@ func main() {
 	// ---------------------------------------------------------
 	// FEATURE E: ACTIVE PLAYERS SYNC (Scheduled)
 	// ---------------------------------------------------------
-	activePlayersSync := usecase.NewActivePlayerSyncService(dg, segaClient, areaRepo, obRankingCfgRepo, cfg.ActivePlayersSyncCfg)
+	activePlayersSync := usecase.NewActivePlayerSyncService(dg, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
 
 	// Run Sync in background
 	go func() {
@@ -160,8 +163,11 @@ func main() {
 			metaLogic.SleepUntilNextSync(ctx)
 
 			log.Println("🔍 Starting Active Players SEA Sync...")
-			if err := activePlayersSync.Sync(ctx); err != nil {
+			detectTime, err := activePlayersSync.Sync(ctx)
+			if err != nil {
 				log.Printf("❌ Scheduled Active Players Sync Failed: %v", err)
+			} else {
+				log.Printf("✅ Active Players Sync detected data at: %s", detectTime)
 			}
 		}
 	}()

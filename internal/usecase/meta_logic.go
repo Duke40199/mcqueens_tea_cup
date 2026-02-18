@@ -186,10 +186,10 @@ func (s *MetaLogicService) getCarStatName(carStat *entity.CarSpecInfo, defaultCo
 }
 
 // SleepUntilNextSync calculates the wait time until the next Sega OB update (hh:02:02, 16:02, 31:02, 46:02)
-// and sleeps with a 5-second safety buffer.
+// and sleeps with a 10-second safety buffer.
 func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
 	targets := []int{2, 16, 31, 46}
-	buffer := 5 * time.Second
+	buffer := 10 * time.Second
 
 	for {
 		now := time.Now().In(time.FixedZone("JST", 9*60*60)) // Use JST for Sega sync
@@ -199,18 +199,18 @@ func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
 		var nextMin int
 		found := false
 		for _, m := range targets {
-			if currentMin < m || (currentMin == m && currentSec < 2) {
+			if currentMin < m || (currentMin == m && currentSec < 0) {
 				nextMin = m
 				found = true
 				break
 			}
 		}
 
-		nextTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), nextMin, 2, 0, now.Location())
+		nextTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), nextMin, 0, 0, now.Location())
 		if !found {
 			// Next update is next hour at :02
 			nextTime = nextTime.Add(time.Hour)
-			nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), nextTime.Hour(), 2, 2, 0, nextTime.Location())
+			nextTime = time.Date(nextTime.Year(), nextTime.Month(), nextTime.Day(), nextTime.Hour(), 2, 0, 0, nextTime.Location())
 		}
 
 		// Apply safety buffer
@@ -229,5 +229,41 @@ func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
 			}
 		}
 		// If we missed it somehow, loop again immediately for next target
+		return
 	}
+}
+
+// IsDataFresh checks if the CalcDate from Sega is at or after the most recent expected update time.
+func (s *MetaLogicService) IsDataFresh(calcDateStr string) bool {
+	jstLoc := time.FixedZone("JST", 9*60*60)
+	calcTime, err := time.ParseInLocation("2006/01/02 15:04:05", calcDateStr, jstLoc)
+	if err != nil {
+		return false
+	}
+
+	now := time.Now().In(jstLoc)
+	targets := []int{2, 16, 31, 46}
+
+	var latestExpectedMin int
+	found := false
+	for i := len(targets) - 1; i >= 0; i-- {
+		m := targets[i]
+		if now.Minute() >= m {
+			latestExpectedMin = m
+			found = true
+			break
+		}
+	}
+
+	var latestExpectedTime time.Time
+	if !found {
+		// Latest expected update was last hour at :46
+		prevHour := now.Add(-time.Hour)
+		latestExpectedTime = time.Date(prevHour.Year(), prevHour.Month(), prevHour.Day(), prevHour.Hour(), 46, 0, 0, jstLoc)
+	} else {
+		latestExpectedTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), latestExpectedMin, 0, 0, jstLoc)
+	}
+
+	// Data is fresh if CalcDate is >= latestExpectedTime
+	return !calcTime.Before(latestExpectedTime)
 }
