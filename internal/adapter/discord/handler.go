@@ -6,6 +6,7 @@ import (
 
 	"McQueens_Tea_Cup/internal/adapter/postgres"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/usecase"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -21,17 +22,19 @@ type Handler struct {
 	AliasRepo        postgres.AliasRepository
 	OBRankingCfgRepo postgres.OBRankingCfgRepository
 	CarRepo          postgres.CarRepository
+	MetaLogic        *usecase.MetaLogicService
 	OwnerID          string
 }
 
 // NewHandler creates our controller
-func NewHandler(s *discordgo.Session, segaClient entity.SegaClient, alias postgres.AliasRepository, obRankingCfg postgres.OBRankingCfgRepository, carRepo postgres.CarRepository) *Handler {
+func NewHandler(s *discordgo.Session, segaClient entity.SegaClient, alias postgres.AliasRepository, obRankingCfg postgres.OBRankingCfgRepository, carRepo postgres.CarRepository, metaLogic *usecase.MetaLogicService) *Handler {
 	return &Handler{
 		Session:          s,
 		SegaClient:       segaClient,
 		AliasRepo:        alias,
 		OBRankingCfgRepo: obRankingCfg,
 		CarRepo:          carRepo,
+		MetaLogic:        metaLogic,
 		OwnerID:          "384015507302383616",
 	}
 }

@@ -52,11 +52,14 @@ func main() {
 	segaClient := sega.NewClient() // Handles HTTP to SEGA
 	carRepo := db.NewCarRepository(dbConn)
 
-	// A2. Init Delivery (The Command Controller)
-	// We inject the shared 'dg' session here
-	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasRepo, obRankingCfgRepo, carRepo)
+	// A2. Init Logic Services
+	metaLogic := usecase.NewMetaLogicService(segaClient, carRepo)
 
-	// A3. Register Commands & Event Handlers
+	// A3. Init Delivery (The Command Controller)
+	// We inject the shared 'dg' session here
+	cmdHandler := discord_handler.NewHandler(dg, segaClient, aliasRepo, obRankingCfgRepo, carRepo, metaLogic)
+
+	// A4. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {
 		log.Printf("⚠️ Failed to register commands: %v", err)
 	}
@@ -116,8 +119,8 @@ func main() {
 	log.Println("✅ Bot is running. Press CTRL-C to exit.")
 
 	// 4. Run RSS Ticker in a Goroutine (Background)
-	ticker := time.NewTicker(time.Duration(cfg.RSSCfg.Interval) * time.Minute)
-	defer ticker.Stop()
+	rssTicker := time.NewTicker(time.Duration(cfg.RSSCfg.Interval) * time.Minute)
+	defer rssTicker.Stop()
 
 	// Run immediately once on startup
 	go feedLogic.Check(cfg.RSSCfg.Feeds)
@@ -126,9 +129,35 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
+	// ---------------------------------------------------------
+	// FEATURE D: OBMETA SYNC (Scheduled)
+	// ---------------------------------------------------------
+	metaSync := usecase.NewMetaSyncService(dg, metaLogic, cfg.MetaSyncCfg)
+
+	// Run Sync in background
+	go func() {
+		// Interval from config
+		interval := time.Duration(cfg.MetaSyncCfg.Interval) * time.Minute
+		metaTicker := time.NewTicker(interval)
+		defer metaTicker.Stop()
+
+		// Run once on startup (after Discord is open)
+		time.Sleep(5 * time.Second) // Small delay to ensure bot is fully ready
+		log.Println("📊 Initializing OBMeta Sync...")
+		if err := metaSync.Sync(context.Background()); err != nil {
+			log.Printf("❌ Initial OBMeta Sync Failed: %v", err)
+		}
+
+		for range metaTicker.C {
+			if err := metaSync.Sync(context.Background()); err != nil {
+				log.Printf("❌ Scheduled OBMeta Sync Failed: %v", err)
+			}
+		}
+	}()
+
 	// Loop
 	go func() {
-		for range ticker.C {
+		for range rssTicker.C {
 			feedLogic.Check(cfg.RSSCfg.Feeds)
 		}
 	}()

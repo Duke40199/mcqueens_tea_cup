@@ -19,6 +19,12 @@ type AppConfig struct {
 	DiscordCfg  DiscordConfig
 	RSSCfg      RSSConfig
 	DatabaseCfg DatabaseConfig
+	MetaSyncCfg MetaSyncConfig
+}
+
+type MetaSyncConfig struct {
+	ChannelID string `json:"channel_id"`
+	Interval  int    `json:"sync_interval_minutes"`
 }
 
 // DiscordConfig holds Discord Integration configuration
@@ -71,6 +77,15 @@ func LoadConfig() (*AppConfig, error) {
 	}
 	cfg.RSSCfg.Interval, _ = strconv.Atoi(os.Getenv("RSS_FETCH_INTERVAL"))
 	cfg.RSSCfg.Feeds, _ = LoadRSSConfig()
+
+	// Meta Sync
+	cfg.MetaSyncCfg.ChannelID = os.Getenv("DISCORD_OB_META_CARS_CHANNEL_ID")
+	metaInterval, _ := strconv.Atoi(os.Getenv("OB_META_CARS_SYNC_INTERVAL_MINUTES"))
+	if metaInterval == 0 {
+		metaInterval = 15 // Default 15 mins
+	}
+	cfg.MetaSyncCfg.Interval = metaInterval
+
 	// Validation
 	if cfg.DiscordCfg.Token == "" {
 		return nil, fmt.Errorf("DISCORD_TOKEN is missing")
