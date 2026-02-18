@@ -250,7 +250,7 @@ func (h *Handler) HandleOBMeta(i *discordgo.InteractionCreate, optMap map[string
 	var currentMessage strings.Builder
 
 	header := fmt.Sprintf(
-		"# Initial DAC Car Meta (Online Battle)\n"+
+		"# Initial DAC Most Used Cars (Online Battle)\n"+
 			"### 🌎 : %s | Round: %d\n"+
 			"### **Sample Size:** Top %d PRIDE Players\n"+
 			"### Calculated at: %s (JST time, local time coming soon.)\n\n",
