@@ -16,13 +16,19 @@ type Config interface {
 
 // AppConfig holds all configuration
 type AppConfig struct {
-	DiscordCfg  DiscordConfig
-	RSSCfg      RSSConfig
-	DatabaseCfg DatabaseConfig
-	MetaSyncCfg MetaSyncConfig
+	DiscordCfg           DiscordConfig
+	RSSCfg               RSSConfig
+	DatabaseCfg          DatabaseConfig
+	MetaSyncCfg          MetaSyncConfig
+	ActivePlayersSyncCfg ActivePlayersSyncConfig
 }
 
 type MetaSyncConfig struct {
+	ChannelID string `json:"channel_id"`
+	Interval  int    `json:"sync_interval_minutes"`
+}
+
+type ActivePlayersSyncConfig struct {
 	ChannelID string `json:"channel_id"`
 	Interval  int    `json:"sync_interval_minutes"`
 }
@@ -85,6 +91,14 @@ func LoadConfig() (*AppConfig, error) {
 		metaInterval = 15 // Default 15 mins
 	}
 	cfg.MetaSyncCfg.Interval = metaInterval
+
+	// Active Players Sync
+	cfg.ActivePlayersSyncCfg.ChannelID = os.Getenv("DISCORD_OB_ACTIVE_PLAYERS_CHANNEL_ID")
+	activePlayersInterval, _ := strconv.Atoi(os.Getenv("OB_ACTIVE_PLAYERS_SYNC_INTERVAL_MINUTES"))
+	if activePlayersInterval == 0 {
+		activePlayersInterval = 15 // Default 15 mins
+	}
+	cfg.ActivePlayersSyncCfg.Interval = activePlayersInterval
 
 	// Validation
 	if cfg.DiscordCfg.Token == "" {

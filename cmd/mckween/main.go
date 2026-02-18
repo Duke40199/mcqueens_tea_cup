@@ -36,6 +36,7 @@ func main() {
 	}
 	aliasRepo := db.NewPostgresAliasRepo(dbConn)
 	obRankingCfgRepo := db.NewOBRankingCfgRepository(dbConn)
+	areaRepo := db.NewAreaRepository(dbConn)
 
 	// 2. SHARED INFRASTRUCTURE: Create Discord Session ONCE
 	// We do not Open() it yet. We just create the struct.
@@ -151,6 +152,31 @@ func main() {
 		for range metaTicker.C {
 			if err := metaSync.Sync(context.Background()); err != nil {
 				log.Printf("❌ Scheduled OBMeta Sync Failed: %v", err)
+			}
+		}
+	}()
+
+	// ---------------------------------------------------------
+	// FEATURE E: ACTIVE PLAYERS SYNC (Scheduled)
+	// ---------------------------------------------------------
+	activePlayersSync := usecase.NewActivePlayerSyncService(dg, segaClient, areaRepo, obRankingCfgRepo, cfg.ActivePlayersSyncCfg)
+
+	// Run Sync in background
+	go func() {
+		interval := time.Duration(cfg.ActivePlayersSyncCfg.Interval) * time.Minute
+		activeTicker := time.NewTicker(interval)
+		defer activeTicker.Stop()
+
+		// Initial run on startup (with delay)
+		time.Sleep(10 * time.Second)
+		log.Println("🔍 Initializing Active Players SEA Sync...")
+		if err := activePlayersSync.Sync(context.Background()); err != nil {
+			log.Printf("❌ Initial Active Players Sync Failed: %v", err)
+		}
+
+		for range activeTicker.C {
+			if err := activePlayersSync.Sync(context.Background()); err != nil {
+				log.Printf("❌ Scheduled Active Players Sync Failed: %v", err)
 			}
 		}
 	}()

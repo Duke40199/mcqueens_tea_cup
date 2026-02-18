@@ -57,11 +57,7 @@ type OBRankingRecord struct {
 }
 
 func (r OBRankingRecord) GetDisplayStarCount() string {
-	var displayStar string
-	for i := 0; i < r.StarCnt; i++ {
-		displayStar += "★"
-	}
-	return displayStar
+	return strconv.Itoa(r.StarCnt) + " (★)"
 }
 
 var OnlineBattleRankDisplayNameByCode = map[string]string{
@@ -827,6 +823,13 @@ type CarSpecInfo struct {
 	CarName   string
 	ModelCode string // Canonical model code (e.g. "CZ4A")
 	BaseSpec  string // "speed" or "tech"
+}
+
+// AreaSyncInfo represents an area that is part of a synchronization group
+type AreaSyncInfo struct {
+	AreaCode string
+	AreaName string
+	Timezone string
 }
 
 type CarMetadata struct {

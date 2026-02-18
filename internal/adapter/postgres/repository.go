@@ -25,3 +25,7 @@ type CarRepository interface {
 	UpsertCarStyles(ctx context.Context, styles []entity.CarStyleMetadata) error
 	GetBaseSpecMap(ctx context.Context) (map[string]entity.CarSpecInfo, error)
 }
+
+type AreaRepository interface {
+	GetOBActiveAreas(ctx context.Context) ([]entity.AreaSyncInfo, error)
+}
