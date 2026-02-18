@@ -704,12 +704,12 @@ func (h *Handler) ResolvePlayerCredentialDB(input, manualArea string) (string, s
 
 	// 2. Regex for Discord Mention/ID
 	reMention := regexp.MustCompile(`^<@!?(\d+)>$`)
-	reID := regexp.MustCompile(`^\d{17,20}$`)
+	// reID := regexp.MustCompile(`^\d{17,20}$`)
 
 	var lookupKey string
 	if match := reMention.FindStringSubmatch(cleanInput); len(match) > 1 {
 		lookupKey = match[1] // Extract ID from <@123>
-	} else if reID.MatchString(cleanInput) {
+	} else {
 		lookupKey = cleanInput // Raw ID
 	}
 
