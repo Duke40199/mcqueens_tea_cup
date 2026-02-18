@@ -851,7 +851,8 @@ func (c *CarMetadata) GetNormalizedBaseStyle() string {
 	}
 }
 func (c *CarMetadata) GetNormalisedCarName() string {
-	return strings.Split(c.Name, "(")[0]
+	nameWithoutSpec := strings.Split(c.Name, "(")[0]
+	return strings.TrimSpace(nameWithoutSpec)
 }
 
 func (c *CarMetadata) GetNormalisedMakerName() string {
