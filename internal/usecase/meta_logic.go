@@ -186,15 +186,35 @@ func (s *MetaLogicService) getCarStatName(carStat *entity.CarSpecInfo, defaultCo
 }
 
 // SleepUntilNextSync calculates the wait time until the next Sega OB update (hh:02:02, 16:02, 31:02, 46:02)
-// and sleeps with a 10-second safety buffer.
-func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
+// and sleeps with a 10-second safety buffer. It also respects scheduled downtime.
+func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context, downtimeStart, downtimeEnd, downtimeTZ string) {
 	targets := []int{2, 16, 31, 46}
 	buffer := 10 * time.Second
+	jstLoc := time.FixedZone("JST", 9*60*60)
+
+	// Determine Downtime Location
+	downtimeLoc := jstLoc
+	if downtimeTZ != "" {
+		if loc, err := time.LoadLocation(downtimeTZ); err == nil {
+			downtimeLoc = loc
+		}
+	}
 
 	for {
-		now := time.Now().In(time.FixedZone("JST", 9*60*60)) // Use JST for Sega sync
-		currentMin := now.Minute()
-		currentSec := now.Second()
+		nowJST := time.Now().In(jstLoc)
+		nowDT := time.Now().In(downtimeLoc)
+
+		// 1. Check for Downtime
+		if downtimeStart != "" && downtimeEnd != "" {
+			if s.IsInDowntime(nowDT, downtimeStart, downtimeEnd) {
+				s.sleepUntilDowntimeEnd(ctx, nowDT, downtimeEnd)
+				// After waking up from downtime, we should calculate the next sync target
+				nowJST = time.Now().In(jstLoc)
+			}
+		}
+
+		currentMin := nowJST.Minute()
+		currentSec := nowJST.Second()
 
 		var nextMin int
 		found := false
@@ -206,7 +226,7 @@ func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
 			}
 		}
 
-		nextTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), nextMin, 0, 0, now.Location())
+		nextTime := time.Date(nowJST.Year(), nowJST.Month(), nowJST.Day(), nowJST.Hour(), nextMin, 0, 0, nowJST.Location())
 		if !found {
 			// Next update is next hour at :02
 			nextTime = nextTime.Add(time.Hour)
@@ -229,6 +249,75 @@ func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context) {
 			}
 		}
 		// If we missed it somehow, loop again immediately for next target
+	}
+}
+
+// IsInDowntime checks if the current time falls within the [start, end] window.
+// Supports both "HH:MM" and "HH" formats.
+func (s *MetaLogicService) IsInDowntime(now time.Time, startStr, endStr string) bool {
+	parseTime := func(str string) (int, int, error) {
+		if strings.Contains(str, ":") {
+			parts := strings.Split(str, ":")
+			if len(parts) != 2 {
+				return 0, 0, fmt.Errorf("invalid format")
+			}
+			h, _ := strconv.Atoi(parts[0])
+			m, _ := strconv.Atoi(parts[1])
+			return h, m, nil
+		}
+		// Hour only
+		h, err := strconv.Atoi(str)
+		return h, 0, err
+	}
+
+	startH, startM, err := parseTime(startStr)
+	if err != nil {
+		return false
+	}
+	endH, endM, err := parseTime(endStr)
+	if err != nil {
+		return false
+	}
+
+	currentSeconds := now.Hour()*3600 + now.Minute()*60 + now.Second()
+	startSeconds := startH*3600 + startM*60
+	endSeconds := endH*3600 + endM*60
+
+	if startSeconds <= endSeconds {
+		// Standard: 10:00 to 22:00
+		return currentSeconds >= startSeconds && currentSeconds < endSeconds
+	} else {
+		// Wrap around: 22:00 to 08:00
+		return currentSeconds >= startSeconds || currentSeconds < endSeconds
+	}
+}
+
+func (s *MetaLogicService) sleepUntilDowntimeEnd(ctx context.Context, now time.Time, endStr string) {
+	var h, m int
+	if strings.Contains(endStr, ":") {
+		parts := strings.Split(endStr, ":")
+		h, _ = strconv.Atoi(parts[0])
+		m, _ = strconv.Atoi(parts[1])
+	} else {
+		h, _ = strconv.Atoi(endStr)
+		m = 0
+	}
+
+	wakeTime := time.Date(now.Year(), now.Month(), now.Day(), h, m, 0, 0, now.Location())
+	if !wakeTime.After(now) {
+		wakeTime = wakeTime.Add(24 * time.Hour)
+	}
+
+	waitDuration := time.Until(wakeTime)
+	log.Printf("😴 Scheduled Downtime: Sleeping for %v until %s...", waitDuration.Round(time.Second), wakeTime.Format("15:04:05"))
+
+	timer := time.NewTimer(waitDuration)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		log.Printf("☀️ Downtime ended. Resuming sync...")
+	case <-ctx.Done():
 		return
 	}
 }

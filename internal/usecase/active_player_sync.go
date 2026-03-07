@@ -213,12 +213,12 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 
 	var pages []string
 	var currentMessage strings.Builder
-
+	var normalPlayerCount int
+	var prideCount int
 	header := "📡 **Active SEA OB Players (Live Update)**\n" +
 		fmt.Sprintf("_Detected at: %s (JST)_\n", detectionTime) +
 		fmt.Sprintf("_Refreshed every %d minutes_\n\n", s.Config.Interval)
 	currentMessage.WriteString(header)
-
 	for _, areaName := range areaNames {
 		activity := activePlayersByArea[areaName]
 		var section strings.Builder
@@ -230,33 +230,40 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 				rankName = obRankingCfgMap[p.Record.PrideId].Name
 				isPride = true
 			}
-
 			if rankName != "" {
 				if isPride {
+					prideCount++
 					section.WriteString(fmt.Sprintf("- `%s` — %s — %s\n", p.Record.Name, rankName, p.LocalTime))
 				} else {
+					normalPlayerCount++
 					section.WriteString(fmt.Sprintf("- `%s` — %s %s — %s\n", p.Record.Name, rankName, p.Record.GetDisplayStarCount(), p.LocalTime))
 				}
 			} else {
 				section.WriteString(fmt.Sprintf("- `%s` — %s\n", p.Record.Name, p.LocalTime))
 			}
 		}
-		section.WriteString("\n")
-
 		if currentMessage.Len()+section.Len() > 1900 {
 			pages = append(pages, currentMessage.String())
 			currentMessage.Reset()
 			currentMessage.WriteString(header)
 		}
+		currentMessage.WriteString("\n")
 		currentMessage.WriteString(section.String())
 	}
+	// default add page for footer
+	footer := "\n 📊 ***Player Counts***\n" +
+		fmt.Sprintf("**PRIDE players: %d\n**", prideCount) +
+		fmt.Sprintf("**Non-PRIDE players: %d\n**", normalPlayerCount)
+	if currentMessage.Len()+len(footer) > 1900 {
+		pages = append(pages, currentMessage.String())
+		currentMessage.Reset()
+		currentMessage.WriteString(header)
+	}
+	currentMessage.WriteString(footer)
 
 	if currentMessage.Len() > 0 {
 		pages = append(pages, currentMessage.String())
 	}
-
-	// Step 6. Edit or Send (Reusing botMessages fetched in Phase 4)
-
 	// Reverse to get chronological order (oldest first)
 	for i, j := 0, len(botMessages)-1; i < j; i, j = i+1, j-1 {
 		botMessages[i], botMessages[j] = botMessages[j], botMessages[i]

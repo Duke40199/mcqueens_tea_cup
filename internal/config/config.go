@@ -24,13 +24,19 @@ type AppConfig struct {
 }
 
 type MetaSyncConfig struct {
-	ChannelID string `json:"channel_id"`
-	Interval  int    `json:"sync_interval_minutes"`
+	ChannelID     string `json:"channel_id"`
+	Interval      int    `json:"sync_interval_minutes"`
+	DowntimeStart string `json:"downtime_start"`
+	DowntimeEnd   string `json:"downtime_end"`
+	DowntimeTZ    string `json:"downtime_tz"`
 }
 
 type ActivePlayersSyncConfig struct {
-	ChannelID string `json:"channel_id"`
-	Interval  int    `json:"sync_interval_minutes"`
+	ChannelID     string `json:"channel_id"`
+	Interval      int    `json:"sync_interval_minutes"`
+	DowntimeStart string `json:"downtime_start"`
+	DowntimeEnd   string `json:"downtime_end"`
+	DowntimeTZ    string `json:"downtime_tz"`
 }
 
 // DiscordConfig holds Discord Integration configuration
@@ -91,6 +97,9 @@ func LoadConfig() (*AppConfig, error) {
 		metaInterval = 15 // Default 15 mins
 	}
 	cfg.MetaSyncCfg.Interval = metaInterval
+	cfg.MetaSyncCfg.DowntimeStart = os.Getenv("OB_META_CARS_DOWNTIME_START_HOUR")
+	cfg.MetaSyncCfg.DowntimeEnd = os.Getenv("OB_META_CARS_DOWNTIME_END_HOUR")
+	cfg.MetaSyncCfg.DowntimeTZ = os.Getenv("OB_META_CARS_DOWNTIME_TZ")
 
 	// Active Players Sync
 	cfg.ActivePlayersSyncCfg.ChannelID = os.Getenv("DISCORD_OB_ACTIVE_PLAYERS_CHANNEL_ID")
@@ -99,6 +108,9 @@ func LoadConfig() (*AppConfig, error) {
 		activePlayersInterval = 15 // Default 15 mins
 	}
 	cfg.ActivePlayersSyncCfg.Interval = activePlayersInterval
+	cfg.ActivePlayersSyncCfg.DowntimeStart = os.Getenv("OB_ACTIVE_PLAYERS_DOWNTIME_START_HOUR")
+	cfg.ActivePlayersSyncCfg.DowntimeEnd = os.Getenv("OB_ACTIVE_PLAYERS_DOWNTIME_END_HOUR")
+	cfg.ActivePlayersSyncCfg.DowntimeTZ = os.Getenv("OB_ACTIVE_PLAYERS_DOWNTIME_TZ")
 
 	// Validation
 	if cfg.DiscordCfg.Token == "" {

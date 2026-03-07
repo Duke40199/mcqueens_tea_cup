@@ -151,7 +151,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Player Compare Subcommand
 				{
-					Name:        "player-compare",
+					Name:        "time-attack-compare",
 					Description: "Compare times between two players on a specific course",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -503,7 +503,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandleTeamRanking(i, optMap)
 	case "player-info":
 		h.HandlePlayerInfo(i, optMap)
-	case "player-compare":
+	case "time-attack-compare":
 		h.HandlePlayerCompare(i, optMap)
 	case "ob-ranking":
 		h.HandleOBRanking(i, optMap)

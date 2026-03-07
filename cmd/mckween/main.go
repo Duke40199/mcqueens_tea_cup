@@ -139,7 +139,7 @@ func main() {
 	go func() {
 		ctx := context.Background()
 		for {
-			metaLogic.SleepUntilNextSync(ctx)
+			metaLogic.SleepUntilNextSync(ctx, cfg.MetaSyncCfg.DowntimeStart, cfg.MetaSyncCfg.DowntimeEnd, cfg.MetaSyncCfg.DowntimeTZ)
 
 			log.Println("📊 Starting OBMeta Sync...")
 			detectTime, err := metaSync.Sync(ctx)
@@ -160,7 +160,7 @@ func main() {
 	go func() {
 		ctx := context.Background()
 		for {
-			metaLogic.SleepUntilNextSync(ctx)
+			metaLogic.SleepUntilNextSync(ctx, cfg.ActivePlayersSyncCfg.DowntimeStart, cfg.ActivePlayersSyncCfg.DowntimeEnd, cfg.ActivePlayersSyncCfg.DowntimeTZ)
 
 			log.Println("🔍 Starting Active Players SEA Sync...")
 			detectTime, err := activePlayersSync.Sync(ctx)
