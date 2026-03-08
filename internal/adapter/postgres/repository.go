@@ -24,6 +24,7 @@ type CarRepository interface {
 	UpsertCars(ctx context.Context, cars []entity.CarMetadata) error
 	UpsertCarStyles(ctx context.Context, styles []entity.CarStyleMetadata) error
 	GetBaseSpecMap(ctx context.Context) (map[string]entity.CarSpecInfo, error)
+	GetSegaIDToUUIDMap(ctx context.Context) (map[int64]string, error)
 }
 
 type AreaRepository interface {
