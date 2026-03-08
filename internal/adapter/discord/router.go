@@ -38,6 +38,25 @@ var languageChoice = []*discordgo.ApplicationCommandOptionChoice{
 	},
 }
 
+type CommandName string
+
+const (
+	CommandNameIDAC                  CommandName = "idac"
+	CommandNameIDACTimeAttack        CommandName = "time-attack"
+	CommandNameIDACTeam              CommandName = "team"
+	CommandNameIDACTimeAttackCompare CommandName = "time-attack-compare"
+	CommandNameIDACPlayerAlias       CommandName = "player-alias"
+	CommandNameIDACPlayerInfo        CommandName = "player-info"
+	CommandNameIDACOBRanking         CommandName = "ob-ranking"
+	CommandNameIDACOBMeta            CommandName = "ob-meta"
+
+	CommandNameStatus    CommandName = "status"
+	CommandNameNuhuh     CommandName = "nuhuh"
+	CommandNameMckween   CommandName = "mckween"
+	CommandNameMiemebell CommandName = "miemebell"
+	CommandNameMeomeo    CommandName = "meomeo"
+)
+
 func (h *Handler) RegisterCommands() error {
 	// 1. Get Bot ID explicitly
 	// We use User("@me") because h.Session.State.User is nil until Open() is called.
@@ -62,12 +81,12 @@ func (h *Handler) RegisterCommands() error {
 	commands := []*discordgo.ApplicationCommand{
 		// --- IDAC Complex Command ---
 		{
-			Name:        "idac",
+			Name:        string(CommandNameIDAC),
 			Description: "Commands related to the game Initial D The Arcade",
 			Options: []*discordgo.ApplicationCommandOption{
 				// Subcommand: Time Attack
 				{
-					Name:        "time-attack",
+					Name:        string(CommandNameIDACTimeAttack),
 					Description: "Get Time Attack Rankings",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -115,7 +134,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Subcommand: Team
 				{
-					Name:        "team",
+					Name:        string(CommandNameIDACTeam),
 					Description: "Get Team Rankings",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -151,7 +170,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Player Compare Subcommand
 				{
-					Name:        "time-attack-compare",
+					Name:        string(CommandNameIDACTimeAttackCompare),
 					Description: "Compare times between two players on a specific course",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -197,7 +216,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Player Alias
 				{
-					Name:        "player-alias",
+					Name:        string(CommandNameIDACPlayerAlias),
 					Description: "Manage Player Aliases",
 					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -257,7 +276,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Subcommand: Player Info
 				{
-					Name:        "player-info",
+					Name:        string(CommandNameIDACPlayerInfo),
 					Description: "Find a player's rank on a specific course",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -287,7 +306,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Subcommand: Online Battle
 				{
-					Name:        "ob-ranking",
+					Name:        string(CommandNameIDACOBRanking),
 					Description: "Get Battle Online Rankings",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -328,7 +347,7 @@ func (h *Handler) RegisterCommands() error {
 					},
 				},
 				{
-					Name:        "ob-meta",
+					Name:        string(CommandNameIDACOBMeta),
 					Description: "Get Online Battle meta cars",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -365,9 +384,9 @@ func (h *Handler) RegisterCommands() error {
 			},
 		},
 		// --- Simple Commands ---
-		{Name: "status", Description: "Show current bot status"},
+		{Name: string(CommandNameStatus), Description: "Show current bot status"},
 		{
-			Name:        "nuhuh",
+			Name:        string(CommandNameNuhuh),
 			Description: "Reply with the nuh uh gif",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -378,10 +397,10 @@ func (h *Handler) RegisterCommands() error {
 				},
 			},
 		},
-		{Name: "mckween", Description: "desuwa"},
-		{Name: "miemebell", Description: "Mie me bell"},
+		{Name: string(CommandNameMckween), Description: "desuwa"},
+		{Name: string(CommandNameMiemebell), Description: "Mie me bell"},
 		{
-			Name:        "meomeo",
+			Name:        string(CommandNameMeomeo),
 			Description: "For glazing an user for their exceptional IDAC skills.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -408,24 +427,24 @@ func (h *Handler) RegisterCommands() error {
 		// A. Execute Commands
 		case discordgo.InteractionApplicationCommand:
 			name := i.ApplicationCommandData().Name
-			switch name {
-			case "idac":
+			switch CommandName(name) {
+			case CommandNameIDAC:
 				h.routeIdacCommand(i)
-			case "status":
+			case CommandNameStatus:
 				h.HandleStatus(i)
-			case "nuhuh":
+			case CommandNameNuhuh:
 				h.HandleNuhuh(i)
-			case "mckween":
+			case CommandNameMckween:
 				h.HandleMckween(i)
-			case "miemebell":
+			case CommandNameMiemebell:
 				h.HandleMiemebell(i)
-			case "meomeo":
+			case CommandNameMeomeo:
 				h.HandleMeoMeo(i)
 			}
 
 		// B. Handle Autocomplete
 		case discordgo.InteractionApplicationCommandAutocomplete:
-			if i.ApplicationCommandData().Name == "idac" {
+			if CommandName(i.ApplicationCommandData().Name) == CommandNameIDAC {
 				h.HandleAutoComplete(i)
 			}
 		}
@@ -462,7 +481,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 				optMap[opt.Name] = opt.StringValue()
 			}
 		}
-		if rootOption.Name == "player-alias" {
+		if CommandName(rootOption.Name) == CommandNameIDACPlayerAlias {
 			switch subCmd.Name {
 			case "set":
 				h.HandleSetPlayerAlias(i, optMap["user"], optMap)
@@ -496,18 +515,18 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		}
 	}
 
-	switch subcommand.Name {
-	case "time-attack":
+	switch CommandName(subcommand.Name) {
+	case CommandNameIDACTimeAttack:
 		h.HandleTimeAttack(i, optMap, specInput)
-	case "team":
+	case CommandNameIDACTeam:
 		h.HandleTeamRanking(i, optMap)
-	case "player-info":
+	case CommandNameIDACPlayerInfo:
 		h.HandlePlayerInfo(i, optMap)
-	case "time-attack-compare":
+	case CommandNameIDACTimeAttackCompare:
 		h.HandlePlayerCompare(i, optMap)
-	case "ob-ranking":
+	case CommandNameIDACOBRanking:
 		h.HandleOBRanking(i, optMap)
-	case "ob-meta":
+	case CommandNameIDACOBMeta:
 		h.HandleOBMeta(i, optMap)
 	}
 }

@@ -7,20 +7,26 @@ import (
 	"strings"
 )
 
+// ta
 type IdacTimeAttackRecordResponse struct {
 	CalcDate string             `json:"calcDate"`
 	Records  []TimeAttackRecord `json:"records"`
 }
 
+type TimeAttackRecord struct {
+	Rank       string `json:"rank"`
+	Name       string `json:"name"`
+	ShopName   string `json:"shopname"`
+	Record     string `json:"record"`
+	CarName    string `json:"carname"`
+	MyTitleID  string `json:"mytitleId"`
+	UpdateDate string `json:"updateDate"`
+}
+
+// team
 type IdacTeamRankingResponse struct {
 	Records []TeamRecord `json:"records"`
 }
-
-type IdacOBRankingResponse struct {
-	CalcDate string            `json:"calcDate"`
-	Records  []OBRankingRecord `json:"records"`
-}
-
 type TeamRecord struct {
 	Rank           string `json:"rank"`
 	TeamName       string `json:"team_name"`
@@ -32,14 +38,10 @@ type TeamRecord struct {
 	LeagueEmoji    string `json:"league_emoji"`
 }
 
-type TimeAttackRecord struct {
-	Rank       string `json:"rank"`
-	Name       string `json:"name"`
-	ShopName   string `json:"shopname"`
-	Record     string `json:"record"`
-	CarName    string `json:"carname"`
-	MyTitleID  string `json:"mytitleId"`
-	UpdateDate string `json:"updateDate"`
+// OB ranking
+type IdacOBRankingResponse struct {
+	CalcDate string            `json:"calcDate"`
+	Records  []OBRankingRecord `json:"records"`
 }
 
 type OBRankingRecord struct {
@@ -56,10 +58,29 @@ type OBRankingRecord struct {
 	StarCnt            int    `json:"starCnt"`
 }
 
+// Player ranking
+type IdacPlayerRankingResponse struct {
+	CalcDate string                `json:"calcDate"`
+	Records  []PlayerRankingRecord `json:"records"`
+}
+
+type PlayerRankingRecord struct {
+	ID         int    `json:"id"`
+	Rank       int    `json:"rank"`
+	Name       string `json:"name"`
+	ShopName   string `json:"shopname"`
+	GradeID    string `json:"gradeId"`
+	GradeExp   int    `json:"gradeExp"`
+	MytitleID  string `json:"mytitleId"`
+	UpdateDate string `json:"updateDate"`
+	NumberIcon string `json:"numberIcon"`
+}
+
 func (r OBRankingRecord) GetDisplayStarCount() string {
 	return strconv.Itoa(r.StarCnt) + " (★)"
 }
 
+// TODO: remove consts
 var OnlineBattleRankDisplayNameByCode = map[string]string{
 	"dcb98f86f149cf71d3707a1592072e7838f0811140c24238820dff2b82602a85": "Ruby",
 	"dcb98f86f149cf71d3707a1592072e78f41e679a54f693d3574f499da9559173": "Sapphire",
