@@ -48,10 +48,10 @@ func (s *CarSyncService) SyncData(ctx context.Context) error {
 		} else {
 			car.ID = uuid.NewString()
 		}
-		car.Maker = car.GetNormalisedMakerName()
+		car.Maker = car.GetNormalizedMakerName()
 		car.BaseStyleName = car.GetNormalizedBaseStyle()
 		car.ModelCode = car.GetCarModelCode()
-		car.Name = car.GetNormalisedCarName()
+		car.Name = car.GetNormalizedCarName()
 		log.Printf("Car: %s, Model Code: %s, Maker: %s, Style: %s", car.Name, car.ModelCode, car.Maker, car.BaseStyleName)
 		foundCars = append(foundCars, car)
 		for _, styleID := range car.CarStyleIDs {

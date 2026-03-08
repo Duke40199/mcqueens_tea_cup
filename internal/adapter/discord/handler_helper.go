@@ -120,26 +120,21 @@ func (h *Handler) HandleAutoComplete(i *discordgo.InteractionCreate) {
 	if data.Name != "idac" {
 		return
 	}
-
 	// Find the subcommand options
 	// structure: idac -> [time-attack] -> [track, variant, area...]
 	if len(data.Options) == 0 {
 		return
 	}
 	subCmd := data.Options[0]
-
 	var selectedTrack string
-
 	// 1. Find what the user has currently selected for "track"
 	for _, opt := range subCmd.Options {
 		if opt.Name == "track" {
 			selectedTrack = opt.StringValue()
 		}
 	}
-
 	// 2. Generate choices for "variant"
 	var choices []*discordgo.ApplicationCommandOptionChoice
-
 	if variants, ok := idac_domain.TrackRegistry[selectedTrack]; ok {
 		for _, v := range variants {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
