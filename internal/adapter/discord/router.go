@@ -103,14 +103,14 @@ func (h *Handler) RegisterCommands() error {
 							Description: "Car spec variant (AR, HC, etc)",
 							Required:    false,
 						},
-						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
-							Name:        "limit",
-							Description: "Number of results to show (1-25, default: 10)",
-							Required:    false,
-							MinValue:    &minLimit,
-							MaxValue:    maxLimit,
-						},
+						// {
+						// 	Type:        discordgo.ApplicationCommandOptionInteger,
+						// 	Name:        "limit",
+						// 	Description: "Number of results to show (1-25, default: 10)",
+						// 	Required:    false,
+						// 	MinValue:    &minLimit,
+						// 	MaxValue:    maxLimit,
+						// },
 					},
 				},
 				// Subcommand: Team
