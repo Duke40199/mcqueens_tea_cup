@@ -233,7 +233,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 			if rankName != "" {
 				if isPride {
 					prideCount++
-					section.WriteString(fmt.Sprintf("- `%s` — %s — %s\n", p.Record.Name, rankName, p.LocalTime))
+					section.WriteString(fmt.Sprintf("- `%s` — %s — (%d) — %s\n", p.Record.Name, rankName, p.Record.PridePoint, p.LocalTime))
 				} else {
 					normalPlayerCount++
 					section.WriteString(fmt.Sprintf("- `%s` — %s %s — %s\n", p.Record.Name, rankName, p.Record.GetDisplayStarCount(), p.LocalTime))
@@ -245,7 +245,6 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 		if currentMessage.Len()+section.Len() > 1900 {
 			pages = append(pages, currentMessage.String())
 			currentMessage.Reset()
-			currentMessage.WriteString(header)
 		}
 		currentMessage.WriteString("\n")
 		currentMessage.WriteString(section.String())
@@ -257,7 +256,6 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	if currentMessage.Len()+len(footer) > 1900 {
 		pages = append(pages, currentMessage.String())
 		currentMessage.Reset()
-		currentMessage.WriteString(header)
 	}
 	currentMessage.WriteString(footer)
 
