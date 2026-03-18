@@ -25,6 +25,13 @@ func NewCarSyncService(client entity.SegaClient, repo postgres.CarRepository) *C
 
 func (s *CarSyncService) SyncData(ctx context.Context) error {
 	log.Println("🚗 Starting Car/Style Sync...")
+	// 0. Fetch existing car mappings to reuse UUIDs
+	existingCarMap, err := s.CarRepo.GetSegaIDToUUIDMap(ctx)
+	if err != nil {
+		log.Printf("⚠️ Warning: Could not fetch existing car map: %v. Proceeding with new UUIDs.", err)
+		existingCarMap = make(map[int64]string)
+	}
+
 	// 1. Fetch data
 	data, err := s.SegaClient.FetchConst()
 	if err != nil {
@@ -35,11 +42,16 @@ func (s *CarSyncService) SyncData(ctx context.Context) error {
 	foundCars := make([]entity.CarMetadata, 0)
 	carStyleIDsMap := make(map[int64]string)
 	for _, car := range data.Cars {
-		car.ID = uuid.NewString()
-		car.Maker = car.GetNormalisedMakerName()
+		// Reuse existing UUID if available
+		if existingID, ok := existingCarMap[car.SegaCarID]; ok {
+			car.ID = existingID
+		} else {
+			car.ID = uuid.NewString()
+		}
+		car.Maker = car.GetNormalizedMakerName()
 		car.BaseStyleName = car.GetNormalizedBaseStyle()
 		car.ModelCode = car.GetCarModelCode()
-		car.Name = car.GetNormalisedCarName()
+		car.Name = car.GetNormalizedCarName()
 		log.Printf("Car: %s, Model Code: %s, Maker: %s, Style: %s", car.Name, car.ModelCode, car.Maker, car.BaseStyleName)
 		foundCars = append(foundCars, car)
 		for _, styleID := range car.CarStyleIDs {

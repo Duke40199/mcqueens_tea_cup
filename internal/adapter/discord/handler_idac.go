@@ -15,7 +15,6 @@ import (
 )
 
 func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[string]string, specInput string) {
-	var err error
 	// 1. DEFER
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -71,21 +70,24 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	}
 
 	// Check Limit
-	var limit int
-	if _, ok := optMap["limit"]; ok {
-		limit, err = strconv.Atoi(optMap["limit"])
-		if err != nil {
-			sendDeferredError("⚠️ Limit must be a number")
-			return
-		}
-	} else {
-		limit = 10
-	}
+	var limit = 1000
+	// if _, ok := optMap["limit"]; ok {
+	// 	limit, err = strconv.Atoi(optMap["limit"])
+	// 	if err != nil {
+	// 		sendDeferredError("⚠️ Limit must be a number")
+	// 		return
+	// 	}
+	// } else {
+	// 	limit = 1000
+	// }
 
 	// 3. Fetch Data
 	finalArea := optMap["area"]
 	records, err := h.SegaClient.GetTimeAttack(finalCourseID, finalArea, finalCarID, specInput)
-
+	if err != nil {
+		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
+		return
+	}
 	if len(records) == 0 {
 		msg := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\nNo records found.", courseName, areaName, carDisplayName)
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})

@@ -251,8 +251,8 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	}
 	// default add page for footer
 	footer := "\n 📊 ***Player Counts***\n" +
-		fmt.Sprintf("**PRIDE players: %d\n**", prideCount) +
-		fmt.Sprintf("**Non-PRIDE players: %d\n**", normalPlayerCount)
+		fmt.Sprintf("**PRIDE players: %d**\n", prideCount) +
+		fmt.Sprintf("**Non-PRIDE players: %d**\n", normalPlayerCount)
 	if currentMessage.Len()+len(footer) > 1900 {
 		pages = append(pages, currentMessage.String())
 		currentMessage.Reset()

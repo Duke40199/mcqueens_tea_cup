@@ -149,6 +149,32 @@ func (c *SegaClient) GetListOBRanking(roundNum string, areaCode string) (*entity
 	return &data, nil
 }
 
+func (c *SegaClient) GetListPlayerRanking(areaCode string) (*entity.IdacPlayerRankingResponse, error) {
+	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/grade/gr_%s.json", areaCode)
+	fmt.Printf("Fetching player ranking data from %s\n", rankURL)
+	resp, err := http.Get(rankURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code %d", resp.StatusCode)
+	}
+
+	var data entity.IdacPlayerRankingResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	// foundTeams := make([]entity.TeamRecord, 0)
+	// set league emoji values for each team
+	// for _, foundTeam := range data.Records {
+	// 	// foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
+	// 	// foundTeams = append(foundTeams, foundTeam)
+	// }
+	return &data, nil
+}
+
 func (c *SegaClient) FetchConst() (*entity.IdacConstResponse, error) {
 	constURL := "https://initiald.sega.jp/inidac/json/ranking/v1/const.json"
 	fmt.Printf("Fetching const data from %s\n", constURL)

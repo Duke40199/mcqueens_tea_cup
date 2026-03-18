@@ -7,20 +7,26 @@ import (
 	"strings"
 )
 
+// ta
 type IdacTimeAttackRecordResponse struct {
 	CalcDate string             `json:"calcDate"`
 	Records  []TimeAttackRecord `json:"records"`
 }
 
+type TimeAttackRecord struct {
+	Rank       string `json:"rank"`
+	Name       string `json:"name"`
+	ShopName   string `json:"shopname"`
+	Record     string `json:"record"`
+	CarName    string `json:"carname"`
+	MyTitleID  string `json:"mytitleId"`
+	UpdateDate string `json:"updateDate"`
+}
+
+// team
 type IdacTeamRankingResponse struct {
 	Records []TeamRecord `json:"records"`
 }
-
-type IdacOBRankingResponse struct {
-	CalcDate string            `json:"calcDate"`
-	Records  []OBRankingRecord `json:"records"`
-}
-
 type TeamRecord struct {
 	Rank           string `json:"rank"`
 	TeamName       string `json:"team_name"`
@@ -32,14 +38,10 @@ type TeamRecord struct {
 	LeagueEmoji    string `json:"league_emoji"`
 }
 
-type TimeAttackRecord struct {
-	Rank       string `json:"rank"`
-	Name       string `json:"name"`
-	ShopName   string `json:"shopname"`
-	Record     string `json:"record"`
-	CarName    string `json:"carname"`
-	MyTitleID  string `json:"mytitleId"`
-	UpdateDate string `json:"updateDate"`
+// OB ranking
+type IdacOBRankingResponse struct {
+	CalcDate string            `json:"calcDate"`
+	Records  []OBRankingRecord `json:"records"`
 }
 
 type OBRankingRecord struct {
@@ -56,10 +58,29 @@ type OBRankingRecord struct {
 	StarCnt            int    `json:"starCnt"`
 }
 
+// Player ranking
+type IdacPlayerRankingResponse struct {
+	CalcDate string                `json:"calcDate"`
+	Records  []PlayerRankingRecord `json:"records"`
+}
+
+type PlayerRankingRecord struct {
+	ID         int    `json:"id"`
+	Rank       int    `json:"rank"`
+	Name       string `json:"name"`
+	ShopName   string `json:"shopname"`
+	GradeID    string `json:"gradeId"`
+	GradeExp   int    `json:"gradeExp"`
+	MytitleID  string `json:"mytitleId"`
+	UpdateDate string `json:"updateDate"`
+	NumberIcon string `json:"numberIcon"`
+}
+
 func (r OBRankingRecord) GetDisplayStarCount() string {
 	return strconv.Itoa(r.StarCnt) + " (★)"
 }
 
+// TODO: remove consts
 var OnlineBattleRankDisplayNameByCode = map[string]string{
 	"dcb98f86f149cf71d3707a1592072e7838f0811140c24238820dff2b82602a85": "Ruby",
 	"dcb98f86f149cf71d3707a1592072e78f41e679a54f693d3574f499da9559173": "Sapphire",
@@ -549,101 +570,101 @@ type TrackVariant struct {
 
 // TrackRegistry maps a Track Name to its available Variants
 var TrackRegistry = map[string][]TrackVariant{
-	"Akina Lake": {
-		{"Counter-Clockwise (CCW)", "course-0"},
-		{"Clockwise (CW)", "course-2"},
+	"Akina Lake「秋名湖」": {
+		{"『左周り』Counter-Clockwise (CCW)", "course-0"},
+		{"『右周り』Clockwise (CW)", "course-2"},
 	},
-	"Hakone": {
-		{"Downhill", "course-52"},
-		{"Uphill", "course-54"},
+	"Hakone「箱根」": {
+		{"『下り』Downhill", "course-52"},
+		{"『上り』Uphill", "course-54"},
 	},
-	"Usui": {
-		{"Counter-Clockwise (CCW)", "course-36"},
-		{"Clockwise (CW)", "course-38"},
+	"Usui「碓氷」": {
+		{"『左周り』Counter-Clockwise (CCW)", "course-36"},
+		{"『右周り』Clockwise (CW)", "course-38"},
 	},
-	"Myogi": {
-		{"Downhill", "course-4"},
-		{"Uphill", "course-6"},
+	"Myogi「妙義」": {
+		{"『下り』Downhill", "course-4"},
+		{"『上り』Uphill", "course-6"},
 	},
-	"Akagi": {
-		{"Downhill", "course-8"},
-		{"Uphill", "course-10"},
+	"Akagi「赤城」": {
+		{"『下り』Downhill", "course-8"},
+		{"『上り』Uphill", "course-10"},
 	},
-	"Akina": {
-		{"Downhill", "course-12"},
-		{"Uphill", "course-14"},
+	"Akina「秋名」": {
+		{"『下り』Downhill", "course-12"},
+		{"『上り』Uphill", "course-14"},
 	},
-	"Irohazaka": {
-		{"Downhill", "course-16"},
-		{"Uphill", "course-18"},
+	"Irohazaka「いろは坂」": {
+		{"『下り』Downhill", "course-16"},
+		{"『逆走』Uphill", "course-18"},
 	},
-	"Tsukuba": {
-		{"Outbound", "course-20"},
-		{"Inbound", "course-22"},
+	"Tsukuba「筑波」": {
+		{"『往路』Outbound", "course-20"},
+		{"『復路』Inbound", "course-22"},
 	},
-	"Happogahara": {
-		{"Outbound", "course-24"},
-		{"Inbound", "course-26"},
+	"Happogahara「八方ヶ原」": {
+		{"『往路』Outbound", "course-24"},
+		{"『復路』Inbound", "course-26"},
 	},
-	"Nagao": {
-		{"Downhill", "course-28"},
-		{"Uphill", "course-30"},
+	"Nagao「長岡」": {
+		{"『下り』Downhill", "course-28"},
+		{"『上り』Uphill", "course-30"},
 	},
-	"Tsubaki Line": {
-		{"Downhill", "course-32"},
-		{"Uphill", "course-34"},
+	"Tsubaki Line「椿ライン」": {
+		{"『下り』Downhill", "course-32"},
+		{"『上り』Uphill", "course-34"},
 	},
-	"Sadamine": {
-		{"Downhill", "course-40"},
-		{"Uphill", "course-42"},
+	"Sadamine「定峰」": {
+		{"『下り』Downhill", "course-40"},
+		{"『上り』Uphill", "course-42"},
 	},
-	"Tsuchisaka": {
-		{"Outbound", "course-44"},
-		{"Inbound", "course-46"},
+	"Tsuchisaka「土坂」": {
+		{"『往路』Outbound", "course-44"},
+		{"『復路』Inbound", "course-46"},
 	},
-	"Akina Snow": {
-		{"Downhill", "course-48"},
-		{"Uphill", "course-50"},
+	"Akina Snow「秋名 (雪)」": {
+		{"『下り』Downhill", "course-48"},
+		{"『上り』Uphill", "course-50"},
 	},
-	"Momiji Line": {
-		{"Downhill", "course-56"},
-		{"Uphill", "course-58"},
+	"Momiji Line「もみじライン」": {
+		{"『下り』Downhill", "course-56"},
+		{"『上り』Uphill", "course-58"},
 	},
-	"Nanamagari": {
-		{"Downhill", "course-60"},
-		{"Uphill", "course-62"},
+	"Nanamagari「七曲り」": {
+		{"『下り』Downhill", "course-60"},
+		{"『上り』Uphill", "course-62"},
 	},
-	"Gunsai": {
-		{"Outbound", "course-64"},
-		{"Inbound", "course-66"},
+	"Gunsai「群サイ」": {
+		{"『往路』Outbound", "course-64"},
+		{"『復路』Inbound", "course-66"},
 	},
-	"Odawara": {
-		{"Outbound", "course-68"},
-		{"Inbound", "course-70"},
+	"Odawara「小田原」": {
+		{"『往路』Outbound", "course-68"},
+		{"『復路』Inbound", "course-70"},
 	},
-	"Tsukuba Snow": {
-		{"Outbound", "course-72"},
-		{"Inbound", "course-74"},
+	"Tsukuba Snow「筑波 (雪)」": {
+		{"『往路』Outbound", "course-72"},
+		{"『復路』Inbound", "course-74"},
 	},
-	"Yabitsu": {
-		{"Downhill", "course-76"},
-		{"Uphill", "course-78"},
+	"Yabitsu「ヤビツ」": {
+		{"『下り』Downhill", "course-76"},
+		{"『上り』Uphill", "course-78"},
 	},
-	"Tsuchisaka Snow": {
-		{"Outbound", "course-80"},
-		{"Inbound", "course-82"},
+	"Tsuchisaka Snow「土坂 (雪)」": {
+		{"『往路』Outbound", "course-80"},
+		{"『復路』Inbound", "course-82"},
 	},
-	"Manazuru": {
-		{"Outbound", "course-84"},
-		{"Inbound", "course-86"},
+	"Manazuru「真鶴」": {
+		{"『順走』Forward", "course-84"},
+		{"『逆走』Reverse", "course-86"},
 	},
-	"Usui Snow": {
-		{"Counter-Clockwise (CCW)", "course-88"},
-		{"Clockwise (CW)", "course-90"},
+	"Usui Snow「碓氷 (雪)」": {
+		{"『左周り』Counter-Clockwise (CCW)", "course-88"},
+		{"『右周り』Clockwise (CW)", "course-90"},
 	},
-	"Akina Rain": {
-		{"Downhill", "course-92"},
-		{"Uphill", "course-94"},
+	"Akina Rain「秋名 (雨)」": {
+		{"『下り』Downhill", "course-92"},
+		{"『上り』Uphill", "course-94"},
 	},
 }
 
@@ -853,12 +874,12 @@ func (c *CarMetadata) GetNormalizedBaseStyle() string {
 		return c.BaseStyleName
 	}
 }
-func (c *CarMetadata) GetNormalisedCarName() string {
+func (c *CarMetadata) GetNormalizedCarName() string {
 	nameWithoutSpec := strings.Split(c.Name, "(")[0]
 	return strings.TrimSpace(nameWithoutSpec)
 }
 
-func (c *CarMetadata) GetNormalisedMakerName() string {
+func (c *CarMetadata) GetNormalizedMakerName() string {
 	return strings.ToLower(c.Maker)
 }
 

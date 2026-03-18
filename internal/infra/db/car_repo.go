@@ -40,10 +40,10 @@ func (r *CarRepository) UpsertCars(ctx context.Context, cars []entity.CarMetadat
 
 	_, err := r.DB.ExecContext(ctx, query, values...)
 	if err != nil {
-		log.Println("error upserting cars:", err)
+		log.Printf("error upserting cars: %v. Query: %s", err, formatQuery(query, values))
 		return err
 	}
-	return err
+	return nil
 }
 
 func (r *CarRepository) UpsertCarStyles(ctx context.Context, styles []entity.CarStyleMetadata) error {
@@ -63,6 +63,9 @@ func (r *CarRepository) UpsertCarStyles(ctx context.Context, styles []entity.Car
 	query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name;`
 
 	_, err := r.DB.ExecContext(ctx, query, values...)
+	if err != nil {
+		log.Printf("error upserting styles: %v. Query: %s", err, formatQuery(query, values))
+	}
 	return err
 }
 
@@ -93,4 +96,43 @@ func (r *CarRepository) GetBaseSpecMap(ctx context.Context) (map[string]entity.C
 		}
 	}
 	return result, rows.Err()
+}
+
+func (r *CarRepository) GetSegaIDToUUIDMap(ctx context.Context) (map[int64]string, error) {
+	query := `SELECT sega_id, id FROM sega_idac_cars_metadata`
+	rows, err := r.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]string)
+	for rows.Next() {
+		var segaID int64
+		var id string
+		if err := rows.Scan(&segaID, &id); err != nil {
+			return nil, err
+		}
+		result[segaID] = id
+	}
+	return result, rows.Err()
+}
+
+func formatQuery(query string, args []any) string {
+	for i, arg := range args {
+		placeholder := fmt.Sprintf("$%d", i+1)
+		var val string
+		switch v := arg.(type) {
+		case string:
+			val = fmt.Sprintf("'%s'", v)
+		case int, int64, float64:
+			val = fmt.Sprintf("%v", v)
+		case bool:
+			val = fmt.Sprintf("%v", v)
+		default:
+			val = fmt.Sprintf("'%v'", v)
+		}
+		query = strings.Replace(query, placeholder, val, 1)
+	}
+	return query
 }
