@@ -71,15 +71,6 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	// Check Limit
 	var limit = 1000
-	// if _, ok := optMap["limit"]; ok {
-	// 	limit, err = strconv.Atoi(optMap["limit"])
-	// 	if err != nil {
-	// 		sendDeferredError("⚠️ Limit must be a number")
-	// 		return
-	// 	}
-	// } else {
-	// 	limit = 1000
-	// }
 
 	// 3. Fetch Data
 	finalArea := optMap["area"]
