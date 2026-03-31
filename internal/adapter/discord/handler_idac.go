@@ -542,8 +542,6 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		timeRecord, _ := entity.ParseRaceTime(p.Record)
 		if p != nil {
 			taRank, _ = h.GetPlayerTimeAttackRank(timeRecord, courseID, taTimeMetadata)
-		}
-		if p != nil {
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
 			sb.WriteString(fmt.Sprintf("- **Local Rank:** #%s\n", p.Rank))
 			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))
