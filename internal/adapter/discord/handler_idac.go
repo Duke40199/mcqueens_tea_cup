@@ -110,7 +110,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		r := records[j]
 		timeRecord, _ := entity.ParseRaceTime(r.Record)
 		taRank := GetPlayerTimeAttackRank(timeRecord, taTimeMetadata)
-		entry := fmt.Sprintf("%s. **%s** — %s — `%s` - *%s*\n", r.Rank, r.Name, r.CarName, r.Record, taRank)
+		entry := fmt.Sprintf("%s. **%s** — %s — `%s` — *%s*\n", r.Rank, r.Name, r.CarName, r.Record, taRank)
 
 		// Split if 10 items OR length > 1900
 		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 1900 {
