@@ -2,7 +2,6 @@ package discord
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -49,20 +48,8 @@ func (h *Handler) HandleAnonymousCommand(i *discordgo.InteractionCreate) {
 		// handle error
 		return
 	}
-	// 3. Get latest state cfg
-	latestCfsState, err := h.cfsStateRepo.GetLatestCfsState(context.Background())
-	if err != nil {
-		h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Error getting latest cfs count",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
 	// 3. Increment counter and format tag
-	err = h.cfsStateRepo.CreateCfsState(latestCfsState.ID+1, discordID, messageContent)
+	newID, err := h.cfsStateRepo.CreateCfsState(discordID, messageContent)
 	if err != nil {
 		h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -75,8 +62,14 @@ func (h *Handler) HandleAnonymousCommand(i *discordgo.InteractionCreate) {
 	}
 	// 4. Send a completely separate standard message to the channel.
 	// This will just look like the bot is speaking on its own.
-	_, err = h.Session.ChannelMessageSend(i.ChannelID, fmt.Sprintf("#cfs%04d: %s", latestCfsState.ID+1, messageContent))
+	_, err = h.Session.ChannelMessageSend(i.ChannelID, fmt.Sprintf("#cfs%04d: %s", newID, messageContent))
 	if err != nil {
-		// handle error
+		h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Error sending confession",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 	}
 }

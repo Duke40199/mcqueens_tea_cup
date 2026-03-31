@@ -34,14 +34,16 @@ func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState,
 	return &cfsState, nil
 }
 
-func (r *CfsStateRepo) CreateCfsState(id int64, discordID, content string) error {
-	// UPSERT: Insert, but if conflict (key exists), update the existing row
+func (r *CfsStateRepo) CreateCfsState(discordID, content string) (int64, error) {
+	// Let PostgreSQL automatically generate the next `id` using SERIAL,
+	// and then immediately return that new `id` back to us.
 	query := `
-		INSERT INTO cfs_state (id, discord_id, content, created_at)
-		VALUES ($1, $2, $3, NOW())
-		ON CONFLICT (id) 
-		DO NOTHING;
+		INSERT INTO cfs_state (discord_id, content, created_at)
+		VALUES ($1, $2, NOW())
+		RETURNING id;
 	`
-	_, err := r.DB.Exec(query, id, discordID, content)
-	return err
+	var newID int64
+	err := r.DB.QueryRow(query, discordID, content).Scan(&newID)
+
+	return newID, err
 }

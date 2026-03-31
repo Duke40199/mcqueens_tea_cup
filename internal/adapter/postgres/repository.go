@@ -42,5 +42,5 @@ type TATimeMetadataRepository interface {
 
 type CfsStateRepository interface {
 	GetLatestCfsState(ctx context.Context) (*entity.CfsState, error)
-	CreateCfsState(id int64, discordID, content string) error
+	CreateCfsState(discordID, content string) (int64, error)
 }
