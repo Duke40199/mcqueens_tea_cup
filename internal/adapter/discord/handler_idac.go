@@ -109,7 +109,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	for j := 0; j < limit; j++ {
 		r := records[j]
 		timeRecord, _ := entity.ParseRaceTime(r.Record)
-		taRank := GetPlayerTimeAttackRank(timeRecord, taTimeMetadata)
+		taRank, _ := h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
 		entry := fmt.Sprintf("%s. **%s** — %s — `%s` — **%s**\n", r.Rank, r.Name, r.CarName, r.Record, taRank)
 
 		// Split if 10 items OR length > 1900
@@ -135,16 +135,20 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 }
 
 // GetPlayerTimeAttackRank assumes thresholds is sorted ascending by RequiredTime
-func GetPlayerTimeAttackRank(playerTime time.Time, thresholds []*entity.TimeAttackRankingMetadata) string {
+func (h *Handler) GetPlayerTimeAttackRank(playerTime time.Time, courseID string, thresholds []*entity.TimeAttackRankingMetadata) (string, error) {
+	if thresholds == nil {
+		taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), courseID)
+		if err != nil {
+			return "", err
+		}
+		thresholds = taTimeMetadata
+	}
 	for _, t := range thresholds {
-		// Since it's sorted hardest to easiest, the FIRST threshold
-		// the player's time is <= to is their achieved rank.
 		if playerTime.Before(t.RequiredTime) || playerTime.Equal(t.RequiredTime) {
-			return t.RankName
+			return t.RankName, nil
 		}
 	}
-	// If they are slower than the easiest threshold
-	return "NO DATA"
+	return "NO DATA", nil
 }
 
 func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key string, optMap map[string]string) {
@@ -361,7 +365,6 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
 	// 2. Resolve Player 1
-	fmt.Println("===== p1Area:", optMap["area1"])
 	p1Name, p1Area, _, err := h.ResolvePlayerCredentialDB(optMap["player1"], optMap["area1"])
 	if err != nil {
 		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
@@ -423,7 +426,11 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	}
 
 	courseID := optMap["variant"]
-
+	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.Background(), courseID)
+	if err != nil {
+		sendDeferredError("error getting taMetadata:" + err.Error())
+		return
+	}
 	// 4. Helper: Fetch Data & Find Player
 	fetchAndFind := func(areaCode, targetIgn string) (*entity.TimeAttackRecord, string, error) {
 		baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
@@ -531,10 +538,13 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	// Helper to print
 	printPlayer := func(label, areaName, inputName, errStr string, p *entity.TimeAttackRecord) {
 		sb.WriteString(fmt.Sprintf("### %s (%s): ", label, areaName))
+		timeRecord, _ := entity.ParseRaceTime(p.Record)
+		taRank, _ := h.GetPlayerTimeAttackRank(timeRecord, courseID, taTimeMetadata)
 		if p != nil {
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
 			sb.WriteString(fmt.Sprintf("- **Local Rank:** #%s\n", p.Rank))
 			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))
+			sb.WriteString(fmt.Sprintf("- **Rank:** `%s`\n", taRank))
 			sb.WriteString(fmt.Sprintf("- **Car:** %s\n", p.CarName))
 		} else {
 			sb.WriteString(fmt.Sprintf("%s\n", inputName))
