@@ -39,3 +39,8 @@ type RankingCfgRepository interface {
 type TATimeMetadataRepository interface {
 	GetByCourseID(ctx context.Context, courseID string) ([]*entity.TimeAttackRankingMetadata, error)
 }
+
+type CfsStateRepository interface {
+	GetLatestCfsState(ctx context.Context) (*entity.CfsState, error)
+	CreateCfsState(id int64, discordID, content string) error
+}

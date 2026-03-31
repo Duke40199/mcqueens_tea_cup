@@ -24,6 +24,7 @@ type Handler struct {
 	CarRepo            postgres.CarRepository
 	MetaLogic          *usecase.MetaLogicService
 	TATimeMetadataRepo postgres.TATimeMetadataRepository
+	cfsStateRepo       postgres.CfsStateRepository
 	OwnerID            string
 }
 
@@ -35,6 +36,7 @@ func NewHandler(
 	obRankingCfg postgres.OBRankingCfgRepository,
 	carRepo postgres.CarRepository,
 	taTimeMetadataRepo postgres.TATimeMetadataRepository,
+	cfsStateRepo postgres.CfsStateRepository,
 	metaLogic *usecase.MetaLogicService) *Handler {
 	return &Handler{
 		Session:            s,
@@ -43,6 +45,7 @@ func NewHandler(
 		OBRankingCfgRepo:   obRankingCfg,
 		TATimeMetadataRepo: taTimeMetadataRepo,
 		CarRepo:            carRepo,
+		cfsStateRepo:       cfsStateRepo,
 		MetaLogic:          metaLogic,
 		OwnerID:            "384015507302383616",
 	}

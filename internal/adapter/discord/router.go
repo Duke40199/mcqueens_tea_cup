@@ -55,6 +55,7 @@ const (
 	CommandNameMckween   CommandName = "mckween"
 	CommandNameMiemebell CommandName = "miemebell"
 	CommandNameMeomeo    CommandName = "meomeo"
+	CommandNameCfs       CommandName = "cfs"
 )
 
 func (h *Handler) RegisterCommands() error {
@@ -384,6 +385,18 @@ func (h *Handler) RegisterCommands() error {
 			},
 		},
 		// --- Simple Commands ---
+		{
+			Name:        string(CommandNameCfs),
+			Description: "Send an anonymous message to the channel",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "message",
+					Description: "Your anonymous message",
+					Required:    true,
+				},
+			},
+		},
 		{Name: string(CommandNameStatus), Description: "Show current bot status"},
 		{
 			Name:        string(CommandNameNuhuh),
@@ -399,26 +412,27 @@ func (h *Handler) RegisterCommands() error {
 		},
 		{Name: string(CommandNameMckween), Description: "desuwa"},
 		{Name: string(CommandNameMiemebell), Description: "Mie me bell"},
-		{
-			Name:        string(CommandNameMeomeo),
-			Description: "For glazing an user for their exceptional IDAC skills.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "user",
-					Description: "(Optional) User to tag",
-					Required:    false,
-				},
 
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "language",
-					Description: "(Optional) Choose a language",
-					Required:    false,
-					Choices:     languageChoice,
-				},
-			},
-		},
+		// {
+		// 	Name:        string(CommandNameMeomeo),
+		// 	Description: "For glazing an user for their exceptional IDAC skills.",
+		// 	Options: []*discordgo.ApplicationCommandOption{
+		// 		{
+		// 			Type:        discordgo.ApplicationCommandOptionUser,
+		// 			Name:        "user",
+		// 			Description: "(Optional) User to tag",
+		// 			Required:    false,
+		// 		},
+
+		// 		{
+		// 			Type:        discordgo.ApplicationCommandOptionString,
+		// 			Name:        "language",
+		// 			Description: "(Optional) Choose a language",
+		// 			Required:    false,
+		// 			Choices:     languageChoice,
+		// 		},
+		// 	},
+		// },
 	}
 
 	// 3. Register Event Router
@@ -440,6 +454,8 @@ func (h *Handler) RegisterCommands() error {
 				h.HandleMiemebell(i)
 			case CommandNameMeomeo:
 				h.HandleMeoMeo(i)
+			case CommandNameCfs:
+				h.HandleAnonymousCommand(i)
 			}
 
 		// B. Handle Autocomplete
