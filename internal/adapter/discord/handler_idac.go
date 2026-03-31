@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"McQueens_Tea_Cup/internal/domain/entity"
 
@@ -88,7 +90,11 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	if len(records) < limit {
 		limit = len(records)
 	}
-
+	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), finalCourseID)
+	if taTimeMetadata == nil {
+		sendDeferredError("⚠️ Failed to metadata TA time.")
+		return
+	}
 	// 4. Build Pages (Slice of Strings)
 	var pages []string
 	var currentMessage strings.Builder
@@ -102,7 +108,9 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	for j := 0; j < limit; j++ {
 		r := records[j]
-		entry := fmt.Sprintf("%s. **%s** — %s — `%s`\n", r.Rank, r.Name, r.CarName, r.Record)
+		timeRecord, _ := entity.ParseRaceTime(r.Record)
+		taRank := GetPlayerTimeAttackRank(timeRecord, taTimeMetadata)
+		entry := fmt.Sprintf("%s. **%s** — %s — `%s` - `%s`\n", r.Rank, r.Name, r.CarName, r.Record, taRank)
 
 		// Split if 10 items OR length > 1900
 		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 1900 {
@@ -124,6 +132,20 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	// 5. Hand over to Pagination Helper
 	h.SendPagination(i, pages)
+}
+
+// GetPlayerTimeAttackRank assumes thresholds is sorted ascending by RequiredTime
+func GetPlayerTimeAttackRank(playerTime time.Time, thresholds []*entity.TimeAttackRankingMetadata) string {
+	for _, t := range thresholds {
+		// Since it's sorted hardest to easiest, the FIRST threshold
+		// the player's time is <= to is their achieved rank.
+		if playerTime.Before(t.RequiredTime) || playerTime.Equal(t.RequiredTime) {
+			return t.RankName
+		}
+	}
+
+	// If they are slower than the easiest threshold
+	return "UNRANKED"
 }
 
 func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key string, optMap map[string]string) {

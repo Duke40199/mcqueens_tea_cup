@@ -1,8 +1,9 @@
 package postgres
 
 import (
-	"McQueens_Tea_Cup/internal/domain/entity"
 	"context"
+
+	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 // AliasRepository defines how we interact with player aliases.
@@ -29,4 +30,12 @@ type CarRepository interface {
 
 type AreaRepository interface {
 	GetOBActiveAreas(ctx context.Context) ([]entity.AreaSyncInfo, error)
+}
+
+type RankingCfgRepository interface {
+	GetListTimeAttackRankingCfg(ctx context.Context) ([]*entity.TimeAttackRankingCfg, error)
+}
+
+type TATimeMetadataRepository interface {
+	GetByCourseID(ctx context.Context, courseID string) ([]*entity.TimeAttackRankingMetadata, error)
 }

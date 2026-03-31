@@ -17,25 +17,34 @@ var unauthorizedGif []byte
 // Handler holds dependencies.
 // It doesn't know about HTTP, it only knows "IdacRepository".
 type Handler struct {
-	Session          *discordgo.Session
-	SegaClient       entity.SegaClient
-	AliasRepo        postgres.AliasRepository
-	OBRankingCfgRepo postgres.OBRankingCfgRepository
-	CarRepo          postgres.CarRepository
-	MetaLogic        *usecase.MetaLogicService
-	OwnerID          string
+	Session            *discordgo.Session
+	SegaClient         entity.SegaClient
+	AliasRepo          postgres.AliasRepository
+	OBRankingCfgRepo   postgres.OBRankingCfgRepository
+	CarRepo            postgres.CarRepository
+	MetaLogic          *usecase.MetaLogicService
+	TATimeMetadataRepo postgres.TATimeMetadataRepository
+	OwnerID            string
 }
 
 // NewHandler creates our controller
-func NewHandler(s *discordgo.Session, segaClient entity.SegaClient, alias postgres.AliasRepository, obRankingCfg postgres.OBRankingCfgRepository, carRepo postgres.CarRepository, metaLogic *usecase.MetaLogicService) *Handler {
+func NewHandler(
+	s *discordgo.Session,
+	segaClient entity.SegaClient,
+	alias postgres.AliasRepository,
+	obRankingCfg postgres.OBRankingCfgRepository,
+	carRepo postgres.CarRepository,
+	taTimeMetadataRepo postgres.TATimeMetadataRepository,
+	metaLogic *usecase.MetaLogicService) *Handler {
 	return &Handler{
-		Session:          s,
-		SegaClient:       segaClient,
-		AliasRepo:        alias,
-		OBRankingCfgRepo: obRankingCfg,
-		CarRepo:          carRepo,
-		MetaLogic:        metaLogic,
-		OwnerID:          "384015507302383616",
+		Session:            s,
+		SegaClient:         segaClient,
+		AliasRepo:          alias,
+		OBRankingCfgRepo:   obRankingCfg,
+		TATimeMetadataRepo: taTimeMetadataRepo,
+		CarRepo:            carRepo,
+		MetaLogic:          metaLogic,
+		OwnerID:            "384015507302383616",
 	}
 }
 
