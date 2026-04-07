@@ -545,7 +545,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
 			sb.WriteString(fmt.Sprintf("- **Local Rank:** #%s\n", p.Rank))
 			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))
-			sb.WriteString(fmt.Sprintf("- **Rank:** `%s`\n", taRank))
+			sb.WriteString(fmt.Sprintf("- **Rank:** **%s**\n", taRank))
 			sb.WriteString(fmt.Sprintf("- **Car:** %s\n", p.CarName))
 		} else {
 			sb.WriteString(fmt.Sprintf("%s\n", inputName))
