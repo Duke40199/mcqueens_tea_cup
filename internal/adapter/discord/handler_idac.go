@@ -109,8 +109,8 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	for j := 0; j < limit; j++ {
 		r := records[j]
 		timeRecord, _ := entity.ParseRaceTime(r.Record)
-		taRank, _ := h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
-		entry := fmt.Sprintf("%s. **%s** — %s — `%s` — **%s**\n", r.Rank, r.Name, r.CarName, r.Record, taRank)
+		recordRank, _ := h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
+		entry := fmt.Sprintf("%s. **%s**  — `%s` — **%s** — `%s`\n", r.Rank, recordRank, r.Record, r.Name, r.CarName)
 
 		// Split if 10 items OR length > 1900
 		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 1900 {
@@ -538,13 +538,14 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	// Helper to print
 	printPlayer := func(label, areaName, inputName, errStr string, p *entity.TimeAttackRecord) {
 		sb.WriteString(fmt.Sprintf("### %s (%s): ", label, areaName))
-		timeRecord, _ := entity.ParseRaceTime(p.Record)
-		taRank, _ := h.GetPlayerTimeAttackRank(timeRecord, courseID, taTimeMetadata)
+		var taRank = "NO DATA"
 		if p != nil {
+			timeRecord, _ := entity.ParseRaceTime(p.Record)
+			taRank, _ = h.GetPlayerTimeAttackRank(timeRecord, courseID, taTimeMetadata)
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
 			sb.WriteString(fmt.Sprintf("- **Local Rank:** #%s\n", p.Rank))
 			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))
-			sb.WriteString(fmt.Sprintf("- **Rank:** `%s`\n", taRank))
+			sb.WriteString(fmt.Sprintf("- **Rank:** **%s**\n", taRank))
 			sb.WriteString(fmt.Sprintf("- **Car:** %s\n", p.CarName))
 		} else {
 			sb.WriteString(fmt.Sprintf("%s\n", inputName))
