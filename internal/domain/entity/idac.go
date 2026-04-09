@@ -277,7 +277,7 @@ var CourseDisplayNameByCode = map[string]string{
 	"course-10": "Akagi (UH)",
 	"course-12": "Akina (DH)",
 	"course-14": "Akina (UH)",
-	"course-16": "Irohazaka (DH) | いろは坂／下り",
+	"course-16": "Irohazaka (DH)",
 	"course-18": "Irohazaka (HC)",
 	"course-76": "Yabitsu (DH)",
 	"course-78": "Yabitsu (UH)",
