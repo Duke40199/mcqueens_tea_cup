@@ -91,10 +91,10 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		limit = len(records)
 	}
 	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), finalCourseID)
-	if taTimeMetadata == nil {
-		sendDeferredError("⚠️ Failed to metadata TA time.")
-		return
-	}
+	//if taTimeMetadata == nil {
+	//	sendDeferredError("⚠️ Failed to metadata TA time.")
+	//	return
+	//}
 	// 4. Build Pages (Slice of Strings)
 	var pages []string
 	var currentMessage strings.Builder
@@ -109,7 +109,10 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	for j := 0; j < limit; j++ {
 		r := records[j]
 		timeRecord, _ := entity.ParseRaceTime(r.Record)
-		recordRank, _ := h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
+		recordRank := "NO DATA"
+		if taTimeMetadata != nil {
+			recordRank, _ = h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
+		}
 		entry := fmt.Sprintf("%s. **%s**  — `%s` — **%s** — `%s`\n", r.Rank, recordRank, r.Record, r.Name, r.CarName)
 
 		// Split if 10 items OR length > 1900
