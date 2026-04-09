@@ -263,7 +263,6 @@ var CourseAliases = map[string]string{
 	"akina rain uh": "course-94",
 }
 
-// Display Name Mapping
 var CourseDisplayNameByCode = map[string]string{
 	"course-0":  "Akina Lake (CCW)",
 	"course-2":  "Akina Lake (CW)",
