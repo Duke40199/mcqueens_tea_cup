@@ -672,7 +672,7 @@ var TrackRegistry = map[string][]TrackVariant{
 	},
 }
 
-// Helper to get keys for the Dropdown
+// GetTrackNames Helper to get keys for the Dropdown
 func GetTrackNames() []string {
 	keys := make([]string, 0, len(TrackRegistry))
 	for k := range TrackRegistry {
