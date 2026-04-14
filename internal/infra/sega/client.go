@@ -149,7 +149,7 @@ func (c *SegaClient) GetListOBRanking(roundNum string, areaCode string) (*entity
 	return &data, nil
 }
 
-func (c *SegaClient) GetListPlayerRanking(areaCode string) (*entity.IdacPlayerRankingResponse, error) {
+func (c *SegaClient) GetListPlayerGrade(areaCode string) (*entity.IdacPlayerRankingResponse, error) {
 	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/grade/gr_%s.json", areaCode)
 	fmt.Printf("Fetching player ranking data from %s\n", rankURL)
 	resp, err := http.Get(rankURL)

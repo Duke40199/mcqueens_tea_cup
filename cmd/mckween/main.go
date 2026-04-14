@@ -38,6 +38,7 @@ func main() {
 	obRankingCfgRepo := db.NewOBRankingCfgRepository(dbConn)
 	areaRepo := db.NewAreaRepository(dbConn)
 	taTimeMetadataRepo := db.NewPostgresTATimeMetadataRepository(dbConn)
+	rankingCfgRepo := db.NewPostgresRankingCfgRepo(dbConn)
 	cfsStateRepo := db.NewCfsStateRepository(dbConn)
 	// 2. SHARED INFRASTRUCTURE: Create Discord Session ONCE
 	// We do not Open() it yet. We just create the struct.
@@ -56,11 +57,18 @@ func main() {
 
 	// A2. Init Logic Services
 	metaLogic := usecase.NewMetaLogicService(segaClient, carRepo)
-
-	// A3. Init Delivery (The Command Controller)
-	// We inject the shared 'dg' session here
-	cmdHandler := discord_handler.NewHandler(dg, segaClient,
-		aliasRepo, obRankingCfgRepo, carRepo, taTimeMetadataRepo, cfsStateRepo, metaLogic)
+	
+	cmdHandler := discord_handler.NewHandler(
+		dg,
+		aliasRepo,
+		obRankingCfgRepo,
+		rankingCfgRepo,
+		carRepo,
+		taTimeMetadataRepo,
+		cfsStateRepo,
+		metaLogic,
+		segaClient,
+	)
 
 	// A4. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {

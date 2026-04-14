@@ -41,14 +41,15 @@ var languageChoice = []*discordgo.ApplicationCommandOptionChoice{
 type CommandName string
 
 const (
-	CommandNameIDAC                  CommandName = "idac"
-	CommandNameIDACTimeAttack        CommandName = "time-attack"
-	CommandNameIDACTeam              CommandName = "team"
-	CommandNameIDACTimeAttackCompare CommandName = "time-attack-compare"
-	CommandNameIDACPlayerAlias       CommandName = "player-alias"
-	CommandNameIDACPlayerInfo        CommandName = "player-info"
-	CommandNameIDACOBRanking         CommandName = "ob-ranking"
-	CommandNameIDACOBMeta            CommandName = "ob-meta"
+	CommandNameIDAC                     CommandName = "idac"
+	CommandNameIDACTimeAttack           CommandName = "time-attack"
+	CommandNameIDACTeam                 CommandName = "team"
+	CommandNameIDACTimeAttackCompare    CommandName = "time-attack-compare"
+	CommandNameIDACPlayerAlias          CommandName = "player-alias"
+	CommandNameIDACPlayerInfo           CommandName = "player-info"
+	CommandNameIDACOBRanking            CommandName = "ob-ranking"
+	CommandNameIDACOBMeta               CommandName = "ob-meta"
+	CommandNameIDACPlayerInfoTournament CommandName = "player-info-tournament"
 
 	CommandNameStatus    CommandName = "status"
 	CommandNameNuhuh     CommandName = "nuhuh"
@@ -382,6 +383,41 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
+				{
+					Name:        string(CommandNameIDACPlayerInfoTournament),
+					Description: "Get Player Info for tournaments",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area",
+							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "rank",
+							Description: "Filter results by rank",
+							Required:    false,
+							Choices: []*discordgo.ApplicationCommandOptionChoice{
+								{Name: "Pride", Value: "pride"},
+								{Name: "Ruby", Value: "ruby"},
+								{Name: "Emerald", Value: "emerald"},
+								{Name: "Red", Value: "red"},
+								{Name: "Blue", Value: "blue"},
+								{Name: "Green", Value: "green"},
+							},
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "limit",
+							Description: "Number of results to show (1-25, default: 10)",
+							Required:    false,
+							MinValue:    &minLimit,
+							MaxValue:    maxLimit,
+						},
+					},
+				},
 			},
 		},
 		// --- Simple Commands ---
@@ -412,27 +448,6 @@ func (h *Handler) RegisterCommands() error {
 		},
 		{Name: string(CommandNameMckween), Description: "desuwa"},
 		{Name: string(CommandNameMiemebell), Description: "Mie me bell"},
-
-		// {
-		// 	Name:        string(CommandNameMeomeo),
-		// 	Description: "For glazing an user for their exceptional IDAC skills.",
-		// 	Options: []*discordgo.ApplicationCommandOption{
-		// 		{
-		// 			Type:        discordgo.ApplicationCommandOptionUser,
-		// 			Name:        "user",
-		// 			Description: "(Optional) User to tag",
-		// 			Required:    false,
-		// 		},
-
-		// 		{
-		// 			Type:        discordgo.ApplicationCommandOptionString,
-		// 			Name:        "language",
-		// 			Description: "(Optional) Choose a language",
-		// 			Required:    false,
-		// 			Choices:     languageChoice,
-		// 		},
-		// 	},
-		// },
 	}
 
 	// 3. Register Event Router
@@ -512,7 +527,6 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 	subcommand := rootOption
 	optMap := make(map[string]string)
 	specInput := ""
-
 	for _, opt := range subcommand.Options {
 		if opt.Type == discordgo.ApplicationCommandOptionUser {
 			if opt.Name == "user" {
@@ -544,5 +558,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandleOBRanking(i, optMap)
 	case CommandNameIDACOBMeta:
 		h.HandleOBMeta(i, optMap)
+	case CommandNameIDACPlayerInfoTournament:
+		h.HandlePlayerTournamentInfo(i, optMap)
 	}
 }

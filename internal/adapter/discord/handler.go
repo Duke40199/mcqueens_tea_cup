@@ -14,40 +14,51 @@ import (
 //go:embed resource/unauthorized.gif
 var unauthorizedGif []byte
 
-// Handler holds dependencies.
-// It doesn't know about HTTP, it only knows "IdacRepository".
 type Handler struct {
-	Session            *discordgo.Session
-	SegaClient         entity.SegaClient
+	OwnerID string
+	Session *discordgo.Session
+	// db repositories
 	AliasRepo          postgres.AliasRepository
 	OBRankingCfgRepo   postgres.OBRankingCfgRepository
+	RankingCfgRepo     postgres.RankingCfgRepository
 	CarRepo            postgres.CarRepository
-	MetaLogic          *usecase.MetaLogicService
 	TATimeMetadataRepo postgres.TATimeMetadataRepository
-	cfsStateRepo       postgres.CfsStateRepository
-	OwnerID            string
+	CfsStateRepo       postgres.CfsStateRepository
+	// internal services
+	MetaLogic *usecase.MetaLogicService
+	// clients
+	SegaClient entity.SegaClient
 }
 
 // NewHandler creates our controller
 func NewHandler(
 	s *discordgo.Session,
-	segaClient entity.SegaClient,
-	alias postgres.AliasRepository,
-	obRankingCfg postgres.OBRankingCfgRepository,
+	// db repositories
+	aliasRepo postgres.AliasRepository,
+	obRankingCfgRepo postgres.OBRankingCfgRepository,
+	rankingCfgRepo postgres.RankingCfgRepository,
 	carRepo postgres.CarRepository,
 	taTimeMetadataRepo postgres.TATimeMetadataRepository,
 	cfsStateRepo postgres.CfsStateRepository,
-	metaLogic *usecase.MetaLogicService) *Handler {
+	// internal services
+	metaLogic *usecase.MetaLogicService,
+	// clients
+	segaClient entity.SegaClient,
+) *Handler {
 	return &Handler{
-		Session:            s,
-		SegaClient:         segaClient,
-		AliasRepo:          alias,
-		OBRankingCfgRepo:   obRankingCfg,
-		TATimeMetadataRepo: taTimeMetadataRepo,
+		Session: s,
+		// db repositories
+		AliasRepo:          aliasRepo,
+		OBRankingCfgRepo:   obRankingCfgRepo,
+		RankingCfgRepo:     rankingCfgRepo,
 		CarRepo:            carRepo,
-		cfsStateRepo:       cfsStateRepo,
-		MetaLogic:          metaLogic,
-		OwnerID:            "384015507302383616",
+		TATimeMetadataRepo: taTimeMetadataRepo,
+		CfsStateRepo:       cfsStateRepo,
+		// internal services
+		MetaLogic: metaLogic,
+		// clients
+		SegaClient: segaClient,
+		OwnerID:    "384015507302383616",
 	}
 }
 
@@ -60,7 +71,7 @@ func (h *Handler) HandleStatus(i *discordgo.InteractionCreate) {
 	})
 }
 
-// isRequestFromOwner checks if the user is the owner.
+// IsRequestFromOwner checks if the user is the owner.
 // If NOT, it sends the unauthorized GIF/Message and returns false.
 // If YES, it returns true.
 func (h *Handler) IsRequestFromOwner(s *discordgo.Session, i *discordgo.InteractionCreate) bool {

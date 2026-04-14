@@ -10,6 +10,13 @@ type TimeAttackRankingCfg struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
 }
+
+type PlayerGradeCfg struct {
+	ID     string `json:"id"`
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	SegaID string `json:"sega_id"`
+}
 type TimeAttackRankingMetadata struct {
 	ID           string    `json:"id"`
 	CourseID     string    `json:"course_id"`
