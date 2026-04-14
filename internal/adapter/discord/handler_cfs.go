@@ -49,7 +49,7 @@ func (h *Handler) HandleAnonymousCommand(i *discordgo.InteractionCreate) {
 		return
 	}
 	// 3. Increment counter and format tag
-	newID, err := h.cfsStateRepo.CreateCfsState(discordID, messageContent)
+	newID, err := h.CfsStateRepo.CreateCfsState(discordID, messageContent)
 	if err != nil {
 		h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

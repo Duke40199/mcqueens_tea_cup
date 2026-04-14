@@ -7,6 +7,7 @@ type SegaClient interface {
 	GetListOBRanking(roundNum string, areaCode string) (*IdacOBRankingResponse, error)
 	GetCurrentRound() (int, error)
 	FetchConst() (*IdacConstResponse, error)
+	GetListPlayerGrade(areaCode string) (*IdacPlayerRankingResponse, error)
 }
 
 // RSSFetcher defines how we get feeds (abstracts gofeed)
