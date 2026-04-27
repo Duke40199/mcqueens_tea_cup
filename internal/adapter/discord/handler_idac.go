@@ -101,7 +101,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	itemsInChunk := 0
 
 	// Pre-calculate Header
-	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n", courseName, areaName, carDisplayName)
+	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n 🗾 : %s | 🌎 : %s | 🚗 : %s\n", courseName, areaName, carDisplayName)
 
 	// Initialize first page with header
 	currentMessage.WriteString(header)
@@ -111,7 +111,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		return
 	}
 	// Initialize car percentage header
-	headerCarPercentage := "## Top 3 Most Used Cars:\n ### Sample size: Top 1000 Global results\n"
+	headerCarPercentage := "## Top 3 Most Used Cars (based on top 1000 **Global** results)\n"
 	// car name sega format: FD3S[DH]
 	listCarNameSegaFormat := make([]string, 0)
 	for i := 0; i < 3; i++ {
@@ -166,7 +166,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		entry := fmt.Sprintf("%s. **%s**  — `%s` — **%s** — `%s`\n", r.Rank, recordRank, r.Record, r.Name, r.CarName)
 
 		// Split if 10 items OR length > 1900
-		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 1900 {
+		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 2000 {
 			pages = append(pages, currentMessage.String())
 			currentMessage.Reset()
 			currentMessage.WriteString(header)
