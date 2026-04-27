@@ -845,10 +845,13 @@ type IdacConstResponse struct {
 
 // CarSpecInfo holds the canonical model code and base spec for lookups
 type CarSpecInfo struct {
-	Maker     string
-	CarName   string
-	ModelCode string // Canonical model code (e.g. "CZ4A")
-	BaseSpec  string // "speed" or "tech"
+	Maker         string
+	CarName       string
+	ModelCode     string // Canonical model code (e.g. "CZ4A")
+	BaseSpec      string // "speed" or "tech"
+	SpecStyleName string
+	SegaSpecID    string
+	Aliases       []string
 }
 
 // AreaSyncInfo represents an area that is part of a synchronization group

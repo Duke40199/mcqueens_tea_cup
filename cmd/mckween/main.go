@@ -57,7 +57,7 @@ func main() {
 
 	// A2. Init Logic Services
 	metaLogic := usecase.NewMetaLogicService(segaClient, carRepo)
-	
+
 	cmdHandler := discord_handler.NewHandler(
 		dg,
 		aliasRepo,
@@ -78,26 +78,27 @@ func main() {
 	// ---------------------------------------------------------
 	// FEATURE C: CAR DATA SYNC (Cron)
 	// ---------------------------------------------------------
-	carSyncService := usecase.NewCarSyncService(segaClient, carRepo)
+	// TODO: check for both model_code & aliases
+	// carSyncService := usecase.NewCarSyncService(segaClient, carRepo)
 
 	// Run Sync in background (every 24h)
-	go func() {
-		// Run once on startup
-		log.Println("⏳ Initializing Car Data Sync...")
-		if err := carSyncService.SyncData(context.Background()); err != nil {
-			log.Printf("❌ Initial Car Sync Failed: %v", err)
-		}
+	// go func() {
+	// 	// Run once on startup
+	// 	log.Println("⏳ Initializing Car Data Sync...")
+	// 	if err := carSyncService.SyncData(context.Background()); err != nil {
+	// 		log.Printf("❌ Initial Car Sync Failed: %v", err)
+	// 	}
 
-		ticker := time.NewTicker(24 * time.Hour)
-		defer ticker.Stop()
+	// 	ticker := time.NewTicker(24 * time.Hour)
+	// 	defer ticker.Stop()
 
-		for range ticker.C {
-			log.Println("⏰ Starting Scheduled Car Sync...")
-			if err := carSyncService.SyncData(context.Background()); err != nil {
-				log.Printf("❌ Scheduled Car Sync Failed: %v", err)
-			}
-		}
-	}()
+	// 	for range ticker.C {
+	// 		log.Println("⏰ Starting Scheduled Car Sync...")
+	// 		if err := carSyncService.SyncData(context.Background()); err != nil {
+	// 			log.Printf("❌ Scheduled Car Sync Failed: %v", err)
+	// 		}
+	// 	}
+	// }()
 
 	// ---------------------------------------------------------
 	// FEATURE B: RSS FEED CHECKER (Existing Logic)

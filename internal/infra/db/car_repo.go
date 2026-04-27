@@ -136,3 +136,57 @@ func formatQuery(query string, args []any) string {
 	}
 	return query
 }
+
+func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecMap map[string]string) (map[string]entity.CarSpecInfo, error) {
+	query := `SELECT 
+	 c.maker,
+	 c.name AS car_name,
+ 	c.model_code,
+ 	c.base_spec,
+ 	c.aliases,
+	cs.name AS spec_name,
+ 	cs.sega_id as sega_spec_id
+	FROM sega_idac_cars_metadata c
+	LEFT JOIN sega_idac_car_styles_metadata cs 
+  	ON c.id = cs.car_id 
+	WHERE `
+	count := 0
+	for key, value := range aliasSpecMap {
+		query += fmt.Sprintf(`'%s' = ANY(aliases) AND cs.name = '%s'`, key, value)
+		query += fmt.Sprintf(` OR (c.model_code='%s' AND cs.name = '%s')`, key, value)
+		count++
+		if count < len(aliasSpecMap) {
+			query += ` OR `
+		} else {
+			query += `;`
+		}
+	}
+	rows, err := r.DB.QueryContext(ctx, query)
+	if err != nil {
+		log.Println("error getting base spec map:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]entity.CarSpecInfo)
+	for rows.Next() {
+		var maker, name, modelCode, baseSpec, specStyleName, segaSpecID string
+		var aliases pq.StringArray
+
+		if err := rows.Scan(&maker, &name, &modelCode, &baseSpec, &aliases, &specStyleName, &segaSpecID); err != nil {
+			return nil, err
+		}
+		info := entity.CarSpecInfo{
+			Maker:         maker,
+			CarName:       name,
+			ModelCode:     modelCode,
+			BaseSpec:      baseSpec,
+			SpecStyleName: specStyleName,
+			SegaSpecID:    segaSpecID,
+			Aliases:       aliases,
+		}
+		// Map model_code -> CarSpecInfo
+		result[modelCode] = info
+	}
+	return result, rows.Err()
+}

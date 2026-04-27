@@ -101,10 +101,60 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	itemsInChunk := 0
 
 	// Pre-calculate Header
-	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\n", courseName, areaName, carDisplayName)
+	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n", courseName, areaName, carDisplayName)
 
 	// Initialize first page with header
 	currentMessage.WriteString(header)
+	listCarPercentages, err := h.GetListTACarsPercentage(i, optMap)
+	if err != nil {
+		sendDeferredError("⚠️ Failed to get top three TA cars: " + err.Error())
+		return
+	}
+	// Initialize car percentage header
+	headerCarPercentage := "## Top 3 Most Used Cars:\n"
+	// car name sega format: FD3S[DH]
+	listCarNameSegaFormat := make([]string, 0)
+	for i := 0; i < 3; i++ {
+		listCarNameSegaFormat = append(listCarNameSegaFormat, listCarPercentages[i].SegaCarName)
+	}
+	carListFullInfo, err := h.GetListCarDetailByTAFormat(context.TODO(), listCarNameSegaFormat)
+	if err != nil {
+		sendDeferredError("⚠️ Failed to GetListCarDetailByTAFormat: " + err.Error())
+		return
+	}
+	var carCount = 0
+	for z := 0; z < 3; z++ {
+		splitSegaCarName := strings.Split(listCarNameSegaFormat[z], "[")
+		// if not found by chassis code -> find by aliases
+		var foundCarFullInfo entity.CarSpecInfo
+		if value, ok := carListFullInfo[splitSegaCarName[0]]; !ok {
+			for _, carFullInfo := range carListFullInfo {
+				if carFullInfo.Aliases == nil {
+					continue
+				}
+				for _, alias := range carFullInfo.Aliases {
+					if splitSegaCarName[0] == alias {
+						foundCarFullInfo = carFullInfo
+						break
+					}
+				}
+			}
+		} else {
+			foundCarFullInfo = value
+		}
+		entry := fmt.Sprintf("%d. %s %s **%s %s (%s)** - `%.1f%%`\n", carCount+1,
+			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.BaseSpec)],
+			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.SpecStyleName)],
+			strings.ToTitle(foundCarFullInfo.Maker),
+			foundCarFullInfo.CarName,
+			foundCarFullInfo.ModelCode,
+
+			listCarPercentages[z].Percentage)
+		headerCarPercentage += entry
+		carCount++
+	}
+	headerCarPercentage += "\n"
+	currentMessage.WriteString(headerCarPercentage)
 
 	for j := 0; j < limit; j++ {
 		r := records[j]
@@ -118,23 +168,120 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		// Split if 10 items OR length > 1900
 		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 1900 {
 			pages = append(pages, currentMessage.String())
-
 			currentMessage.Reset()
-			currentMessage.WriteString(header) // Add header to every page for clarity
+			currentMessage.WriteString(header)
+			currentMessage.WriteString(headerCarPercentage)
 			itemsInChunk = 0
 		}
 
 		currentMessage.WriteString(entry)
 		itemsInChunk++
 	}
-
 	// Append final page
 	if currentMessage.Len() > 0 {
 		pages = append(pages, currentMessage.String())
 	}
-
 	// 5. Hand over to Pagination Helper
 	h.SendPagination(i, pages)
+}
+
+func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap map[string]string) ([]CarPercentage, error) {
+	// 1. DEFER
+	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	sendDeferredError := func(msg string) {
+		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+	}
+	// 2. Validate Inputs
+	// We look for 'variant' because that holds the actual Course ID now
+	if optMap["variant"] == "" || optMap["variant"] == "none" {
+		sendDeferredError("⚠️ **Missing Arguments**\nPlease select both a **Track** and a **Variant**.")
+		return nil, nil
+	}
+	// Defaults
+	if _, ok := optMap["car"]; !ok {
+		optMap["car"] = "car-all"
+	}
+	// The User selected: Track="Akina", Variant="course-12" (Downhill)
+	// We only care about the Variant ID now.
+	finalCourseID := optMap["variant"]
+
+	// Resolve Area Alias
+	areaInput := strings.ToLower(optMap["area"])
+	if val, ok := entity.AreaAliases[areaInput]; ok {
+		optMap["area"] = val
+	}
+	// Display Names (Optional: Lookup ID back to Name for pretty printing)
+	courseName := entity.CourseDisplayNameByCode[finalCourseID]
+	if courseName == "" {
+		// Fallback
+		courseName = optMap["track"]
+	}
+	areaName := optMap["area"]
+	if val, ok := entity.AreaDisplayNameByCode[areaName]; ok {
+		areaName = val
+	}
+	// Check Limit
+	var limit = 1000
+
+	// 3. Fetch Data
+	records, err := h.SegaClient.GetTimeAttack(finalCourseID, "area-all", "car-all", "")
+	if err != nil {
+		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
+		return nil, err
+	}
+	if len(records) == 0 {
+		msg := fmt.Sprintf("# Not found Sega Data")
+		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+		return nil, err
+	}
+
+	if len(records) < limit {
+		limit = len(records)
+	}
+	// 4. Calculate percentage
+	carUsagePercentage := calculateCarUsagePercentage(records)
+	return carUsagePercentage, nil
+}
+
+type CarPercentage struct {
+	CarName     string
+	SegaCarName string
+	Count       int
+	Percentage  float64
+}
+
+func calculateCarUsagePercentage(records []entity.TimeAttackRecord) []CarPercentage {
+	carUsage := make(map[string]CarPercentage)
+	for _, r := range records {
+		if _, ok := carUsage[r.CarName]; ok {
+			car := carUsage[r.CarName]
+			car.Count++
+			carUsage[r.CarName] = car
+		} else {
+			carPercentage := CarPercentage{
+				SegaCarName: r.CarName,
+				Count:       1,
+				Percentage:  0,
+			}
+			splitName := strings.Split(r.CarName, "[")
+			carPercentage.CarName = splitName[0]
+			carUsage[r.CarName] = carPercentage
+		}
+	}
+	total := len(records)
+	var sortedCars []CarPercentage
+	for _, car := range carUsage {
+		car.Percentage = (float64(car.Count) / float64(total)) * 100
+		sortedCars = append(sortedCars, car)
+	}
+	// Sort slice
+	sort.Slice(sortedCars, func(i, j int) bool {
+		return sortedCars[i].Percentage > sortedCars[j].Percentage
+	})
+	return sortedCars
 }
 
 // GetPlayerTimeAttackRank assumes thresholds is sorted ascending by RequiredTime
