@@ -111,7 +111,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		return
 	}
 	// Initialize car percentage header
-	headerCarPercentage := "## Top 3 Most Used Cars (based on Top 1000 results worldwide):\n ### Sample size: Top 1000 Global results"
+	headerCarPercentage := "## Top 3 Most Used Cars (based on Top 1000 results worldwide):\n ### Sample size: Top 1000 Global results\n"
 	// car name sega format: FD3S[DH]
 	listCarNameSegaFormat := make([]string, 0)
 	for i := 0; i < 3; i++ {
