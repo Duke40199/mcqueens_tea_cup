@@ -12,10 +12,11 @@ type TimeAttackRankingCfg struct {
 }
 
 type PlayerGradeCfg struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	SegaID string `json:"sega_id"`
+	ID     string  `json:"id"`
+	Type   string  `json:"type"`
+	Name   string  `json:"name"`
+	SegaID string  `json:"sega_id"`
+	Emoji  *string `json:"emoji,omitempty"`
 }
 type TimeAttackRankingMetadata struct {
 	ID           string    `json:"id"`

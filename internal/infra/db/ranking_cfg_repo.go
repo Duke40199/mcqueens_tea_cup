@@ -61,6 +61,26 @@ func (r *RankingCfgRepository) GetListPlayerGradeCfg(ctx context.Context) ([]*en
 	return listCfg, nil
 }
 
+// GetListPlayerGradeCfg fetches player grade cfg from DB
+func (r *RankingCfgRepository) GetPlayerGradeBySegaIDs(ctx context.Context, gradeSegaID, gradeNumSegaID string) ([]*entity.PlayerGradeCfg, error) {
+	query := `SELECT id, type, name, sega_id, emoji FROM cfg_player_ranking WHERE sega_id IN ($1, $2)`
+	rows, err := r.DB.QueryContext(ctx, query, gradeSegaID, gradeNumSegaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var listCfg []*entity.PlayerGradeCfg
+	for rows.Next() {
+		var cfg entity.PlayerGradeCfg
+		if err := rows.Scan(&cfg.ID, &cfg.Type, &cfg.Name, &cfg.SegaID, &cfg.Emoji); err != nil {
+			return nil, err
+		}
+		listCfg = append(listCfg, &cfg)
+	}
+	return listCfg, nil
+}
+
 // Load is not needed for DB (Query on demand), so we leave it empty to satisfy interface
 func (r *RankingCfgRepository) Load() error {
 	return nil

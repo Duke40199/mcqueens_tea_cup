@@ -100,3 +100,7 @@ func (h *Handler) IsRequestFromOwner(s *discordgo.Session, i *discordgo.Interact
 	})
 	return false
 }
+
+func (h *Handler) SendDeferredError(i *discordgo.InteractionCreate, msg string) {
+	h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+}

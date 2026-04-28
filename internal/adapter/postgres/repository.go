@@ -36,6 +36,7 @@ type AreaRepository interface {
 type RankingCfgRepository interface {
 	GetListTimeAttackRankingCfg(ctx context.Context) ([]*entity.TimeAttackRankingCfg, error)
 	GetListPlayerGradeCfg(ctx context.Context) ([]*entity.PlayerGradeCfg, error)
+	GetPlayerGradeBySegaIDs(ctx context.Context, gradeSegaID, gradeNumSegaID string) ([]*entity.PlayerGradeCfg, error)
 }
 
 type TATimeMetadataRepository interface {
