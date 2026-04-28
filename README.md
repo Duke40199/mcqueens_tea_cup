@@ -1,5 +1,10 @@
-# Desuwa
-This bot is created for IDAC VN's server. Currently it's simply a RSS bot for Initial D's official news.
+# McQueen's Tea Cup
+A multi-purpose bot for Vietnam's Initial D The Arcades server. Main features include:
+- Spamming random things.
+- Initial D The Arcade features:
+  - Get Time Attack (TA) by track with selective variants / players / countries / cars.
+  - Compare TA results between players.
+  - Cron-job to crawl a list of most used cars / active players in Online Battles (OB).
 
 ## Project Structure
 This project is strictly following the Clean Architecture rules. This might change later when needed.
