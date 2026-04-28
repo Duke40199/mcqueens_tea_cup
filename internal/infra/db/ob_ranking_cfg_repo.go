@@ -52,6 +52,8 @@ func (o *OBRankingCfgRepository) GetRankingCfgMap() (map[string]entity.OBRanking
 		fmt.Println("DB Error:", err)
 		return nil, err
 	}
+	defer rows.Close()
+
 	var cfgMap = make(map[string]entity.OBRankingCfg)
 	for rows.Next() {
 		var cfg entity.OBRankingCfg
