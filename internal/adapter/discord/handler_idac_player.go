@@ -49,11 +49,12 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	for _, playerGradeCfg := range playerGradeCfgs {
 		switch playerGradeCfg.Type {
 		case "RANK_NUMBER":
-			if playerGradeCfg.Emoji != nil {
-				gradeNum = *playerGradeCfg.Emoji
-			} else {
-				gradeNum = playerGradeCfg.Name
-			}
+			gradeNum = playerGradeCfg.Name
+			// if playerGradeCfg.Emoji != nil {
+			// 	gradeNum = *playerGradeCfg.Emoji
+			// } else {
+			// 	gradeNum = playerGradeCfg.Name
+			// }
 			continue
 		case "GRADE":
 			if playerGradeCfg.Emoji != nil {
@@ -75,7 +76,11 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 		h.SendDeferredError(i, "⚠️ Error fetching OB ranking configuration from DB.")
 		return
 	}
-
+	// 4. Map player ob config
+	var obRankingName string
+	if _, ok := obRankingCfgMap[obRankingRes.OnlineBattleRankId]; ok {
+		obRankingName = obRankingCfgMap[obRankingRes.OnlineBattleRankId].Name
+	}
 	// 4. Build Response
 	var sb strings.Builder
 	areaName := entity.AreaDisplayNameByCode[playerArea]
@@ -83,11 +88,11 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 		areaName = playerArea
 	}
 	sb.WriteString(fmt.Sprintf(
-		"### **IGN:** %s | Area: %s\n"+
+		"# **IGN:** %s | Area: %s\n"+
 			"### **Account Grade**:\n"+
-			"# %s***%s***\n"+
+			"# %s%s\n"+
 			"### **Online Battle Rank:**\n"+
-			"# %s\n", playerName, "VN", gradeName, gradeNum, obRankingRes.OnlineBattleRankId))
+			"# %s %s\n", playerName, "VN", gradeName, gradeNum, obRankingName, obRankingRes.GetDisplayStarCount()))
 	// Send Response
 	finalContent := sb.String()
 	embed := &discordgo.MessageEmbed{
