@@ -2,9 +2,7 @@ package discord
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"sort"
 	"strconv"
@@ -20,135 +18,81 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
-
 	// 1. Validate & Parse Inputs
-	_, hasIgn := optMap["user"]
-	if !hasIgn || optMap["course"] == "" {
-		errStr := "⚠️ Missing required arguments (ign, course, or area)."
+	playerInfo, hasPlayerInfo := optMap["user"]
+	if !hasPlayerInfo {
+		errStr := "⚠️ Missing player info"
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
 		return
 	}
-	ign, areaInput, _, err := h.ResolvePlayerCredentialDB(optMap["user"], "")
-	// --- NORMALIZE INPUT ---
-	// 1. Normalize width (ＳＨＩＲＯ -> SHIRO)
-	// 2. Lowercase (SHIRO -> shiro) for case-insensitive comparison
-	targetName := strings.ToLower(entity.NormalizeTextWidth(ign))
-	// Resolve Aliases
-	courseInput := strings.ToLower(optMap["course"])
-	if val, ok := entity.CourseAliases[courseInput]; ok {
-		courseInput = val
-	}
-	//areaInput := strings.ToLower(optMap["area"])
-	//if val, ok := domain.AreaAliases[areaInput]; ok {
-	//	areaInput = val
-	//}
-
-	// 2. Construct URL
-	// We strictly use "car-all" to find the player regardless of what car they drove
-	baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
-	filename := fmt.Sprintf("ta_%s_%s_%s.json", courseInput, areaInput, "car-all")
-	fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
-
-	// 3. Fetch Data
-	resp, err := http.Get(fullURL)
+	playerName, playerArea, _, err := h.ResolvePlayerCredentialDB(playerInfo, "")
 	if err != nil {
-		errStr := "❌ Network error contacting SEGA."
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+		h.SendDeferredError(i, "Cannot find player info.")
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		errStr := fmt.Sprintf("❌ Failed to fetch ranking data (Status: %d). Check your course/area codes.", resp.StatusCode)
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+	playerGrade, err := h.SegaClient.GetPlayerGradeByIGN(playerName, playerArea)
+	if err != nil {
+		h.SendDeferredError(i, "Error finding player grade.")
 		return
 	}
-
-	// 4. Parse JSON
-	var data entity.IdacTimeAttackRecordResponse
-	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		errStr := "❌ Error parsing SEGA data."
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
+	if playerGrade == nil {
+		h.SendDeferredError(i, "Cannot find player grade.")
 		return
 	}
-
-	// 5. Search for Player
-	var foundRecord *entity.TimeAttackRecord
-	var leaderRecord *entity.TimeAttackRecord
-
-	for idx, r := range data.Records {
-		// Capture Leader
-		if idx == 0 {
-			val := r
-			leaderRecord = &val
-		}
-
-		// --- NORMALIZE RECORD NAME ---
-		// We normalize the record name from SEGA too, just in case
-		recordNameNormalized := strings.ToLower(entity.NormalizeTextWidth(r.Name))
-
-		if recordNameNormalized == targetName {
-			val := r
-			foundRecord = &val
-			break
+	playerGradeCfgs, err := h.RankingCfgRepo.GetPlayerGradeBySegaIDs(context.TODO(), playerGrade.GradeID, playerGrade.NumberIcon)
+	if err != nil {
+		h.SendDeferredError(i, "Error getting player grade in DB."+err.Error())
+		return
+	}
+	var gradeName, gradeNum string
+	for _, playerGradeCfg := range playerGradeCfgs {
+		switch playerGradeCfg.Type {
+		case "RANK_NUMBER":
+			if playerGradeCfg.Emoji != nil {
+				gradeNum = *playerGradeCfg.Emoji
+			} else {
+				gradeNum = playerGradeCfg.Name
+			}
+			continue
+		case "GRADE":
+			if playerGradeCfg.Emoji != nil {
+				gradeName = *playerGradeCfg.Emoji
+			} else {
+				gradeName = playerGradeCfg.Name
+			}
 		}
 	}
-
+	obRankingRes, err := h.SegaClient.GetOBRankingByIGN(playerName, "all", playerArea)
+	if err != nil {
+		h.SendDeferredError(i, "❌ Error getting list OB ranking from Sega")
+		return
+	}
+	// key: segaID
+	obRankingCfgMap, err := h.OBRankingCfgRepo.GetRankingCfgMap()
+	if err != nil {
+		h.SendDeferredError("⚠️ Error fetching ranking configuration.")
+		return
+	}
 	// 6. Build Response
 	var sb strings.Builder
-
-	// Display Names
-	courseName := entity.CourseDisplayNameByCode[courseInput]
-	if courseName == "" {
-		courseName = courseInput
-	}
-
-	areaName := entity.AreaDisplayNameByCode[areaInput]
+	areaName := entity.AreaDisplayNameByCode[playerArea]
 	if areaName == "" {
-		areaName = areaInput
+		areaName = playerArea
 	}
-
-	sb.WriteString(fmt.Sprintf("**Player Info**\n"))
-	sb.WriteString(fmt.Sprintf("**In-game Name:** `%s` | **Course:** %s | **Area:** %s\n\n", ign, courseName, areaName))
-
-	if foundRecord != nil {
-		// --- Calculate Delta ---
-		deltaStr := ""
-		if leaderRecord != nil && foundRecord.Name != leaderRecord.Name {
-			playerMs, err1 := entity.ParseIdacTime(foundRecord.Record)
-			leaderMs, err2 := entity.ParseIdacTime(leaderRecord.Record)
-
-			// Only calculate if parsing succeeded
-			if err1 == nil && err2 == nil {
-				diff := playerMs - leaderMs
-				deltaStr = fmt.Sprintf(" (%s)", entity.FormatIdacTimeDelta(diff))
-			}
-		}
-		// Player Found
-		sb.WriteString(fmt.Sprintf("## 📊 Rank #%s\n", foundRecord.Rank)) // Using string rank from JSON usually safest
-		sb.WriteString(fmt.Sprintf("** ⏱️Time:** `%s`\n", foundRecord.Record))
-		sb.WriteString(fmt.Sprintf("** 🚗Car:** %s\n", foundRecord.CarName))
-
-		// Comparison Logic
-		if leaderRecord != nil {
-			sb.WriteString("\n__**Leader Comparison:**__\n")
-			if foundRecord.Name == leaderRecord.Name {
-				sb.WriteString(fmt.Sprintf("🏆 **#1 %s**: `%s` (You are the leader! 👑)\n", leaderRecord.Name, leaderRecord.Record))
-			} else {
-				// Format: #1 LEADERNAME: 3'14"727 (+0'03"123)
-				sb.WriteString(fmt.Sprintf("🏆 **#1 %s**: `%s`%s\n", leaderRecord.Name, leaderRecord.Record, deltaStr))
-			}
-		}
-	} else {
-		// Player Not Found
-		sb.WriteString(fmt.Sprintf("❌ Player **%s** not found in the top %d records for this course/area.\n", ign, len(data.Records)))
-		sb.WriteString("> *Note: Ensure the IGN is exact (though case is ignored) and the Area is correct.*")
-	}
-
+	sb.WriteString(fmt.Sprintf(
+		"### **IGN:** %s | Area: %s\n"+
+			"### **Account Grade**:\n"+
+			"# %s***%s***\n"+
+			"### **Online Battle Rank:**\n"+
+			"# %s\n", playerName, "VN", gradeName, gradeNum, "Ruby 1"))
 	// Send Response
 	finalContent := sb.String()
+	embed := &discordgo.MessageEmbed{
+		Title:       "__**Player Profile**__",
+		Description: finalContent,
+	}
 	h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: &finalContent,
+		Embeds: &[]*discordgo.MessageEmbed{embed},
 	})
 }
 

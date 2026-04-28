@@ -122,6 +122,22 @@ func (c *SegaClient) FetchTeamRankings(roundNum int, rankCode string) ([]entity.
 	}
 	return foundTeams, nil
 }
+func (c *SegaClient) GetOBRankingByIGN(ign, roundNum, areaCode string) (*entity.OBRankingRecord, error) {
+	normalizedIGN := entity.NormalizeTextWidth(ign)
+	listOBRankings, err := c.GetListOBRanking(roundNum, areaCode)
+	if err != nil {
+		return nil, err
+	}
+	if len(listOBRankings.Records) == 0 {
+		return nil, nil
+	}
+	for _, obRanking := range listOBRankings.Records {
+		if entity.NormalizeTextWidth(obRanking.Name) == normalizedIGN {
+			return &obRanking, nil
+		}
+	}
+	return nil, nil
+}
 
 func (c *SegaClient) GetListOBRanking(roundNum string, areaCode string) (*entity.IdacOBRankingResponse, error) {
 	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/roundPoint/rp_round-%s_%s.json", roundNum, areaCode)
@@ -173,6 +189,29 @@ func (c *SegaClient) GetListPlayerGrade(areaCode string) (*entity.IdacPlayerRank
 	// 	// foundTeams = append(foundTeams, foundTeam)
 	// }
 	return &data, nil
+}
+
+func (c *SegaClient) GetPlayerGradeByIGN(ign, areaCode string) (*entity.PlayerRankingRecord, error) {
+	listAreaGrade, err := c.GetListPlayerGrade(areaCode)
+	normalizedIgn := entity.NormalizeTextWidth(ign)
+	if err != nil {
+		return nil, err
+	}
+	if len(listAreaGrade.Records) == 0 {
+		return nil, nil
+	}
+	for _, record := range listAreaGrade.Records {
+		if entity.NormalizeTextWidth(record.Name) == normalizedIgn {
+			return &record, nil
+		}
+	}
+	// foundTeams := make([]entity.TeamRecord, 0)
+	// set league emoji values for each team
+	// for _, foundTeam := range data.Records {
+	// 	// foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
+	// 	// foundTeams = append(foundTeams, foundTeam)
+	// }
+	return nil, nil
 }
 
 func (c *SegaClient) FetchConst() (*entity.IdacConstResponse, error) {

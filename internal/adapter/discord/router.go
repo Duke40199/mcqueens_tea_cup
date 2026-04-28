@@ -46,7 +46,7 @@ const (
 	CommandNameIDACTeam                 CommandName = "team"
 	CommandNameIDACTimeAttackCompare    CommandName = "time-attack-compare"
 	CommandNameIDACPlayerAlias          CommandName = "player-alias"
-	CommandNameIDACPlayerInfo           CommandName = "player-info"
+	CommandNameIDACPlayerProfile        CommandName = "profile"
 	CommandNameIDACOBRanking            CommandName = "ob-ranking"
 	CommandNameIDACOBMeta               CommandName = "ob-meta"
 	CommandNameIDACPlayerInfoTournament CommandName = "player-info-tournament"
@@ -278,7 +278,7 @@ func (h *Handler) RegisterCommands() error {
 				},
 				// Subcommand: Player Info
 				{
-					Name:        string(CommandNameIDACPlayerInfo),
+					Name:        string(CommandNameIDACPlayerProfile),
 					Description: "Find a player's rank on a specific course",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -290,19 +290,17 @@ func (h *Handler) RegisterCommands() error {
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "course",
-							Description: "Course ID or Alias",
-							Required:    true,
+							Name:        "track",
+							Description: "Select the track",
+							Required:    false,
+							Choices:     trackChoices,
 						},
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "compare",
-							Description: "Compare scope",
-							Required:    false,
-							Choices: []*discordgo.ApplicationCommandOptionChoice{
-								{Name: "Local", Value: "local"},
-								{Name: "World", Value: "world"},
-							},
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "variant",
+							Description:  "Select direction/condition (Downhill, Uphill, etc)",
+							Required:     false,
+							Autocomplete: true,
 						},
 					},
 				},
@@ -550,7 +548,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandleTimeAttack(i, optMap, specInput)
 	case CommandNameIDACTeam:
 		h.HandleTeamRanking(i, optMap)
-	case CommandNameIDACPlayerInfo:
+	case CommandNameIDACPlayerProfile:
 		h.HandlePlayerInfo(i, optMap)
 	case CommandNameIDACTimeAttackCompare:
 		h.HandlePlayerCompare(i, optMap)
