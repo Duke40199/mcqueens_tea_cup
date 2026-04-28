@@ -122,6 +122,7 @@ func (c *SegaClient) FetchTeamRankings(roundNum int, rankCode string) ([]entity.
 	}
 	return foundTeams, nil
 }
+
 func (c *SegaClient) GetOBRankingByIGN(ign, roundNum, areaCode string) (*entity.OBRankingRecord, error) {
 	normalizedIGN := entity.NormalizeTextWidth(ign)
 	listOBRankings, err := c.GetListOBRanking(roundNum, areaCode)

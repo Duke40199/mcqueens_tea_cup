@@ -34,6 +34,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	dbConn.SetMaxOpenConns(10) // adjust based on Supabase limit
+	dbConn.SetMaxIdleConns(5)
+	dbConn.SetConnMaxLifetime(time.Hour)
+
 	aliasRepo := db.NewPostgresAliasRepo(dbConn)
 	obRankingCfgRepo := db.NewOBRankingCfgRepository(dbConn)
 	areaRepo := db.NewAreaRepository(dbConn)

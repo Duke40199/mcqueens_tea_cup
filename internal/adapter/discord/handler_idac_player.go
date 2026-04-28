@@ -25,6 +25,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &errStr})
 		return
 	}
+	// 2. Get Player Grade Info
 	playerName, playerArea, _, err := h.ResolvePlayerCredentialDB(playerInfo, "")
 	if err != nil {
 		h.SendDeferredError(i, "Cannot find player info.")
@@ -62,6 +63,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 			}
 		}
 	}
+	// 3. Get OB Info
 	obRankingRes, err := h.SegaClient.GetOBRankingByIGN(playerName, "all", playerArea)
 	if err != nil {
 		h.SendDeferredError(i, "❌ Error getting list OB ranking from Sega")
@@ -70,10 +72,11 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 	// key: segaID
 	obRankingCfgMap, err := h.OBRankingCfgRepo.GetRankingCfgMap()
 	if err != nil {
-		h.SendDeferredError("⚠️ Error fetching ranking configuration.")
+		h.SendDeferredError(i, "⚠️ Error fetching OB ranking configuration from DB.")
 		return
 	}
-	// 6. Build Response
+
+	// 4. Build Response
 	var sb strings.Builder
 	areaName := entity.AreaDisplayNameByCode[playerArea]
 	if areaName == "" {
@@ -84,7 +87,7 @@ func (h *Handler) HandlePlayerInfo(i *discordgo.InteractionCreate, optMap map[st
 			"### **Account Grade**:\n"+
 			"# %s***%s***\n"+
 			"### **Online Battle Rank:**\n"+
-			"# %s\n", playerName, "VN", gradeName, gradeNum, "Ruby 1"))
+			"# %s\n", playerName, "VN", gradeName, gradeNum, obRankingRes.OnlineBattleRankId))
 	// Send Response
 	finalContent := sb.String()
 	embed := &discordgo.MessageEmbed{
