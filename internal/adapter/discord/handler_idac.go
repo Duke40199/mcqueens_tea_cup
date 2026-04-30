@@ -2,9 +2,7 @@ package discord
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"sort"
 	"strconv"
@@ -511,172 +509,92 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
-	sendDeferredError := func(msg string) {
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+	// 1. Input Validation
+	if optMap["variant"] == "" {
+		h.SendDeferredError(i, "⚠️ **Missing Track**\nPlease select a track variant.")
+		return
 	}
 	// 2. Resolve Player 1
-	p1Name, p1Area, _, err := h.ResolvePlayerCredentialDB(optMap["player1"], optMap["area1"])
+	p1Name, foundP1Area, isFoundP1, err := h.ResolvePlayerCredentialDB(optMap["player1"], optMap["area1"])
 	if err != nil {
-		sendDeferredError("⚠️ **Player 1 Error:** " + err.Error())
+		fmt.Printf("⚠️ **Player 1 Error:** %s\n", err.Error())
+	}
+	if !isFoundP1 && optMap["area1"] == "" {
+		h.SendDeferredError(i, "⚠️ **Searching Player1 by IGN error:** Please input area1.")
 		return
 	}
-	if p1Area == "" {
-		// This happens if "player1" wasn't a known alias AND "area1" was empty.
-		sendDeferredError(fmt.Sprintf("⚠️ **Unknown Player 1:** `%s`\nTag not found and no Area provided.", optMap["player1"]))
-		return
-	}
-
 	// 3. Resolve Player 2
-	p2Name, p2Area, _, err := h.ResolvePlayerCredentialDB(optMap["player2"], optMap["area2"])
+	p2Name, foundP2Area, isFoundP2, err := h.ResolvePlayerCredentialDB(optMap["player2"], optMap["area2"])
 	if err != nil {
-		sendDeferredError("⚠️ **Player 2 Error:** " + err.Error())
+		fmt.Printf("⚠️ **Player 2 Error:** %s\n", err.Error())
+	}
+	if !isFoundP2 && optMap["area2"] == "" {
+		h.SendDeferredError(i, "⚠️ **Searching Player2 by IGN error:** Please input area2.")
 		return
 	}
-
-	// 4. Smart Inheritance for Player 2
-	// If P2 has no area (meaning it wasn't a complete alias, and user didn't type area2),
-	// we default to Player 1's area.
-	if p2Area == "" {
-		p2Area = p1Area
-	}
-
-	// 5. Update Map & Validate Track
-	optMap["ign1"] = p1Name
-	optMap["area1"] = p1Area
-	optMap["ign2"] = p2Name
-	optMap["area2"] = p2Area
-
-	if optMap["variant"] == "" {
-		sendDeferredError("⚠️ **Missing Track**\nPlease select a track variant.")
-		return
-	}
-	// 3. Resolve Areas
-	resolveArea := func(input string) string {
-		normalized := strings.ToLower(input)
-		// Explicitly check for 'all' keyword if missing from map, just in case
-		if normalized == "world" || normalized == "global" {
-			return "all"
-		}
-
-		if val, ok := entity.AreaAliases[normalized]; ok {
-			return val
-		}
-		// Fallback: Return input as-is (allows 'all' to pass through if input is 'all')
-		return normalized
-	}
-
-	area1 := resolveArea(optMap["area1"])
-	area2 := ""
-
-	// Handle Area 2
-	if val, ok := optMap["area2"]; ok && val != "" {
-		area2 = resolveArea(val)
+	// 4. Map sega codes (area, course, car) & make requests to get list TA
+	var area1, area2 string
+	if !isFoundP1 {
+		area1 = entity.AreaAliases[optMap["area1"]] // optMap["area1"] = tokyo -> area1 = area-12
+		p1Name = optMap["player1"]
 	} else {
-		area2 = area1 // Default to Area 1
+		area1 = foundP1Area // foundP1Area = area-12
 	}
-
+	if !isFoundP2 {
+		area2 = entity.AreaAliases[optMap["area2"]]
+		p2Name = optMap["player2"]
+	} else {
+		area2 = foundP2Area
+	}
 	courseID := optMap["variant"]
 	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.Background(), courseID)
 	if err != nil {
-		sendDeferredError("error getting taMetadata:" + err.Error())
+		h.SendDeferredError(i, "⚠️ error getting taMetadata:"+err.Error())
 		return
 	}
-	// 4. Helper: Fetch Data & Find Player
-	fetchAndFind := func(areaCode, targetIgn string) (*entity.TimeAttackRecord, string, error) {
-		baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
-		// This URL structure supports "ta_course-12_all_car-all.json" perfectly
-		filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, areaCode, "car-all")
-		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
-		//fmt.Println("fullURL", fullURL)
-		resp, err := http.Get(fullURL)
-		if err != nil {
-			return nil, "", err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != 200 {
-			return nil, fmt.Sprintf("Status %d", resp.StatusCode), nil
-		}
-
-		var data entity.IdacTimeAttackRecordResponse
-		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-			return nil, "Parse Error", nil
-		}
-
-		// Find Player
-		normalizedTarget := strings.ToLower(entity.NormalizeTextWidth(targetIgn))
-		for _, r := range data.Records {
-			if strings.ToLower(entity.NormalizeTextWidth(r.Name)) == normalizedTarget {
-				val := r
-				return &val, "", nil
-			}
-		}
-		return nil, "", nil
+	var p1Result, p2Result *entity.TimeAttackRecord
+	// Get Player 1 Sega Time Trail results
+	listTAResult1, err := h.SegaClient.GetListTimeTrail(courseID, area1, "car-all", "")
+	if err != nil {
+		h.SendDeferredError(i, "⚠️ error getting player1Info:"+err.Error())
+		return
 	}
-
-	// 5. Execution
-	var p1, p2 *entity.TimeAttackRecord
-	var errStr1, errStr2 string
-
-	// OPTIMIZATION: If areas are identical (e.g. both 'all'), fetch once
-	if area1 == area2 {
-		baseURL := "https://initiald.sega.jp/inidac/json/ranking/v1"
-		filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, area1, "car-all")
-		fullURL := fmt.Sprintf("%s/timeTrial/%s", baseURL, filename)
-		resp, err := http.Get(fullURL)
-		if err == nil && resp.StatusCode == 200 {
-			var data entity.IdacTimeAttackRecordResponse
-			_ = json.NewDecoder(resp.Body).Decode(&data)
-			resp.Body.Close()
-
-			target1 := strings.ToLower(entity.NormalizeTextWidth(optMap["ign1"]))
-			target2 := strings.ToLower(entity.NormalizeTextWidth(optMap["ign2"]))
-
-			for _, r := range data.Records {
-				if p1 != nil && p2 != nil {
-					break
-				}
-				normName := strings.ToLower(entity.NormalizeTextWidth(r.Name))
-				if p1 == nil && normName == target1 {
-					val := r
-					p1 = &val
-				}
-				if p2 == nil && normName == target2 {
-					val := r
-					p2 = &val
-				}
-			}
-		} else {
-			errStr1 = "Failed to fetch data"
-			errStr2 = "Failed to fetch data"
+	normalizedTarget := strings.ToLower(entity.NormalizeTextWidth(p1Name))
+	for _, result := range listTAResult1 {
+		if strings.ToLower(entity.NormalizeTextWidth(result.Name)) == normalizedTarget {
+			p1Result = &result
+			break
 		}
+	}
+	// Get Player 2 Sega Time Trail results
+	var listTAResult2 []entity.TimeAttackRecord
+	// optimize: if same area, use same list
+	if area2 == area1 {
+		listTAResult2 = listTAResult1
 	} else {
-		// Different Areas: Fetch Separate
-		var err error
-		p1, errStr1, err = fetchAndFind(area1, optMap["ign1"])
+		listTAResult2, err = h.SegaClient.GetListTimeTrail(courseID, area2, "car-all", "")
 		if err != nil {
-			errStr1 = "Network Error"
-		}
-
-		p2, errStr2, err = fetchAndFind(area2, optMap["ign2"])
-		if err != nil {
-			errStr2 = "Network Error"
+			h.SendDeferredError(i, "error getting player2Info:"+err.Error())
+			return
 		}
 	}
-
+	normalizedTarget = strings.ToLower(entity.NormalizeTextWidth(p2Name))
+	for _, result := range listTAResult2 {
+		if strings.ToLower(entity.NormalizeTextWidth(result.Name)) == normalizedTarget {
+			p2Result = &result
+			break
+		}
+	}
 	// 6. Build Response
 	var sb strings.Builder
-
 	courseName := entity.CourseDisplayNameByCode[courseID]
 	if courseName == "" {
 		courseName = optMap["track"]
 	}
-
 	areaName1 := entity.AreaDisplayNameByCode[area1]
 	if areaName1 == "" {
 		areaName1 = area1
 	}
-
 	areaName2 := entity.AreaDisplayNameByCode[area2]
 	if areaName2 == "" {
 		areaName2 = area2
@@ -707,23 +625,23 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		}
 	}
 
-	printPlayer("Player 1", areaName1, optMap["ign1"], errStr1, p1)
-	printPlayer("Player 2", areaName2, optMap["ign2"], errStr2, p2)
+	printPlayer("Player 1", areaName1, optMap["ign1"], "", p1Result)
+	printPlayer("Player 2", areaName2, optMap["ign2"], "", p2Result)
 
 	// 7. Calculate Delta
-	if p1 != nil && p2 != nil {
+	if p1Result != nil && p2Result != nil {
 		sb.WriteString("---\n")
-		ms1, err1 := entity.ParseIdacTime(p1.Record)
-		ms2, err2 := entity.ParseIdacTime(p2.Record)
+		ms1, err1 := entity.ParseIdacTime(p1Result.Record)
+		ms2, err2 := entity.ParseIdacTime(p2Result.Record)
 
 		if err1 == nil && err2 == nil {
 			diff := ms1 - ms2
 			if diff < 0 {
 				gap := entity.FormatIdacTimeDelta(diff)
-				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p1.Name, strings.TrimPrefix(gap, "-")))
+				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p1Result.Name, strings.TrimPrefix(gap, "-")))
 			} else if diff > 0 {
 				gap := entity.FormatIdacTimeDelta(diff)
-				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p2.Name, strings.TrimPrefix(gap, "+")))
+				sb.WriteString(fmt.Sprintf("🏆 **%s** is faster by **%s**!", p2Result.Name, strings.TrimPrefix(gap, "+")))
 			} else {
 				sb.WriteString("🤝 **It's a tie!** Exact same time.")
 			}
