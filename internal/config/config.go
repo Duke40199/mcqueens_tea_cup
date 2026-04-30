@@ -12,6 +12,7 @@ import (
 type Config interface {
 	GetDiscordCfg() DiscordConfig
 	GetRSSCfg() RSSConfig
+	GetSegaClientCfg() string
 }
 
 // AppConfig holds all configuration
@@ -21,27 +22,37 @@ type AppConfig struct {
 	DatabaseCfg          DatabaseConfig
 	MetaSyncCfg          MetaSyncConfig
 	ActivePlayersSyncCfg ActivePlayersSyncConfig
+	SegaClientCfg        SegaClientConfig
+}
+
+type SegaClientConfig struct {
+	SegaIDACHost        string `json:"sega_idac_host"`
+	TimeTrailURLPath    string `json:"time_trail_url_path"`
+	CurrentRoundUrlPath string `json:"current_round_url_path"`
+	TeamRankingUrlPath  string `json:"team_ranking_url_path"`
 }
 
 type MetaSyncConfig struct {
-	ChannelID     string `json:"channel_id"`
-	Interval      int    `json:"sync_interval_minutes"`
-	DowntimeStart string `json:"downtime_start"`
-	DowntimeEnd   string `json:"downtime_end"`
-	DowntimeTZ    string `json:"downtime_tz"`
+	ChannelID       string `json:"channel_id"`
+	IntervalMinutes int    `json:"sync_interval_minutes"`
+	DowntimeStart   int    `json:"downtime_start"`
+	DowntimeEnd     int    `json:"downtime_end"`
+	DowntimeTZ      string `json:"downtime_tz"`
 }
 
 type ActivePlayersSyncConfig struct {
-	ChannelID     string `json:"channel_id"`
-	Interval      int    `json:"sync_interval_minutes"`
-	DowntimeStart string `json:"downtime_start"`
-	DowntimeEnd   string `json:"downtime_end"`
-	DowntimeTZ    string `json:"downtime_tz"`
+	ChannelID       string `json:"channel_id"`
+	IntervalMinutes int    `json:"sync_interval_minutes"`
+	DowntimeStart   int    `json:"downtime_start"`
+	DowntimeEnd     int    `json:"downtime_end"`
+	DowntimeTZ      string `json:"downtime_tz"`
 }
 
 // DiscordConfig holds Discord Integration configuration
 type DiscordConfig struct {
-	Token string `json:"token"`
+	Token                        string `json:"token"`
+	IDACOBMetaCarsChannelID      string `json:"idac_ob_meta_cars_channel_id"`
+	IDACOBActivePlayersChannelID string `json:"idac_ob_active_players_channel_id"`
 }
 
 type RSSConfig struct {
@@ -67,52 +78,64 @@ func (c *AppConfig) GetRSSCfg() RSSConfig {
 	return c.RSSCfg
 }
 
+// env getter funcs
+func getEnv(key string, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*AppConfig, error) {
 	_ = godotenv.Load()
-
-	cfg := &AppConfig{}
-
-	// discord
-	cfg.DiscordCfg.Token = os.Getenv("DISCORD_BOT_TOKEN")
-	// database
-	cfg.DatabaseCfg.Host = os.Getenv("DB_HOST")
-	cfg.DatabaseCfg.User = os.Getenv("DB_USER")
-	cfg.DatabaseCfg.Password = os.Getenv("DB_PASSWORD")
-	cfg.DatabaseCfg.Name = os.Getenv("DB_NAME")
-
-	portStr := os.Getenv("DB_PORT")
-	if port, err := strconv.Atoi(portStr); err == nil {
-		cfg.DatabaseCfg.Port = port
-	} else {
-		cfg.DatabaseCfg.Port = 5432 // Default fallback
+	cfg := &AppConfig{
+		DiscordCfg: DiscordConfig{
+			Token:                        getEnv("DISCORD_BOT_TOKEN", ""),
+			IDACOBMetaCarsChannelID:      getEnv("DISCORD_OB_META_CARS_CHANNEL_ID", ""),
+			IDACOBActivePlayersChannelID: getEnv("DISCORD_OB_ACTIVE_PLAYERS_CHANNEL_ID", ""),
+		},
+		DatabaseCfg: DatabaseConfig{
+			Host:     getEnv("DB_HOST", ""),
+			Port:     getEnvAsInt("DB_PORT", 0),
+			User:     getEnv("DB_USER", ""),
+			Password: getEnv("DB_PASSWORD", ""),
+			Name:     getEnv("DB_NAME", ""),
+		},
+		SegaClientCfg: SegaClientConfig{
+			SegaIDACHost:        getEnv("SEGA_IDAC_HOST", ""),
+			TimeTrailURLPath:    getEnv("SEGA_IDAC_GET_TEAM_RANKING_URL_PATH", ""),
+			CurrentRoundUrlPath: getEnv("SEGA_IDAC_GET_CURRENT_ROUND_URL_PATH", ""),
+			TeamRankingUrlPath:  getEnv("SEGA_IDAC_GET_TIME_TRAIL_URL_PATH", ""),
+		},
+		MetaSyncCfg: MetaSyncConfig{
+			ChannelID:       getEnv("DISCORD_OB_META_CARS_CHANNEL_ID", ""),
+			IntervalMinutes: getEnvAsInt("OB_META_CARS_SYNC_INTERVAL_MINUTES", 15),
+			DowntimeStart:   getEnvAsInt("OB_META_CARS_DOWNTIME_START_HOUR", 0),
+			DowntimeEnd:     getEnvAsInt("OB_META_CARS_DOWNTIME_END_HOUR", 0),
+			DowntimeTZ:      getEnv("OB_META_CARS_DOWNTIME_TZ", ""),
+		},
+		ActivePlayersSyncCfg: ActivePlayersSyncConfig{
+			ChannelID:       getEnv("DISCORD_OB_ACTIVE_PLAYERS_CHANNEL_ID", ""),
+			IntervalMinutes: getEnvAsInt("OB_ACTIVE_PLAYERS_SYNC_INTERVAL_MINUTES", 15),
+			DowntimeStart:   getEnvAsInt("OB_ACTIVE_PLAYERS_DOWNTIME_START_HOUR", 0),
+			DowntimeEnd:     getEnvAsInt("OB_ACTIVE_PLAYERS_DOWNTIME_END_HOUR", 0),
+			DowntimeTZ:      getEnv("OB_ACTIVE_PLAYERS_DOWNTIME_TZ", ""),
+		},
 	}
 	cfg.RSSCfg.Interval, _ = strconv.Atoi(os.Getenv("RSS_FETCH_INTERVAL"))
 	cfg.RSSCfg.Feeds, _ = LoadRSSConfig()
 
-	// Meta Sync
-	cfg.MetaSyncCfg.ChannelID = os.Getenv("DISCORD_OB_META_CARS_CHANNEL_ID")
-	metaInterval, _ := strconv.Atoi(os.Getenv("OB_META_CARS_SYNC_INTERVAL_MINUTES"))
-	if metaInterval == 0 {
-		metaInterval = 15 // Default 15 mins
-	}
-	cfg.MetaSyncCfg.Interval = metaInterval
-	cfg.MetaSyncCfg.DowntimeStart = os.Getenv("OB_META_CARS_DOWNTIME_START_HOUR")
-	cfg.MetaSyncCfg.DowntimeEnd = os.Getenv("OB_META_CARS_DOWNTIME_END_HOUR")
-	cfg.MetaSyncCfg.DowntimeTZ = os.Getenv("OB_META_CARS_DOWNTIME_TZ")
-
-	// Active Players Sync
-	cfg.ActivePlayersSyncCfg.ChannelID = os.Getenv("DISCORD_OB_ACTIVE_PLAYERS_CHANNEL_ID")
-	activePlayersInterval, _ := strconv.Atoi(os.Getenv("OB_ACTIVE_PLAYERS_SYNC_INTERVAL_MINUTES"))
-	if activePlayersInterval == 0 {
-		activePlayersInterval = 15 // Default 15 mins
-	}
-	cfg.ActivePlayersSyncCfg.Interval = activePlayersInterval
-	cfg.ActivePlayersSyncCfg.DowntimeStart = os.Getenv("OB_ACTIVE_PLAYERS_DOWNTIME_START_HOUR")
-	cfg.ActivePlayersSyncCfg.DowntimeEnd = os.Getenv("OB_ACTIVE_PLAYERS_DOWNTIME_END_HOUR")
-	cfg.ActivePlayersSyncCfg.DowntimeTZ = os.Getenv("OB_ACTIVE_PLAYERS_DOWNTIME_TZ")
-
-	// Validation
+	// Validations
 	if cfg.DiscordCfg.Token == "" {
 		return nil, fmt.Errorf("DISCORD_TOKEN is missing")
 	}

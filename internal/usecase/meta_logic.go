@@ -187,7 +187,7 @@ func (s *MetaLogicService) getCarStatName(carStat *entity.CarSpecInfo, defaultCo
 
 // SleepUntilNextSync calculates the wait time until the next Sega OB update (hh:02:02, 16:02, 31:02, 46:02)
 // and sleeps with a 10-second safety buffer. It also respects scheduled downtime.
-func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context, downtimeStart, downtimeEnd, downtimeTZ string) {
+func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context, downtimeStart, downtimeEnd int, downtimeTZ string) {
 	targets := []int{2, 16, 31, 46}
 	buffer := 10 * time.Second
 	jstLoc := time.FixedZone("JST", 9*60*60)
@@ -205,9 +205,9 @@ func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context, downtimeStart
 		nowDT := time.Now().In(downtimeLoc)
 
 		// 1. Check for Downtime
-		if downtimeStart != "" && downtimeEnd != "" {
-			if s.IsInDowntime(nowDT, downtimeStart, downtimeEnd) {
-				s.sleepUntilDowntimeEnd(ctx, nowDT, downtimeEnd)
+		if downtimeStart != 0 && downtimeEnd != 0 {
+			if s.IsInDowntime(nowDT, string(downtimeStart), string(downtimeEnd)) {
+				s.sleepUntilDowntimeEnd(ctx, nowDT, string(downtimeEnd))
 				// After waking up from downtime, we should calculate the next sync target
 				nowJST = time.Now().In(jstLoc)
 			}

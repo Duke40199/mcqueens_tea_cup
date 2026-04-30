@@ -12,9 +12,10 @@ import (
 )
 
 type SegaClient struct {
-	TimeTrailUrl    string
-	CurrentRoundUrl string
-	TeamRankingUrl  string
+	HostURL         string
+	TimeTrailURL    string
+	CurrentRoundURL string
+	TeamRankingURL  string
 }
 
 // GetTeamRanking implements [domain.IdacRepository].
@@ -46,9 +47,9 @@ func (c *SegaClient) GetTeamRanking(roundNum int, rankCode string) ([]entity.Tea
 
 func NewClient() *SegaClient {
 	return &SegaClient{
-		TimeTrailUrl:    "https://initiald.sega.jp/inidac/json/ranking/v1",
-		CurrentRoundUrl: "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json",
-		TeamRankingUrl:  "https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint",
+		TimeTrailURL:    "https://initiald.sega.jp/inidac/json/ranking/v1",
+		CurrentRoundURL: "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json",
+		TeamRankingURL:  "https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint",
 	}
 }
 
@@ -56,7 +57,7 @@ func NewClient() *SegaClient {
 func (c *SegaClient) GetTimeAttack(courseID, area, carID, spec string) ([]entity.TimeAttackRecord, error) {
 	// 1. Construct URL (Logic moved from handler)
 	filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, area, carID)
-	fullURL := fmt.Sprintf("%s/timeTrial/%s", c.TimeTrailUrl, filename)
+	fullURL := fmt.Sprintf("%s/timeTrial/%s", c.TeamRankingURL, filename)
 	// 2. Fetch
 	resp, err := http.Get(fullURL)
 	if err != nil {

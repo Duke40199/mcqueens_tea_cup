@@ -217,7 +217,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	var prideCount int
 	header := "📡 **Active SEA OB Players (Live Update)**\n" +
 		fmt.Sprintf("_Detected at: %s (JST)_\n", detectionTime) +
-		fmt.Sprintf("_Refreshed every %d minutes_\n\n", s.Config.Interval)
+		fmt.Sprintf("_Refreshed every %d minutes_\n\n", s.Config.IntervalMinutes)
 	currentMessage.WriteString(header)
 	for _, areaName := range areaNames {
 		activity := activePlayersByArea[areaName]
