@@ -1,11 +1,12 @@
 package database
 
 import (
-	"McQueens_Tea_Cup/internal/config"
 	"database/sql"
 	"fmt"
 	"log"
 	"time"
+
+	"McQueens_Tea_Cup/internal/config"
 )
 
 type Database interface{}

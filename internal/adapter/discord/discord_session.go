@@ -1,8 +1,9 @@
 package discord
 
 import (
-	"McQueens_Tea_Cup/internal/config"
 	"log"
+
+	"McQueens_Tea_Cup/internal/config"
 
 	"github.com/bwmarrin/discordgo"
 )
