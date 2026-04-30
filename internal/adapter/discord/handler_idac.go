@@ -559,9 +559,10 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		h.SendDeferredError(i, "⚠️ error getting player1Info:"+err.Error())
 		return
 	}
-	normalizedTarget := strings.ToLower(entity.NormalizeTextWidth(p1Name))
+	normalizedTarget := strings.ToLower(strings.TrimSpace(entity.NormalizeTextWidth(p1Name)))
 	for _, result := range listTAResult1 {
-		if strings.ToLower(entity.NormalizeTextWidth(result.Name)) == normalizedTarget {
+		normalizedResultName := strings.ToLower(strings.TrimSpace(entity.NormalizeTextWidth(result.Name)))
+		if normalizedResultName == normalizedTarget {
 			p1Result = &result
 			break
 		}
@@ -578,12 +579,23 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 			return
 		}
 	}
-	normalizedTarget = strings.ToLower(entity.NormalizeTextWidth(p2Name))
+	normalizedTarget = strings.ToLower(strings.TrimSpace(entity.NormalizeTextWidth(p2Name)))
+	var duplicatedResult *entity.TimeAttackRecord
 	for _, result := range listTAResult2 {
-		if strings.ToLower(entity.NormalizeTextWidth(result.Name)) == normalizedTarget {
+		normalizedResultName := strings.ToLower(strings.TrimSpace(entity.NormalizeTextWidth(result.Name)))
+		if normalizedResultName == normalizedTarget {
+			// if found result with same IGN & time -> record it
+			if p1Result != nil && result.Record == p1Result.Record {
+				duplicatedResult = &result
+				continue
+			}
+			// if found result with same IGN & different time -> assign it to p2Result
 			p2Result = &result
 			break
 		}
+	}
+	if p2Result == nil && duplicatedResult != nil {
+		p2Result = duplicatedResult
 	}
 	// 6. Build Response
 	var sb strings.Builder
