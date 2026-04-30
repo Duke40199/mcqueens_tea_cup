@@ -20,9 +20,6 @@ var desuwaGif []byte
 //go:embed resource/miemebell.json
 var miemebellJson []byte
 
-//go:embed resource/meomeo.json
-var meomeoJson []byte
-
 var languageChoice = []*discordgo.ApplicationCommandOptionChoice{
 	{
 		Name:  "Vietnamese",
@@ -55,7 +52,6 @@ const (
 	CommandNameNuhuh     CommandName = "nuhuh"
 	CommandNameMckween   CommandName = "mckween"
 	CommandNameMiemebell CommandName = "miemebell"
-	CommandNameMeomeo    CommandName = "meomeo"
 	CommandNameCfs       CommandName = "cfs"
 )
 
@@ -465,8 +461,6 @@ func (h *Handler) RegisterCommands() error {
 				h.HandleMckween(i)
 			case CommandNameMiemebell:
 				h.HandleMiemebell(i)
-			case CommandNameMeomeo:
-				h.HandleMeoMeo(i)
 			case CommandNameCfs:
 				h.HandleAnonymousCommand(i)
 			}

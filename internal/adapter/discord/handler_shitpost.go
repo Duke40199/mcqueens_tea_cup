@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"strings"
 
 	"McQueens_Tea_Cup/internal/domain/entity"
 
@@ -73,78 +72,6 @@ func (h *Handler) HandleNuhuh(i *discordgo.InteractionCreate) {
 			{Name: "nuhuh.gif", Reader: bytes.NewReader(nuhuhGif)},
 		},
 	})
-}
-
-func (h *Handler) HandleMeoMeo(i *discordgo.InteractionCreate) {
-	var data entity.MeoMeoRequest
-	var selectedUserID string
-	var selectedLang string
-
-	if err := json.Unmarshal(meomeoJson, &data); err != nil {
-		log.Println("Error parsing JSON:", err)
-		return
-	}
-
-	options := i.ApplicationCommandData().Options
-	for _, opt := range options {
-		switch opt.Name {
-		case "user":
-			selectedUserID = opt.Value.(string)
-		case "language":
-			selectedLang = opt.StringValue()
-		}
-	}
-
-	// 1. Select the content pool
-	var selectedBlock []string
-	switch selectedLang {
-	case "vn":
-		selectedBlock = data.Blocks["vn"]
-	case "en":
-		selectedBlock = data.Blocks["en"]
-	case "desuwa":
-		selectedBlock = data.Blocks["desuwa"]
-	default:
-		for _, v := range data.Blocks {
-			selectedBlock = append(selectedBlock, v...)
-		}
-	}
-	if len(selectedBlock) == 0 {
-		return
-	}
-	rawText := selectedBlock[rand.Intn(len(selectedBlock))]
-	var content string
-	if selectedUserID != "" {
-		content = strings.ReplaceAll(rawText, "${name}", fmt.Sprintf("<@%s>", selectedUserID))
-	} else {
-		content = strings.ReplaceAll(rawText, "${name}", "")
-
-	}
-	chunks := splitMessage(content, 2000)
-
-	// Send the first chunk as the Interaction Response
-	err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: chunks[0],
-		},
-	})
-	if err != nil {
-		log.Printf("Error sending response: %v", err)
-		return
-	}
-	// Send remaining chunks as Follow-up messages
-	if len(chunks) > 1 {
-		for _, chunk := range chunks[1:] {
-			// FollowupMessageCreate works like a normal message but linked to the interaction context
-			_, err := h.Session.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: chunk,
-			})
-			if err != nil {
-				log.Printf("Error sending followup chunk: %v", err)
-			}
-		}
-	}
 }
 
 func splitMessage(s string, maxLength int) []string {
