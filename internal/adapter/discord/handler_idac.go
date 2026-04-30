@@ -625,8 +625,8 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		}
 	}
 
-	printPlayer("Player 1", areaName1, optMap["ign1"], "", p1Result)
-	printPlayer("Player 2", areaName2, optMap["ign2"], "", p2Result)
+	printPlayer("Player 1", areaName1, optMap["player1"], "", p1Result)
+	printPlayer("Player 2", areaName2, optMap["player2"], "", p2Result)
 
 	// 7. Calculate Delta
 	if p1Result != nil && p2Result != nil {
