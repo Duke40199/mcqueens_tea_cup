@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
@@ -17,7 +17,7 @@ type OBRankingCfgRepository struct {
 var obRankingCfgTableName = "ob-ranking-cfg"
 
 // NewOBRankingCfgRepository returns the struct that satisfies AliasRepository
-func NewOBRankingCfgRepository(db *sql.DB) postgres.OBRankingCfgRepository {
+func NewOBRankingCfgRepository(db *sql.DB) database.OBRankingCfgRepository {
 	return &OBRankingCfgRepository{
 		DB: db,
 	}

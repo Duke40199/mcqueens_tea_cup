@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
@@ -17,8 +17,8 @@ type TATimeMetadataRepository struct {
 	DB *sql.DB
 }
 
-// NewPostgresTATimeMetadataRepository returns the struct that satisfies TATimeMetadataRepository
-func NewPostgresTATimeMetadataRepository(db *sql.DB) postgres.TATimeMetadataRepository {
+// NewTATimeMetadataRepository returns the struct that satisfies TATimeMetadataRepository
+func NewTATimeMetadataRepository(db *sql.DB) database.TATimeMetadataRepository {
 	return &TATimeMetadataRepository{
 		DB: db,
 	}

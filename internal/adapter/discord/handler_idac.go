@@ -76,7 +76,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	// 3. Fetch Data
 	finalArea := optMap["area"]
-	records, err := h.SegaClient.GetTimeAttack(finalCourseID, finalArea, finalCarID, specInput)
+	records, err := h.SegaClient.GetListTimeTrail(finalCourseID, finalArea, finalCarID, specInput)
 	if err != nil {
 		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
 		return
@@ -227,7 +227,7 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap
 	var limit = 1000
 
 	// 3. Fetch Data
-	records, err := h.SegaClient.GetTimeAttack(finalCourseID, "area-all", "car-all", "")
+	records, err := h.SegaClient.GetListTimeTrail(finalCourseID, "area-all", "car-all", "")
 	if err != nil {
 		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
 		return nil, err

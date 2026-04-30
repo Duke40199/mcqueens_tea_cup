@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
@@ -14,8 +14,8 @@ type RankingCfgRepository struct {
 	DB *sql.DB
 }
 
-// NewPostgresRankingCfgRepo returns the struct that satisfies RankingCfgRepository
-func NewPostgresRankingCfgRepo(db *sql.DB) postgres.RankingCfgRepository {
+// NewRankingCfgRepo returns the struct that satisfies RankingCfgRepository
+func NewRankingCfgRepo(db *sql.DB) database.RankingCfgRepository {
 	return &RankingCfgRepository{
 		DB: db,
 	}

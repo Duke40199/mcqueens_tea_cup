@@ -1,8 +1,7 @@
 package entity
 
-// IdacRepository defines WHAT data we need, not HOW we get it.
 type SegaClient interface {
-	GetTimeAttack(courseID, area, car, spec string) ([]TimeAttackRecord, error)
+	GetListTimeTrail(courseID, area, car, spec string) ([]TimeAttackRecord, error)
 	GetTeamRanking(round int, rankCode string) ([]TeamRecord, error)
 	GetListOBRanking(roundNum string, areaCode string) (*IdacOBRankingResponse, error)
 	GetCurrentRound() (int, error)

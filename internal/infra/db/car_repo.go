@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/lib/pq"
@@ -17,7 +17,7 @@ type CarRepository struct {
 	DB *sql.DB
 }
 
-func NewCarRepository(db *sql.DB) postgres.CarRepository {
+func NewCarRepository(db *sql.DB) database.CarRepository {
 	return &CarRepository{DB: db}
 }
 

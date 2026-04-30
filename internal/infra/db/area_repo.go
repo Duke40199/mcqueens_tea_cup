@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
@@ -12,7 +12,7 @@ type AreaRepository struct {
 	DB *sql.DB
 }
 
-func NewAreaRepository(db *sql.DB) postgres.AreaRepository {
+func NewAreaRepository(db *sql.DB) database.AreaRepository {
 	return &AreaRepository{
 		DB: db,
 	}

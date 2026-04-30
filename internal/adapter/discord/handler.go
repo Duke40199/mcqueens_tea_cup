@@ -4,7 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/usecase"
 
@@ -18,12 +18,12 @@ type Handler struct {
 	OwnerID string
 	Session *discordgo.Session
 	// db repositories
-	AliasRepo          postgres.AliasRepository
-	OBRankingCfgRepo   postgres.OBRankingCfgRepository
-	RankingCfgRepo     postgres.RankingCfgRepository
-	CarRepo            postgres.CarRepository
-	TATimeMetadataRepo postgres.TATimeMetadataRepository
-	CfsStateRepo       postgres.CfsStateRepository
+	AliasRepo          database.AliasRepository
+	OBRankingCfgRepo   database.OBRankingCfgRepository
+	RankingCfgRepo     database.RankingCfgRepository
+	CarRepo            database.CarRepository
+	TATimeMetadataRepo database.TATimeMetadataRepository
+	CfsStateRepo       database.CfsStateRepository
 	// internal services
 	MetaLogic *usecase.MetaLogicService
 	// clients
@@ -34,12 +34,12 @@ type Handler struct {
 func NewHandler(
 	s *discordgo.Session,
 	// db repositories
-	aliasRepo postgres.AliasRepository,
-	obRankingCfgRepo postgres.OBRankingCfgRepository,
-	rankingCfgRepo postgres.RankingCfgRepository,
-	carRepo postgres.CarRepository,
-	taTimeMetadataRepo postgres.TATimeMetadataRepository,
-	cfsStateRepo postgres.CfsStateRepository,
+	aliasRepo database.AliasRepository,
+	obRankingCfgRepo database.OBRankingCfgRepository,
+	rankingCfgRepo database.RankingCfgRepository,
+	carRepo database.CarRepository,
+	taTimeMetadataRepo database.TATimeMetadataRepository,
+	cfsStateRepo database.CfsStateRepository,
 	// internal services
 	metaLogic *usecase.MetaLogicService,
 	// clients

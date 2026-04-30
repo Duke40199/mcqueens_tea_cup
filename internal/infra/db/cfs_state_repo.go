@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
@@ -13,7 +13,7 @@ type CfsStateRepo struct {
 	DB *sql.DB
 }
 
-func NewCfsStateRepository(db *sql.DB) postgres.CfsStateRepository {
+func NewCfsStateRepository(db *sql.DB) database.CfsStateRepository {
 	return &CfsStateRepo{DB: db}
 }
 
@@ -35,7 +35,7 @@ func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState,
 }
 
 func (r *CfsStateRepo) CreateCfsState(discordID, content string) (int64, error) {
-	// Let PostgreSQL automatically generate the next `id` using SERIAL,
+	// Let databaseQL automatically generate the next `id` using SERIAL,
 	// and then immediately return that new `id` back to us.
 	query := `
 		INSERT INTO cfs_state (discord_id, content, created_at)
