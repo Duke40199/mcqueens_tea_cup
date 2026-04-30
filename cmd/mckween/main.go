@@ -44,7 +44,7 @@ func main() {
 		log.Fatal("Discord session creation error:", err)
 	}
 	// A1. Init Repositories (Data Access)
-	segaClient := sega.NewClient() // Handles HTTP to SEGA
+	segaClient := sega.NewSegaIDACClient(&cfg.SegaClientCfg) // Handles HTTP to SEGA
 	// A2. Init Logic Services
 	metaLogic := usecase.NewMetaLogicService(segaClient, carRepo)
 

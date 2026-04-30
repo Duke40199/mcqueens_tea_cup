@@ -26,10 +26,17 @@ type AppConfig struct {
 }
 
 type SegaClientConfig struct {
-	SegaIDACHost        string `json:"sega_idac_host"`
-	TimeTrailURLPath    string `json:"time_trail_url_path"`
-	CurrentRoundUrlPath string `json:"current_round_url_path"`
-	TeamRankingUrlPath  string `json:"team_ranking_url_path"`
+	SegaIDACHost string
+	// sega cfgs
+	GetListConstConfigURLPath string
+	GetCurrentRoundUrlPath    string
+	// time trail
+	GetTimeTrailURLPath string
+	// ob
+	GetListOBRankingURLPath string
+	// rankings
+	GetTeamRankingUrlPath     string
+	GetListPlayerGradeUrlPath string
 }
 
 type MetaSyncConfig struct {
@@ -112,10 +119,13 @@ func LoadConfig() (*AppConfig, error) {
 			Name:     getEnv("DB_NAME", ""),
 		},
 		SegaClientCfg: SegaClientConfig{
-			SegaIDACHost:        getEnv("SEGA_IDAC_HOST", ""),
-			TimeTrailURLPath:    getEnv("SEGA_IDAC_GET_TEAM_RANKING_URL_PATH", ""),
-			CurrentRoundUrlPath: getEnv("SEGA_IDAC_GET_CURRENT_ROUND_URL_PATH", ""),
-			TeamRankingUrlPath:  getEnv("SEGA_IDAC_GET_TIME_TRAIL_URL_PATH", ""),
+			SegaIDACHost:              getEnv("SEGA_IDAC_HOST", ""),
+			GetListConstConfigURLPath: getEnv("SEGA_IDAC_GET_LIST_CONST_CFG_URL_PATH", ""),
+			GetTimeTrailURLPath:       getEnv("SEGA_IDAC_GET_TIME_TRAIL_URL_PATH", ""),
+			GetListOBRankingURLPath:   getEnv("SEGA_IDAC_GET_LIST_OB_RANKING_URL_PATH", ""),
+			GetCurrentRoundUrlPath:    getEnv("SEGA_IDAC_GET_CURRENT_ROUND_URL_PATH", ""),
+			GetTeamRankingUrlPath:     getEnv("SEGA_IDAC_GET_TEAM_RANKING_URL_PATH", ""),
+			GetListPlayerGradeUrlPath: getEnv("SEGA_IDAC_GET_LIST_PLAYER_GRADE_URL_PATH", ""),
 		},
 		MetaSyncCfg: MetaSyncConfig{
 			ChannelID:       getEnv("DISCORD_OB_META_CARS_CHANNEL_ID", ""),

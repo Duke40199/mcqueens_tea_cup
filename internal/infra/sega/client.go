@@ -8,21 +8,72 @@ import (
 	"strconv"
 	"strings"
 
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
-type SegaClient struct {
-	HostURL         string
-	TimeTrailURL    string
-	CurrentRoundURL string
-	TeamRankingURL  string
+type SegaIDACClient struct {
+	SegaIdacCfg *config.SegaClientConfig
 }
 
-// GetTeamRanking implements [domain.IdacRepository].
-func (c *SegaClient) GetTeamRanking(roundNum int, rankCode string) ([]entity.TeamRecord, error) {
-	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
-	fmt.Printf("Fetching ranking data from %s\n", rankURL)
-	resp, err := http.Get(rankURL)
+func NewSegaIDACClient(segaIdacCfg *config.SegaClientConfig) *SegaIDACClient {
+	return &SegaIDACClient{
+		SegaIdacCfg: segaIdacCfg,
+	}
+}
+
+// GetTimeAttack
+func (c *SegaIDACClient) GetListTimeTrail(courseID, areaCode, carID, spec string) ([]entity.TimeAttackRecord, error) {
+	// 1. Build URL
+	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetTimeTrailURLPath
+	url = strings.Replace(url, ":courseID", courseID, 1)
+	url = strings.Replace(url, ":areaCode", areaCode, 1)
+	url = strings.Replace(url, ":carID", carID, 1)
+	fmt.Printf("=== SegaIDACClient: GetListTimeTrailResults full path: %s\n", url)
+	// 2. Make request
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("=== SegaIDACClient: GetListTimeTrailResults: status code %d", resp.StatusCode)
+	}
+	// 3. Parse response
+	var data entity.IdacTimeAttackRecordResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		fmt.Printf("=== SegaIDACClient: GetListTimeTrailResults: cannot parse res %d, err %s\n", resp.StatusCode, error.Error)
+		return nil, err
+	}
+	return data.Records, nil
+}
+
+func (c *SegaIDACClient) GetOBRankingByIGN(ign, roundNum, areaCode string) (*entity.OBRankingRecord, error) {
+	normalizedIGN := entity.NormalizeTextWidth(ign)
+	listOBRankings, err := c.GetListOBRanking(roundNum, areaCode)
+	if err != nil {
+		return nil, err
+	}
+	if len(listOBRankings.Records) == 0 {
+		return nil, nil
+	}
+	for _, obRanking := range listOBRankings.Records {
+		if entity.NormalizeTextWidth(obRanking.Name) == normalizedIGN {
+			return &obRanking, nil
+		}
+	}
+	return nil, nil
+}
+
+func (c *SegaIDACClient) GetListOBRanking(roundNum string, areaCode string) (*entity.IdacOBRankingResponse, error) {
+	// 1. Build URL
+	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetListOBRankingURLPath
+	url = strings.Replace(url, ":roundNum", roundNum, 1)
+	url = strings.Replace(url, ":areaCode", areaCode, 1)
+	fmt.Printf("=== SegaIDACClient.GetListOBRanking full URL: %s\n", url)
+	// 2. Make request
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -31,9 +82,34 @@ func (c *SegaClient) GetTeamRanking(roundNum int, rankCode string) ([]entity.Tea
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
+	// 3. Parse response
+	var data entity.IdacOBRankingResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
 
+// GetTeamRanking
+func (c *SegaIDACClient) GetTeamRanking(roundNum int, rankCode string) ([]entity.TeamRecord, error) {
+	// 1. Build URL
+	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetTeamRankingUrlPath
+	url = strings.Replace(url, ":roundCount", strconv.Itoa(roundNum), 1)
+	url = strings.Replace(url, ":rankType", rankCode, 1)
+	fmt.Printf("=== SegaIDACClient: GetTeamRanking full path: %s\n", url)
+	// 2. Make request
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("=== SegaIDACClient: GetTeamRanking: status code %d", resp.StatusCode)
+	}
+	// 3. Parse response
 	var data entity.IdacTeamRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		fmt.Printf("=== SegaIDACClient: GetTeamRanking: cannot parse res %d, err %s\n", resp.StatusCode, error.Error)
 		return nil, err
 	}
 	foundTeams := make([]entity.TeamRecord, 0)
@@ -45,42 +121,10 @@ func (c *SegaClient) GetTeamRanking(roundNum int, rankCode string) ([]entity.Tea
 	return foundTeams, nil
 }
 
-func NewClient() *SegaClient {
-	return &SegaClient{
-		TimeTrailURL:    "https://initiald.sega.jp/inidac/json/ranking/v1",
-		CurrentRoundURL: "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json",
-		TeamRankingURL:  "https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint",
-	}
-}
+func (c *SegaIDACClient) GetCurrentRound() (int, error) {
+	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetCurrentRoundUrlPath
 
-// GetTimeAttack implements domain.IdacRepository
-func (c *SegaClient) GetTimeAttack(courseID, area, carID, spec string) ([]entity.TimeAttackRecord, error) {
-	// 1. Construct URL (Logic moved from handler)
-	filename := fmt.Sprintf("ta_%s_%s_%s.json", courseID, area, carID)
-	fullURL := fmt.Sprintf("%s/timeTrial/%s", c.TeamRankingURL, filename)
-	// 2. Fetch
-	resp, err := http.Get(fullURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("sega api status: %d", resp.StatusCode)
-	}
-
-	// 3. Parse
-	var data entity.IdacTimeAttackRecordResponse
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	return data.Records, nil
-}
-
-func (c *SegaClient) GetCurrentRound() (int, error) {
-	roundURL := "https://initiald.sega.jp/inidac/json/ranking/v1/currentRoundInfo.json"
-	respRound, err := http.Get(roundURL)
+	respRound, err := http.Get(url)
 	if err != nil {
 		return -1, err
 	}
@@ -98,10 +142,13 @@ func (c *SegaClient) GetCurrentRound() (int, error) {
 	return roundNum, nil
 }
 
-func (c *SegaClient) FetchTeamRankings(roundNum int, rankCode string) ([]entity.TeamRecord, error) {
-	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/leaguePoint/lp-round-%d_rank-%s.json", roundNum, rankCode)
-	fmt.Printf("Fetching ranking data from %s\n", rankURL)
-	resp, err := http.Get(rankURL)
+func (c *SegaIDACClient) GetListPlayerGrade(areaCode string) (*entity.IdacPlayerRankingResponse, error) {
+	// 1. Build URL
+	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetListPlayerGradeUrlPath
+	url = strings.Replace(url, ":areaCode", areaCode, 1)
+	fmt.Printf("=== SegaIDACClient.GetListPlayerGrade url: %s\n", url)
+	// 2. Make request
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -110,90 +157,15 @@ func (c *SegaClient) FetchTeamRankings(roundNum int, rankCode string) ([]entity.
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
-
-	var data entity.IdacTeamRankingResponse
-	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-	foundTeams := make([]entity.TeamRecord, 0)
-	// set league emoji values for each team
-	for _, foundTeam := range data.Records {
-		foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
-		foundTeams = append(foundTeams, foundTeam)
-	}
-	return foundTeams, nil
-}
-
-func (c *SegaClient) GetOBRankingByIGN(ign, roundNum, areaCode string) (*entity.OBRankingRecord, error) {
-	normalizedIGN := entity.NormalizeTextWidth(ign)
-	listOBRankings, err := c.GetListOBRanking(roundNum, areaCode)
-	if err != nil {
-		return nil, err
-	}
-	if len(listOBRankings.Records) == 0 {
-		return nil, nil
-	}
-	for _, obRanking := range listOBRankings.Records {
-		if entity.NormalizeTextWidth(obRanking.Name) == normalizedIGN {
-			return &obRanking, nil
-		}
-	}
-	return nil, nil
-}
-
-func (c *SegaClient) GetListOBRanking(roundNum string, areaCode string) (*entity.IdacOBRankingResponse, error) {
-	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/roundPoint/rp_round-%s_%s.json", roundNum, areaCode)
-	fmt.Printf("Fetching ob ranking data from %s\n", rankURL)
-	resp, err := http.Get(rankURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("status code %d", resp.StatusCode)
-	}
-
-	var data entity.IdacOBRankingResponse
-	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-	// foundTeams := make([]entity.TeamRecord, 0)
-	// set league emoji values for each team
-	// for _, foundTeam := range data.Records {
-	// 	// foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
-	// 	// foundTeams = append(foundTeams, foundTeam)
-	// }
-	return &data, nil
-}
-
-func (c *SegaClient) GetListPlayerGrade(areaCode string) (*entity.IdacPlayerRankingResponse, error) {
-	rankURL := fmt.Sprintf("https://initiald.sega.jp/inidac/json/ranking/v1/grade/gr_%s.json", areaCode)
-	fmt.Printf("Fetching player ranking data from %s\n", rankURL)
-	resp, err := http.Get(rankURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("status code %d", resp.StatusCode)
-	}
-
+	// 3. Parse response
 	var data entity.IdacPlayerRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, err
 	}
-	// foundTeams := make([]entity.TeamRecord, 0)
-	// set league emoji values for each team
-	// for _, foundTeam := range data.Records {
-	// 	// foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
-	// 	// foundTeams = append(foundTeams, foundTeam)
-	// }
 	return &data, nil
 }
 
-func (c *SegaClient) GetPlayerGradeByIGN(ign, areaCode string) (*entity.PlayerRankingRecord, error) {
+func (c *SegaIDACClient) GetPlayerGradeByIGN(ign, areaCode string) (*entity.PlayerRankingRecord, error) {
 	listAreaGrade, err := c.GetListPlayerGrade(areaCode)
 	normalizedIgn := entity.NormalizeTextWidth(ign)
 	if err != nil {
@@ -207,19 +179,14 @@ func (c *SegaClient) GetPlayerGradeByIGN(ign, areaCode string) (*entity.PlayerRa
 			return &record, nil
 		}
 	}
-	// foundTeams := make([]entity.TeamRecord, 0)
-	// set league emoji values for each team
-	// for _, foundTeam := range data.Records {
-	// 	// foundTeam.LeagueEmoji = entity.TeamLeagueEmojis[rankCode]
-	// 	// foundTeams = append(foundTeams, foundTeam)
-	// }
+
 	return nil, nil
 }
 
-func (c *SegaClient) FetchConst() (*entity.IdacConstResponse, error) {
-	constURL := "https://initiald.sega.jp/inidac/json/ranking/v1/const.json"
-	fmt.Printf("Fetching const data from %s\n", constURL)
-	resp, err := http.Get(constURL)
+func (c *SegaIDACClient) FetchConst() (*entity.IdacConstResponse, error) {
+	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetListConstConfigURLPath
+	fmt.Printf("=== SegaIDACClient: FetchConst %s\n", url)
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
