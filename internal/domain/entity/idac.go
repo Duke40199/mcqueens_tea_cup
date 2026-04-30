@@ -314,6 +314,8 @@ var CourseDisplayNameByCode = map[string]string{
 	"course-90": "Usui Snow (CW)",
 	"course-92": "Akina Rain (DH)",
 	"course-94": "Akina Rain (UH)",
+	"course-96": "Irohazaka Rain (DH)",
+	"course-98": "Irohazaka Rain (UC)",
 }
 
 var AreaAliases = map[string]string{
