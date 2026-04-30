@@ -21,10 +21,10 @@ func NewDiscordSession(cfg *config.DiscordConfig) (s *DiscordSession, err error)
 	return &DiscordSession{Session: discordConn}, nil
 }
 
-func (ds *DiscordSession) Open() error {
+func (ds *DiscordSession) OpenSession() error {
 	return ds.Session.Open()
 }
 
-func (ds *DiscordSession) Close() error {
+func (ds *DiscordSession) CloseSession() error {
 	return ds.Session.Close()
 }
