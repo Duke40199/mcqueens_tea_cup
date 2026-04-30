@@ -9,16 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type MetaLogicService struct {
 	SegaClient entity.SegaClient
-	CarRepo    postgres.CarRepository
+	CarRepo    database.CarRepository
 }
 
-func NewMetaLogicService(client entity.SegaClient, repo postgres.CarRepository) *MetaLogicService {
+func NewMetaLogicService(client entity.SegaClient, repo database.CarRepository) *MetaLogicService {
 	return &MetaLogicService{
 		SegaClient: client,
 		CarRepo:    repo,

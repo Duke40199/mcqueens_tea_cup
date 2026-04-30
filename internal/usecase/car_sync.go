@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/google/uuid"
@@ -13,10 +13,10 @@ import (
 
 type CarSyncService struct {
 	SegaClient entity.SegaClient
-	CarRepo    postgres.CarRepository
+	CarRepo    database.CarRepository
 }
 
-func NewCarSyncService(client entity.SegaClient, repo postgres.CarRepository) *CarSyncService {
+func NewCarSyncService(client entity.SegaClient, repo database.CarRepository) *CarSyncService {
 	return &CarSyncService{
 		SegaClient: client,
 		CarRepo:    repo,

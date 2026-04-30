@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"McQueens_Tea_Cup/internal/adapter/database"
 	discord_handler "McQueens_Tea_Cup/internal/adapter/discord"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/infra"
@@ -17,8 +16,6 @@ import (
 	discord_infra "McQueens_Tea_Cup/internal/infra/discord"
 	"McQueens_Tea_Cup/internal/infra/sega"
 	"McQueens_Tea_Cup/internal/usecase"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 func main() {
@@ -27,43 +24,32 @@ func main() {
 	if err != nil {
 		log.Fatal("Config error:", err)
 	}
-	// --- NEW: Connect to Postgres ---
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.DatabaseCfg.Host, cfg.DatabaseCfg.Port, cfg.DatabaseCfg.User, cfg.DatabaseCfg.Password, cfg.DatabaseCfg.Name)
-	dbConn, err := sql.Open("postgres", psqlInfo)
+	// 1. Connect to DB
+	dbConn, err := database.NewPostgresDBConn(cfg.DatabaseCfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Postgres database connection error: ", err)
 	}
-	dbConn.SetMaxOpenConns(10) // adjust based on Supabase limit
-	dbConn.SetMaxIdleConns(5)
-	dbConn.SetConnMaxLifetime(time.Hour)
-
-	aliasRepo := db.NewPostgresAliasRepo(dbConn)
+	// 2. Init Repositories
+	aliasRepo := db.NewAliasRepo(dbConn)
 	obRankingCfgRepo := db.NewOBRankingCfgRepository(dbConn)
 	areaRepo := db.NewAreaRepository(dbConn)
-	taTimeMetadataRepo := db.NewPostgresTATimeMetadataRepository(dbConn)
-	rankingCfgRepo := db.NewPostgresRankingCfgRepo(dbConn)
+	taTimeMetadataRepo := db.NewTATimeMetadataRepository(dbConn)
+	rankingCfgRepo := db.NewRankingCfgRepo(dbConn)
 	cfsStateRepo := db.NewCfsStateRepository(dbConn)
-	// 2. SHARED INFRASTRUCTURE: Create Discord Session ONCE
-	// We do not Open() it yet. We just create the struct.
-	dg, err := discordgo.New("Bot " + cfg.DiscordCfg.Token)
-	if err != nil {
-		log.Fatal("Discord creation error:", err)
-	}
-
-	// ---------------------------------------------------------
-	// FEATURE A: IDAC COMMANDS
-	// ---------------------------------------------------------
-
-	// A1. Init Repositories (Data Access)
-	segaClient := sega.NewClient() // Handles HTTP to SEGA
 	carRepo := db.NewCarRepository(dbConn)
 
+	// 3. Init Discord Session
+	discordSession, err := discord_handler.NewDiscordSession(&cfg.DiscordCfg)
+	if err != nil {
+		log.Fatal("Discord session creation error:", err)
+	}
+	// A1. Init Repositories (Data Access)
+	segaClient := sega.NewClient() // Handles HTTP to SEGA
 	// A2. Init Logic Services
 	metaLogic := usecase.NewMetaLogicService(segaClient, carRepo)
 
 	cmdHandler := discord_handler.NewHandler(
-		dg,
+		discordSession.Session,
 		aliasRepo,
 		obRankingCfgRepo,
 		rankingCfgRepo,
@@ -116,7 +102,7 @@ func main() {
 	// B2. Init Notifier (Updated)
 	// NOTE: You must update NewDiscordNotifier to accept the existing 'dg' session
 	// instead of creating a new one internally.
-	rssNotifier := discord_infra.NewDiscordNotifier(dg, "")
+	rssNotifier := discord_infra.NewDiscordNotifier(discordSession.Session, "")
 
 	// B3. Init Use Case
 	feedLogic := usecase.NewFeedChecker(rssFetcher, rssNotifier, stateStore, translator)
@@ -127,10 +113,10 @@ func main() {
 
 	// 3. Open Connection
 	// This starts the WebSocket listener for Commands AND enables sending for RSS
-	if err = dg.Open(); err != nil {
+	if err = discordSession.Session.Open(); err != nil {
 		log.Fatal("Error opening connection:", err)
 	}
-	defer dg.Close()
+	defer discordSession.Session.Close()
 
 	log.Println("✅ Bot is running. Press CTRL-C to exit.")
 
@@ -148,7 +134,7 @@ func main() {
 	// ---------------------------------------------------------
 	// FEATURE D: OBMETA SYNC (Scheduled)
 	// ---------------------------------------------------------
-	metaSync := usecase.NewMetaSyncService(dg, metaLogic, cfg.MetaSyncCfg)
+	metaSync := usecase.NewMetaSyncService(discordSession.Session, metaLogic, cfg.MetaSyncCfg)
 
 	// Run Sync in background
 	go func() {
@@ -169,7 +155,7 @@ func main() {
 	// ---------------------------------------------------------
 	// FEATURE E: ACTIVE PLAYERS SYNC (Scheduled)
 	// ---------------------------------------------------------
-	activePlayersSync := usecase.NewActivePlayerSyncService(dg, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
+	activePlayersSync := usecase.NewActivePlayerSyncService(discordSession.Session, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
 
 	// Run Sync in background
 	go func() {

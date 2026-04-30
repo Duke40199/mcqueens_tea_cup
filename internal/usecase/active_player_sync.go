@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
@@ -20,13 +20,13 @@ const segaTimeLayout = "2006/01/02 15:04:05"
 type ActivePlayerSyncService struct {
 	Session          *discordgo.Session
 	SegaClient       entity.SegaClient
-	AreaRepo         postgres.AreaRepository
-	OBRankingCfgRepo postgres.OBRankingCfgRepository
+	AreaRepo         database.AreaRepository
+	OBRankingCfgRepo database.OBRankingCfgRepository
 	MetaLogic        *MetaLogicService
 	Config           config.ActivePlayersSyncConfig
 }
 
-func NewActivePlayerSyncService(s *discordgo.Session, client entity.SegaClient, areaRepo postgres.AreaRepository, obRepo postgres.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
+func NewActivePlayerSyncService(s *discordgo.Session, client entity.SegaClient, areaRepo database.AreaRepository, obRepo database.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
 	return &ActivePlayerSyncService{
 		Session:          s,
 		SegaClient:       client,

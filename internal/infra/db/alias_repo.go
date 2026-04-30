@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/postgres"
+	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
@@ -14,8 +14,8 @@ type AliasRepository struct {
 	DB *sql.DB
 }
 
-// NewPostgresAliasRepo returns the struct that satisfies AliasRepository
-func NewPostgresAliasRepo(db *sql.DB) postgres.AliasRepository {
+// NewAliasRepo returns the struct that satisfies AliasRepository
+func NewAliasRepo(db *sql.DB) database.AliasRepository {
 	return &AliasRepository{
 		DB: db,
 	}
