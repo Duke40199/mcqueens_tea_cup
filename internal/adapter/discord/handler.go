@@ -2,7 +2,10 @@ package discord
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
+	"log"
+	"strings"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
@@ -28,6 +31,8 @@ type Handler struct {
 	MetaLogic *usecase.MetaLogicService
 	// clients
 	SegaClient entity.SegaClient
+	// local memory
+	CarChoices []*entity.CarMetadata
 }
 
 // NewHandler creates our controller
@@ -45,7 +50,7 @@ func NewHandler(
 	// clients
 	segaClient entity.SegaClient,
 ) *Handler {
-	return &Handler{
+	discordHandler := &Handler{
 		Session: s,
 		// db repositories
 		AliasRepo:          aliasRepo,
@@ -60,6 +65,21 @@ func NewHandler(
 		SegaClient: segaClient,
 		OwnerID:    "384015507302383616",
 	}
+	discordHandler.CarChoices = discordHandler.PreloadListCarSelection()
+	return discordHandler
+}
+
+func (h *Handler) PreloadListCarSelection() []*entity.CarMetadata {
+	var carChoices []*entity.CarMetadata
+	listCarWithSpecIDs, err := h.CarRepo.GetListCarWithAggregatedSpecs(context.Background())
+	if err != nil {
+		log.Println("error getting list car selection:", err)
+		return carChoices
+	}
+	for _, result := range listCarWithSpecIDs {
+		result.SearchBlob = strings.ToLower(result.Maker + result.Name + result.ModelCode)
+	}
+	return listCarWithSpecIDs
 }
 
 func (h *Handler) HandleStatus(i *discordgo.InteractionCreate) {

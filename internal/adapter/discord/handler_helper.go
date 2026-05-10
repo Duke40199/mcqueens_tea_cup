@@ -2,6 +2,9 @@ package discord
 
 import (
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -115,47 +118,160 @@ func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string)
 	}()
 }
 
-func (h *Handler) HandleAutoComplete(i *discordgo.InteractionCreate) {
+func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ApplicationCommandData()
-	if data.Name != "idac" {
+	if data.Name != string(CommandNameIDAC) {
 		return
 	}
-	// Find the subcommand options
-	// structure: idac -> [time-attack] -> [track, variant, area...]
 	if len(data.Options) == 0 {
 		return
 	}
 	subCmd := data.Options[0]
+	var focused *discordgo.ApplicationCommandInteractionDataOption
+	// Find focused option
+	for _, opt := range subCmd.Options {
+		if opt.Focused {
+			focused = opt
+			break
+		}
+	}
+	if focused == nil {
+		return
+	}
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	switch focused.Name {
+	case "variant":
+		choices = h.handleVariantAutocomplete(subCmd)
+	case "car":
+		query := focused.StringValue()
+		choices = h.SearchCarChoiceQuery(query)
+	case "spec":
+		choices = h.handleCarSpecAutocomplete(subCmd)
+	}
+	err := s.InteractionRespond(
+		i.Interaction,
+		&discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{
+				Choices: choices,
+			},
+		},
+	)
+
+	if err != nil {
+		log.Println("autocomplete response error:", err)
+	}
+}
+
+func (h *Handler) SearchCarChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
+	query = strings.ToLower(strings.TrimSpace(query))
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for _, car := range h.CarChoices {
+		if query != "" &&
+			!strings.Contains(car.SearchBlob, query) {
+			continue
+		}
+		choices = append(choices,
+			&discordgo.ApplicationCommandOptionChoice{
+				Name:  fmt.Sprintf("%s %s (%s)", car.Maker, car.Name, car.ModelCode),
+				Value: strconv.Itoa(int(car.SegaCarID)),
+			},
+		)
+
+		if len(choices) >= 25 {
+			break
+		}
+	}
+	return choices
+}
+
+func (h *Handler) handleVariantAutocomplete(subCmd *discordgo.ApplicationCommandInteractionDataOption) []*discordgo.ApplicationCommandOptionChoice {
 	var selectedTrack string
-	// 1. Find what the user has currently selected for "track"
 	for _, opt := range subCmd.Options {
 		if opt.Name == "track" {
 			selectedTrack = opt.StringValue()
 		}
 	}
-	// 2. Generate choices for "variant"
 	var choices []*discordgo.ApplicationCommandOptionChoice
 	if variants, ok := idac_domain.TrackRegistry[selectedTrack]; ok {
 		for _, v := range variants {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  v.Name, // Display: "Downhill"
-				Value: v.ID,   // Value passed to handler: "course-12"
-			})
+			choices = append(choices,
+				&discordgo.ApplicationCommandOptionChoice{
+					Name:  v.Name,
+					Value: v.ID,
+				},
+			)
 		}
 	} else {
-		// Default hint if no track selected yet
-		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  "Select a track first",
-			Value: "none",
-		})
+		choices = append(choices,
+			&discordgo.ApplicationCommandOptionChoice{
+				Name:  "Select a track first",
+				Value: "none",
+			},
+		)
 	}
+	return choices
+}
 
-	// 3. Send choices back to Discord
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	})
+func (h *Handler) handleCarSpecAutocomplete(
+	subCmd *discordgo.ApplicationCommandInteractionDataOption,
+) []*discordgo.ApplicationCommandOptionChoice {
 
+	var (
+		selectedCarID string
+		query         string
+	)
+	for _, opt := range subCmd.Options {
+		switch opt.Name {
+		case "car":
+			selectedCarID = opt.StringValue()
+		case "spec":
+			if opt.Focused {
+				query = strings.ToLower(
+					strings.TrimSpace(opt.StringValue()),
+				)
+			}
+		}
+	}
+	if selectedCarID == "" {
+		return []*discordgo.ApplicationCommandOptionChoice{
+			{
+				Name:  "Select a car first",
+				Value: "none",
+			},
+		}
+	}
+	carID, err := strconv.ParseInt(selectedCarID, 10, 64)
+	if err != nil {
+		return nil
+	}
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for _, car := range h.CarChoices {
+		if car.SegaCarID != carID {
+			continue
+		}
+		for idx, specName := range car.SpecNames {
+			if idx >= len(car.SpecIDs) {
+				continue
+			}
+			if query != "" &&
+				!strings.Contains(
+					strings.ToLower(specName),
+					query,
+				) {
+				continue
+			}
+			choices = append(choices,
+				&discordgo.ApplicationCommandOptionChoice{
+					Name:  specName,
+					Value: car.SpecIDs[idx],
+				},
+			)
+			if len(choices) >= 25 {
+				break
+			}
+		}
+		break
+	}
+	return choices
 }

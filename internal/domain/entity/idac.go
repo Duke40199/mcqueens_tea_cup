@@ -872,6 +872,11 @@ type CarMetadata struct {
 	BaseStyleName       string  `json:"base_style_name"`
 	NormalizedBaseStyle string  `json:"normalized_base_style"`
 	CarStyleIDs         []int64 `json:"style_car_id"`
+	// Aggregated fields
+	SpecIDs   []string `json:"spec_ids"`
+	SpecNames []string `json:"spec_names"`
+	// for searching
+	SearchBlob string `json:"-"`
 }
 
 func (c *CarMetadata) GetNormalizedBaseStyle() string {

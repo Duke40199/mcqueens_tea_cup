@@ -190,3 +190,45 @@ func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecM
 	}
 	return result, rows.Err()
 }
+
+func (r *CarRepository) GetListCarWithAggregatedSpecs(ctx context.Context) ([]*entity.CarMetadata, error) {
+	query := `SELECT
+    c.sega_id AS sega_car_id,
+    c.maker,
+    c.name AS car_name,
+	c.model_code,
+    array_agg(cs.sega_id) AS spec_ids,
+    array_agg(cs.name) AS spec_names
+    FROM sega_idac_cars_metadata c
+    LEFT JOIN sega_idac_car_styles_metadata cs
+    ON c.id = cs.car_id
+	GROUP BY c.id
+	ORDER BY c.maker, c.name ASC;`
+	rows, err := r.DB.QueryContext(ctx, query)
+	if err != nil {
+		log.Println("error getting base spec map:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]*entity.CarMetadata, 0)
+	for rows.Next() {
+		var segaCarID int64
+		var maker, name, modelCode string
+		var aggregatedCarSpecIDs, aggregatedCarSpecNames pq.StringArray
+		if err := rows.Scan(&segaCarID, &maker, &name, &modelCode, &aggregatedCarSpecIDs, &aggregatedCarSpecNames); err != nil {
+			return nil, err
+		}
+		info := entity.CarMetadata{
+			SegaCarID: segaCarID,
+			Maker:     maker,
+			Name:      name,
+			ModelCode: modelCode,
+			SpecNames: aggregatedCarSpecNames,
+			SpecIDs:   aggregatedCarSpecIDs,
+		}
+		// Map model_code -> CarSpecInfo
+		result = append(result, &info)
+	}
+	return result, rows.Err()
+}

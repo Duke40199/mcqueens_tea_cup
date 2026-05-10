@@ -27,6 +27,7 @@ type CarRepository interface {
 	GetBaseSpecMap(ctx context.Context) (map[string]entity.CarSpecInfo, error)
 	GetSegaIDToUUIDMap(ctx context.Context) (map[int64]string, error)
 	GetCarWithSpecsByAliases(ctx context.Context, aliasSpecMap map[string]string) (map[string]entity.CarSpecInfo, error)
+	GetListCarWithAggregatedSpecs(ctx context.Context) ([]*entity.CarMetadata, error)
 }
 
 type AreaRepository interface {
