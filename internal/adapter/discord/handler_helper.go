@@ -3,12 +3,14 @@ package discord
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
+	"McQueens_Tea_Cup/internal/domain/entity"
 	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
 )
 
@@ -165,19 +167,21 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 
 func (h *Handler) SearchCarChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
 	query = strings.ToLower(strings.TrimSpace(query))
+	caserTitle := cases.Title(language.English)
+	caserUpper := cases.Upper(language.English)
 	var choices []*discordgo.ApplicationCommandOptionChoice
 	for _, car := range h.CarChoices {
 		if query != "" &&
 			!strings.Contains(car.SearchBlob, query) {
 			continue
 		}
+		carDisplayName := fmt.Sprintf("%s %s (%s)", caserTitle.String(car.Maker), car.Name, caserUpper.String((car.ModelCode)))
 		choices = append(choices,
 			&discordgo.ApplicationCommandOptionChoice{
-				Name:  fmt.Sprintf("%s %s (%s)", car.Maker, car.Name, car.ModelCode),
-				Value: strconv.Itoa(int(car.SegaCarID)),
+				Name:  carDisplayName,
+				Value: strings.ToLower(fmt.Sprintf("%s %s (%s)", car.Maker, car.Name, car.ModelCode)),
 			},
 		)
-
 		if len(choices) >= 25 {
 			break
 		}
@@ -213,18 +217,15 @@ func (h *Handler) handleVariantAutocomplete(subCmd *discordgo.ApplicationCommand
 	return choices
 }
 
-func (h *Handler) handleCarSpecAutocomplete(
-	subCmd *discordgo.ApplicationCommandInteractionDataOption,
-) []*discordgo.ApplicationCommandOptionChoice {
-
+func (h *Handler) handleCarSpecAutocomplete(subCmd *discordgo.ApplicationCommandInteractionDataOption) []*discordgo.ApplicationCommandOptionChoice {
 	var (
-		selectedCarID string
-		query         string
+		selectedCarName string
+		query           string
 	)
 	for _, opt := range subCmd.Options {
 		switch opt.Name {
 		case "car":
-			selectedCarID = opt.StringValue()
+			selectedCarName = opt.StringValue()
 		case "spec":
 			if opt.Focused {
 				query = strings.ToLower(
@@ -233,7 +234,7 @@ func (h *Handler) handleCarSpecAutocomplete(
 			}
 		}
 	}
-	if selectedCarID == "" {
+	if selectedCarName == "" {
 		return []*discordgo.ApplicationCommandOptionChoice{
 			{
 				Name:  "Select a car first",
@@ -241,17 +242,17 @@ func (h *Handler) handleCarSpecAutocomplete(
 			},
 		}
 	}
-	carID, err := strconv.ParseInt(selectedCarID, 10, 64)
-	if err != nil {
-		return nil
-	}
 	var choices []*discordgo.ApplicationCommandOptionChoice
+	var foundCar *entity.CarMetadata
 	for _, car := range h.CarChoices {
-		if car.SegaCarID != carID {
-			continue
+		if strings.Contains(selectedCarName, strings.ToLower(fmt.Sprintf("%s %s (%s)", car.Maker, car.Name, car.ModelCode))) {
+			foundCar = car
+			break
 		}
-		for idx, specName := range car.SpecNames {
-			if idx >= len(car.SpecIDs) {
+	}
+	if foundCar != nil {
+		for idx, specName := range foundCar.SpecNames {
+			if idx >= len(foundCar.SpecIDs) {
 				continue
 			}
 			if query != "" &&
@@ -264,14 +265,21 @@ func (h *Handler) handleCarSpecAutocomplete(
 			choices = append(choices,
 				&discordgo.ApplicationCommandOptionChoice{
 					Name:  specName,
-					Value: car.SpecIDs[idx],
+					Value: foundCar.SpecIDs[idx],
 				},
 			)
 			if len(choices) >= 25 {
 				break
 			}
 		}
-		break
+	} else {
+		return []*discordgo.ApplicationCommandOptionChoice{
+			{
+				Name:  "Car not found!",
+				Value: "none",
+			},
+		}
 	}
+
 	return choices
 }

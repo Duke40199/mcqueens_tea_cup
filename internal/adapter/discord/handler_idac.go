@@ -19,59 +19,65 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
-
 	sendDeferredError := func(msg string) {
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 	}
-	// 2. Validate Inputs
-	// We look for 'variant' because that holds the actual Course ID now
-	if optMap["variant"] == "" || optMap["variant"] == "none" || optMap["area"] == "" {
+	// 2. Validate input
+	// 2.a Track
+	if optMap["variant"] == "" {
 		sendDeferredError("⚠️ **Missing Arguments**\nPlease select both a **Track** and a **Variant**, plus an Area.")
 		return
 	}
-	// Defaults
-	if _, ok := optMap["car"]; !ok {
-		optMap["car"] = "car-all"
-	}
-	// The User selected: Track="Akina", Variant="course-12" (Downhill)
-	// We only care about the Variant ID now.
 	finalCourseID := optMap["variant"]
-
-	// Resolve Area Alias
-	areaInput := strings.ToLower(optMap["area"])
-	if val, ok := entity.AreaAliases[areaInput]; ok {
-		optMap["area"] = val
-	}
-
-	// Resolve Car
-	finalCarID := entity.ResolveCarID(optMap["car"], specInput)
-
-	// Display Names (Optional: Lookup ID back to Name for pretty printing)
 	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
 		// Fallback
 		courseName = optMap["track"]
 	}
+	// 2.b. Car Input
+	var finalCarID string
+	var foundCar *entity.CarMetadata
+	if _, ok := optMap["car"]; !ok || optMap["car"] == "" || optMap["car"] == "all" {
+		finalCarID = "car-all"
+	} else if specInput != "" {
+		for _, carChoice := range h.CarChoices {
+			for _, specID := range carChoice.SpecIDs {
+				if specInput == specID {
+					foundCar = carChoice
+					finalCarID = "car-" + specInput
+					break
+				}
+			}
+		}
+		if foundCar != nil {
+			sendDeferredError("⚠️ Car not found with input!")
+			return
+		}
+	}
+	// Get Car Display Name from Input
+	var carDisplayName string
+	if finalCarID == "car-all" {
+		carDisplayName = "All"
+	} else {
+		carDisplayName = foundCar.Name
+		// if emoji, ok := entity.SpecEmojis[strings.ToLower(specInput)]; ok {
+		// 	carDisplayName = fmt.Sprintf("%s %s", emoji, val)
+		// } else {
+		// 	carDisplayName = val
+		// }
+	}
 
+	// 2.d Resolve Player Area
+	areaInput := strings.ToLower(optMap["area"])
+	if val, ok := entity.AreaAliases[areaInput]; ok {
+		optMap["area"] = val
+	}
 	areaName := optMap["area"]
 	if val, ok := entity.AreaDisplayNameByCode[areaName]; ok {
 		areaName = val
 	}
-	carDisplayName := finalCarID
-	baseCar := entity.ResolveCarID(optMap["car"], "")
-	if optMap["car"] == "car-all" {
-		carDisplayName = "All"
-	} else if val, ok := entity.CarDisplayNameByCode[baseCar]; ok {
-		if emoji, ok := entity.SpecEmojis[strings.ToLower(specInput)]; ok {
-			carDisplayName = fmt.Sprintf("%s %s", emoji, val)
-		} else {
-			carDisplayName = val
-		}
-	}
 
-	// Check Limit
-	var limit = 1000
-
+	var resultLimit = 1000
 	// 3. Fetch Data
 	finalArea := optMap["area"]
 	records, err := h.SegaClient.GetListTimeTrail(finalCourseID, finalArea, finalCarID, specInput)
@@ -85,8 +91,8 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		return
 	}
 
-	if len(records) < limit {
-		limit = len(records)
+	if len(records) < resultLimit {
+		resultLimit = len(records)
 	}
 	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), finalCourseID)
 	//if taTimeMetadata == nil {
@@ -154,7 +160,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	headerCarPercentage += "\n"
 	currentMessage.WriteString(headerCarPercentage)
 
-	for j := 0; j < limit; j++ {
+	for j := 0; j < resultLimit; j++ {
 		r := records[j]
 		timeRecord, _ := entity.ParseRaceTime(r.Record)
 		recordRank := "NO DATA"
