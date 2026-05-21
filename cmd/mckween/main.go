@@ -88,7 +88,7 @@ func main() {
 		ctx := context.Background()
 		for {
 			log.Println("🔍 Starting Active Players SEA Sync...")
-			// metaLogic.SleepUntilNextSync(ctx, cfg.ActivePlayersSyncCfg.DowntimeStart, cfg.ActivePlayersSyncCfg.DowntimeEnd, cfg.ActivePlayersSyncCfg.DowntimeTZ)
+			metaLogic.SleepUntilNextSync(ctx, cfg.ActivePlayersSyncCfg.DowntimeStart, cfg.ActivePlayersSyncCfg.DowntimeEnd, cfg.ActivePlayersSyncCfg.DowntimeTZ)
 			detectTime, err := activePlayersSync.Sync(ctx)
 			if err != nil {
 				log.Printf("❌ Scheduled Active Players Sync Failed: %v", err)
