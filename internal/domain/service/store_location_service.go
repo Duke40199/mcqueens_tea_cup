@@ -11,15 +11,18 @@ import (
 
 type StoreLocationService struct {
 	cfg               config.Config
+	allNetClient      port.AllNetClient
 	storeLocationRepo database.AllNetStoreLocationsRepository
 }
 
 func NewStoreLocationService(
 	cfg config.Config,
+	allNetClient port.AllNetClient,
 	storeLocationRepo database.AllNetStoreLocationsRepository,
 ) port.StoreLocationService {
 	return &StoreLocationService{
 		cfg:               cfg,
+		allNetClient:      allNetClient,
 		storeLocationRepo: storeLocationRepo,
 	}
 }
@@ -28,6 +31,6 @@ func (s *StoreLocationService) UpsertStoreLocation(ctx context.Context, listStor
 	return s.storeLocationRepo.UpsertStoreLocation(ctx, listStoreLocations[0])
 }
 
-func (s *StoreLocationService) GetListStoreFromAllNet(ctx context.Context, areaCode string) ([]entity.StoreLocation, error) {
-	return []entity.StoreLocation{}, nil
+func (s *StoreLocationService) GetListAllNextStore(ctx context.Context, areaCode string) ([]entity.StoreLocation, string, error) {
+	return s.allNetClient.GetListStore(ctx, s.cfg.GetAllNetClientCfg().IDACGameCode, s.cfg.GetAllNetClientCfg().EnglishLanguageCode, areaCode)
 }

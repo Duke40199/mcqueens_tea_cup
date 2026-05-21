@@ -1,8 +1,13 @@
 package port
 
-import "McQueens_Tea_Cup/internal/domain/entity"
+import (
+	"context"
+
+	"McQueens_Tea_Cup/internal/domain/entity"
+)
 
 type AllNetClient interface {
+	GetListStore(ctx context.Context, gameCode, languageCode, areaCode string) ([]entity.StoreLocation, string, error)
 }
 
 type SegaIDACClient interface {

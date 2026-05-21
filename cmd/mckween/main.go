@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"McQueens_Tea_Cup/internal/adapter/client/all_net"
 	"McQueens_Tea_Cup/internal/adapter/client/sega_idac"
 	"McQueens_Tea_Cup/internal/adapter/database"
 	discord_handler "McQueens_Tea_Cup/internal/adapter/discord"
@@ -48,7 +49,10 @@ func main() {
 	defer discordSession.CloseSession()
 
 	// 5. Init clients
-	segaClient := sega_idac.NewSegaIDACClient(&cfg.SegaClientCfg)
+	segaClient := sega_idac.NewSegaIDACClient(cfg)
+	allNetClient := all_net.NewAllNetClient(cfg)
+	// 5. Init services
+	storeLocationService := service.NewStoreLocationService(cfg, allNetClient, nil) // TODO: inject actual client & repo
 	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,
@@ -59,7 +63,9 @@ func main() {
 		taTimeMetadataRepo,
 		cfsStateRepo,
 		metaLogic,
+		storeLocationService,
 		segaClient,
+		allNetClient,
 	)
 	// 6. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {
@@ -128,44 +134,5 @@ func main() {
 // 		if err := carSyncService.SyncData(context.Background()); err != nil {
 // 			log.Printf("❌ Scheduled Car Sync Failed: %v", err)
 // 		}
-// 	}
-// }()
-
-// ---------------------------------------------------------
-// FEATURE B: RSS FEED CHECKER (Existing Logic)
-// ---------------------------------------------------------
-
-// // B1. Init Adapters
-// rssFetcher := infra.NewGoFeedFetcher()
-// stateStore := infra.NewFileStore("feed_state.json")
-// translator := infra.NewGoogleTranslator()
-
-// // B2. Init Notifier (Updated)
-// // NOTE: You must update NewDiscordNotifier to accept the existing 'dg' session
-// // instead of creating a new one internally.
-// rssNotifier := discord_infra.NewDiscordNotifier(discordSession.Session, "")
-
-// // B3. Init Use Case
-// feedLogic := usecase.NewFeedChecker(rssFetcher, rssNotifier, stateStore, translator)
-
-// ---------------------------------------------------------
-// STARTUP & RUN LOOP
-// ---------------------------------------------------------
-
-// 4. Run RSS Ticker in a Goroutine (Background)
-// rssTicker := time.NewTicker(time.Duration(cfg.RSSCfg.Interval) * time.Minute)
-// defer rssTicker.Stop()
-
-// Run immediately once on startup
-// go feedLogic.Check(cfg.RSSCfg.Feeds)
-
-// ---------------------------------------------------------
-// FEATURE D: OBMETA SYNC (Scheduled)
-// ---------------------------------------------------------
-
-// Loop
-// go func() {
-// 	for range rssTicker.C {
-// 		// feedLogic.Check(cfg.RSSCfg.Feeds)
 // 	}
 // }()
