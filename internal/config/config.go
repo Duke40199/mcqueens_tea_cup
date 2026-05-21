@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -11,18 +10,36 @@ import (
 
 type Config interface {
 	GetDiscordCfg() DiscordConfig
-	GetRSSCfg() RSSConfig
-	GetSegaClientCfg() string
+	GetSegaClientCfg() SegaClientConfig
+	GetAllNetClientCfg() AllNetClientConfig
+	GetMetaSyncCfg() MetaSyncConfig
+	GetActivePlayersSyncCfg() ActivePlayersSyncConfig
+}
+
+func (c *AppConfig) GetDiscordCfg() DiscordConfig {
+	return c.DiscordCfg
+}
+func (c *AppConfig) GetSegaClientCfg() SegaClientConfig {
+	return c.SegaClientCfg
+}
+func (c *AppConfig) GetAllNetClientCfg() AllNetClientConfig {
+	return c.AllNetClientConfig
+}
+func (c *AppConfig) GetMetaSyncCfg() MetaSyncConfig {
+	return c.MetaSyncCfg
+}
+func (c *AppConfig) GetActivePlayersSyncCfg() ActivePlayersSyncConfig {
+	return c.ActivePlayersSyncCfg
 }
 
 // AppConfig holds all configuration
 type AppConfig struct {
 	DiscordCfg           DiscordConfig
-	RSSCfg               RSSConfig
 	DatabaseCfg          DatabaseConfig
 	MetaSyncCfg          MetaSyncConfig
 	ActivePlayersSyncCfg ActivePlayersSyncConfig
 	SegaClientCfg        SegaClientConfig
+	AllNetClientConfig   AllNetClientConfig
 }
 
 type SegaClientConfig struct {
@@ -39,50 +56,43 @@ type SegaClientConfig struct {
 	GetListPlayerGradeUrlPath string
 }
 
+type AllNetClientConfig struct {
+	AllNetHost                  string
+	GetListStoreLocationURLPath string
+	// consts
+	IDACGameCode        string
+	EnglishLanguageCode string
+}
+
 type MetaSyncConfig struct {
-	ChannelID       string `json:"channel_id"`
-	IntervalMinutes int    `json:"sync_interval_minutes"`
-	DowntimeStart   int    `json:"downtime_start"`
-	DowntimeEnd     int    `json:"downtime_end"`
-	DowntimeTZ      string `json:"downtime_tz"`
+	ChannelID       string
+	IntervalMinutes int
+	DowntimeStart   int
+	DowntimeEnd     int
+	DowntimeTZ      string
 }
 
 type ActivePlayersSyncConfig struct {
-	ChannelID       string `json:"channel_id"`
-	IntervalMinutes int    `json:"sync_interval_minutes"`
-	DowntimeStart   int    `json:"downtime_start"`
-	DowntimeEnd     int    `json:"downtime_end"`
-	DowntimeTZ      string `json:"downtime_tz"`
+	ChannelID       string
+	IntervalMinutes int
+	DowntimeStart   int
+	DowntimeEnd     int
+	DowntimeTZ      string
 }
 
 // DiscordConfig holds Discord Integration configuration
 type DiscordConfig struct {
-	Token                        string `json:"token"`
-	IDACOBMetaCarsChannelID      string `json:"idac_ob_meta_cars_channel_id"`
-	IDACOBActivePlayersChannelID string `json:"idac_ob_active_players_channel_id"`
-}
-
-type RSSConfig struct {
-	Interval int          `json:"check_interval_minutes"`
-	Feeds    []FeedConfig `json:"feeds"`
+	Token                        string
+	IDACOBMetaCarsChannelID      string
+	IDACOBActivePlayersChannelID string
 }
 
 type DatabaseConfig struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
-}
-
-// GetDiscordCfg returns Discord configuration
-func (c *AppConfig) GetDiscordCfg() DiscordConfig {
-	return c.DiscordCfg
-}
-
-// GetRSSCfg returns RSS-related configuration
-func (c *AppConfig) GetRSSCfg() RSSConfig {
-	return c.RSSCfg
+	Host     string
+	Port     int
+	User     string
+	Password string
+	Name     string
 }
 
 // env getter funcs
@@ -127,6 +137,12 @@ func LoadConfig() (*AppConfig, error) {
 			GetTeamRankingUrlPath:     getEnv("SEGA_IDAC_GET_TEAM_RANKING_URL_PATH", ""),
 			GetListPlayerGradeUrlPath: getEnv("SEGA_IDAC_GET_LIST_PLAYER_GRADE_URL_PATH", ""),
 		},
+		AllNetClientConfig: AllNetClientConfig{
+			AllNetHost:                  getEnv("ALLNET_HOST", ""),
+			GetListStoreLocationURLPath: getEnv("ALLNET_GET_LIST_STORE_LOCATION_URL_PATH", ""),
+			IDACGameCode:                getEnv("ALLNET_IDAC_GAME_CODE", ""),
+			EnglishLanguageCode:         getEnv("ALLNET_EN_LANGUAGE_CODE", ""),
+		},
 		MetaSyncCfg: MetaSyncConfig{
 			ChannelID:       getEnv("DISCORD_OB_META_CARS_CHANNEL_ID", ""),
 			IntervalMinutes: getEnvAsInt("OB_META_CARS_SYNC_INTERVAL_MINUTES", 15),
@@ -142,8 +158,6 @@ func LoadConfig() (*AppConfig, error) {
 			DowntimeTZ:      getEnv("OB_ACTIVE_PLAYERS_DOWNTIME_TZ", ""),
 		},
 	}
-	cfg.RSSCfg.Interval, _ = strconv.Atoi(os.Getenv("RSS_FETCH_INTERVAL"))
-	cfg.RSSCfg.Feeds, _ = LoadRSSConfig()
 
 	// Validations
 	if cfg.DiscordCfg.Token == "" {
@@ -151,28 +165,4 @@ func LoadConfig() (*AppConfig, error) {
 	}
 
 	return cfg, nil
-}
-
-// --- Global Variables ---
-var (
-	feedsPath = "./config.json"
-)
-
-func LoadRSSConfig() ([]FeedConfig, error) {
-	file, err := os.ReadFile(feedsPath)
-	if err != nil {
-		return nil, err
-	}
-	newCfg := make([]FeedConfig, 0)
-	if err = json.Unmarshal(file, &newCfg); err != nil {
-		return nil, err
-	}
-	return newCfg, err
-}
-
-type FeedConfig struct {
-	Title                       string `json:"title"`
-	URL                         string `json:"url"`
-	SourceLanguage              string `json:"source_language"` // e.g., "JP", "ja", "es"
-	DestinationDiscordChannelID string `json:"channel_id"`      // Custom channel for this feed
 }

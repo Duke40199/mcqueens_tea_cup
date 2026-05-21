@@ -7,5 +7,6 @@ import (
 
 type StoreLocationService interface {
 	// Define the methods for the StoreLocationService
-	UpsertStoreLocation(ctx context.Context, listStoreLocations []entity.StoreLocation) (int64, error)
+	GetListAllNextStore(ctx context.Context, areaCode string) ([]entity.StoreLocation, error)
+	// UpsertStoreLocation(ctx context.Context, listStoreLocations []entity.StoreLocation) (int64, error)
 }

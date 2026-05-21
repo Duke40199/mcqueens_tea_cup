@@ -14,19 +14,19 @@ import (
 )
 
 type SegaIDACClient struct {
-	SegaIdacCfg *config.SegaClientConfig
+	config config.Config
 }
 
-func NewSegaIDACClient(segaIdacCfg *config.SegaClientConfig) port.SegaIDACClient {
+func NewSegaIDACClient(cfg config.Config) port.SegaIDACClient {
 	return &SegaIDACClient{
-		SegaIdacCfg: segaIdacCfg,
+		config: cfg,
 	}
 }
 
 // GetTimeAttack
 func (c *SegaIDACClient) GetListTimeTrail(courseID, areaCode, carID, spec string) ([]entity.TimeAttackRecord, error) {
 	// 1. Build URL
-	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetTimeTrailURLPath
+	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetTimeTrailURLPath
 	url = strings.Replace(url, ":courseID", courseID, 1)
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
 	url = strings.Replace(url, ":carID", carID, 1)
@@ -69,7 +69,7 @@ func (c *SegaIDACClient) GetOBRankingByIGN(ign, roundNum, areaCode string) (*ent
 
 func (c *SegaIDACClient) GetListOBRanking(roundNum string, areaCode string) (*entity.IdacOBRankingResponse, error) {
 	// 1. Build URL
-	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetListOBRankingURLPath
+	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetListOBRankingURLPath
 	url = strings.Replace(url, ":roundNum", roundNum, 1)
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
 	fmt.Printf("=== SegaIDACClient.GetListOBRanking full URL: %s\n", url)
@@ -94,7 +94,7 @@ func (c *SegaIDACClient) GetListOBRanking(roundNum string, areaCode string) (*en
 // GetTeamRanking
 func (c *SegaIDACClient) GetTeamRanking(roundNum int, rankCode string) ([]entity.TeamRecord, error) {
 	// 1. Build URL
-	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetTeamRankingUrlPath
+	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetTeamRankingUrlPath
 	url = strings.Replace(url, ":roundCount", strconv.Itoa(roundNum), 1)
 	url = strings.Replace(url, ":rankType", rankCode, 1)
 	fmt.Printf("=== SegaIDACClient: GetTeamRanking full path: %s\n", url)
@@ -123,8 +123,7 @@ func (c *SegaIDACClient) GetTeamRanking(roundNum int, rankCode string) ([]entity
 }
 
 func (c *SegaIDACClient) GetCurrentRound() (int, error) {
-	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetCurrentRoundUrlPath
-
+	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetCurrentRoundUrlPath
 	respRound, err := http.Get(url)
 	if err != nil {
 		return -1, err
@@ -145,7 +144,7 @@ func (c *SegaIDACClient) GetCurrentRound() (int, error) {
 
 func (c *SegaIDACClient) GetListPlayerGrade(areaCode string) (*entity.IdacPlayerRankingResponse, error) {
 	// 1. Build URL
-	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetListPlayerGradeUrlPath
+	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetListPlayerGradeUrlPath
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
 	fmt.Printf("=== SegaIDACClient.GetListPlayerGrade url: %s\n", url)
 	// 2. Make request
@@ -185,7 +184,7 @@ func (c *SegaIDACClient) GetPlayerGradeByIGN(ign, areaCode string) (*entity.Play
 }
 
 func (c *SegaIDACClient) FetchConst() (*entity.IdacConstResponse, error) {
-	url := c.SegaIdacCfg.SegaIDACHost + c.SegaIdacCfg.GetListConstConfigURLPath
+	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetListConstConfigURLPath
 	fmt.Printf("=== SegaIDACClient: FetchConst %s\n", url)
 	resp, err := http.Get(url)
 	if err != nil {

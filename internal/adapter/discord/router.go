@@ -47,6 +47,7 @@ const (
 	CommandNameIDACOBRanking            CommandName = "ob-ranking"
 	CommandNameIDACOBMeta               CommandName = "ob-meta"
 	CommandNameIDACPlayerInfoTournament CommandName = "player-info-tournament"
+	CommandNameIDACListStoreLocation    CommandName = "list-store-location"
 
 	CommandNameStatus    CommandName = "status"
 	CommandNameNuhuh     CommandName = "nuhuh"
@@ -406,6 +407,19 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
+				{
+					Name:        string(CommandNameIDACListStoreLocation),
+					Description: "Get List Stores from All.Net",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "area",
+							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
+							Required:    false,
+						},
+					},
+				},
 			},
 		},
 		// --- Simple Commands ---
@@ -546,5 +560,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.HandleOBMeta(i, optMap)
 	case CommandNameIDACPlayerInfoTournament:
 		h.HandlePlayerTournamentInfo(i, optMap)
+	case CommandNameIDACListStoreLocation:
+		h.HandleStoreLocation(i, optMap)
 	}
 }

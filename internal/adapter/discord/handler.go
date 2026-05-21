@@ -29,9 +29,11 @@ type Handler struct {
 	TATimeMetadataRepo database.TATimeMetadataRepository
 	CfsStateRepo       database.CfsStateRepository
 	// internal services
-	MetaLogic *service.MetaLogicService
+	MetaLogic            *service.MetaLogicService
+	StoreLocationService port.StoreLocationService
 	// clients
-	SegaClient port.SegaIDACClient
+	SegaClient   port.SegaIDACClient
+	AllNetClient port.AllNetClient
 	// local memory
 	CarChoices []*entity.CarMetadata
 }
@@ -48,8 +50,11 @@ func NewHandler(
 	cfsStateRepo database.CfsStateRepository,
 	// internal services
 	metaLogic *service.MetaLogicService,
+	storeLocationService port.StoreLocationService,
 	// clients
 	segaClient port.SegaIDACClient,
+	allNetClient port.AllNetClient,
+
 ) *Handler {
 	discordHandler := &Handler{
 		Session: s,
@@ -61,10 +66,12 @@ func NewHandler(
 		TATimeMetadataRepo: taTimeMetadataRepo,
 		CfsStateRepo:       cfsStateRepo,
 		// internal services
-		MetaLogic: metaLogic,
+		MetaLogic:            metaLogic,
+		StoreLocationService: storeLocationService,
 		// clients
-		SegaClient: segaClient,
-		OwnerID:    "384015507302383616",
+		SegaClient:   segaClient,
+		AllNetClient: allNetClient,
+		OwnerID:      "384015507302383616",
 	}
 	discordHandler.CarChoices = discordHandler.PreloadListCarSelection()
 	return discordHandler
