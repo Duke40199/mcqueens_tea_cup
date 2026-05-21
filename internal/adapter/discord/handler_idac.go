@@ -25,7 +25,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	// 2. Validate input
 	// 2.a Track
 	if optMap["variant"] == "" {
-		sendDeferredError("⚠️ **Missing Arguments**\nPlease select both a **Track** and a **Variant**, plus an Area.")
+		sendDeferredError("⚠️ **Please select a track variant.**")
 		return
 	}
 	finalCourseID := optMap["variant"]
@@ -37,9 +37,15 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	// 2.b. Car Input
 	var finalCarID string
 	var foundCar *entity.CarMetadata
-	if _, ok := optMap["car"]; !ok || optMap["car"] == "" || optMap["car"] == "all" {
+	isInputCar := optMap["car"] != "" || optMap["car"] != "all"
+	if !isInputCar {
 		finalCarID = "car-all"
-	} else if specInput != "" {
+	}
+	if isInputCar {
+		if specInput == "" {
+			sendDeferredError("⚠️ **Please select a car spec.**")
+			return
+		}
 		for _, carChoice := range h.CarChoices {
 			for _, specID := range carChoice.SpecIDs {
 				if specInput == specID {
@@ -50,7 +56,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 			}
 		}
 		if foundCar == nil {
-			sendDeferredError("⚠️ Car not found with input!")
+			sendDeferredError("⚠️ Car not found with input.")
 			return
 		}
 	}
