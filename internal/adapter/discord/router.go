@@ -109,25 +109,19 @@ func (h *Handler) RegisterCommands() error {
 							Required:    true,
 						},
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "car",
-							Description: "Car Option (default: car-all)",
-							Required:    false,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "car",
+							Description:  "Select / search a car",
+							Required:     false,
+							Autocomplete: true,
 						},
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "spec",
-							Description: "Car spec variant (AR, HC, etc)",
-							Required:    false,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "spec",
+							Description:  "Select a car spec",
+							Required:     false,
+							Autocomplete: true,
 						},
-						// {
-						// 	Type:        discordgo.ApplicationCommandOptionInteger,
-						// 	Name:        "limit",
-						// 	Description: "Number of results to show (1-25, default: 10)",
-						// 	Required:    false,
-						// 	MinValue:    &minLimit,
-						// 	MaxValue:    maxLimit,
-						// },
 					},
 				},
 				// Subcommand: Team
@@ -468,7 +462,7 @@ func (h *Handler) RegisterCommands() error {
 		// B. Handle Autocomplete
 		case discordgo.InteractionApplicationCommandAutocomplete:
 			if CommandName(i.ApplicationCommandData().Name) == CommandNameIDAC {
-				h.HandleAutoComplete(i)
+				h.HandleAutoComplete(s, i)
 			}
 		}
 	})
