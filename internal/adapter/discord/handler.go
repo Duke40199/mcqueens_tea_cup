@@ -9,7 +9,8 @@ import (
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
-	"McQueens_Tea_Cup/internal/usecase"
+	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/internal/domain/service"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -28,9 +29,9 @@ type Handler struct {
 	TATimeMetadataRepo database.TATimeMetadataRepository
 	CfsStateRepo       database.CfsStateRepository
 	// internal services
-	MetaLogic *usecase.MetaLogicService
+	MetaLogic *service.MetaLogicService
 	// clients
-	SegaClient entity.SegaClient
+	SegaClient port.SegaIDACClient
 	// local memory
 	CarChoices []*entity.CarMetadata
 }
@@ -46,9 +47,9 @@ func NewHandler(
 	taTimeMetadataRepo database.TATimeMetadataRepository,
 	cfsStateRepo database.CfsStateRepository,
 	// internal services
-	metaLogic *usecase.MetaLogicService,
+	metaLogic *service.MetaLogicService,
 	// clients
-	segaClient entity.SegaClient,
+	segaClient port.SegaIDACClient,
 ) *Handler {
 	discordHandler := &Handler{
 		Session: s,

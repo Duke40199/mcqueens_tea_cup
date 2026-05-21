@@ -1,16 +1,5 @@
 package entity
 
-type SegaClient interface {
-	GetListTimeTrail(courseID, area, car, spec string) ([]TimeAttackRecord, error)
-	GetTeamRanking(round int, rankCode string) ([]TeamRecord, error)
-	GetListOBRanking(roundNum string, areaCode string) (*IdacOBRankingResponse, error)
-	GetCurrentRound() (int, error)
-	FetchConst() (*IdacConstResponse, error)
-	GetListPlayerGrade(areaCode string) (*IdacPlayerRankingResponse, error)
-	GetPlayerGradeByIGN(ign, areaCode string) (*PlayerRankingRecord, error)
-	GetOBRankingByIGN(ign, roundNum, areaCode string) (*OBRankingRecord, error)
-}
-
 // RSSFetcher defines how we get feeds (abstracts gofeed)
 type RSSFetcher interface {
 	Fetch(url string) ([]Item, error)

@@ -1,4 +1,4 @@
-package usecase
+package service
 
 import (
 	"context"
@@ -11,14 +11,15 @@ import (
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 )
 
 type MetaLogicService struct {
-	SegaClient entity.SegaClient
+	SegaClient port.SegaIDACClient
 	CarRepo    database.CarRepository
 }
 
-func NewMetaLogicService(client entity.SegaClient, repo database.CarRepository) *MetaLogicService {
+func NewMetaLogicService(client port.SegaIDACClient, repo database.CarRepository) *MetaLogicService {
 	return &MetaLogicService{
 		SegaClient: client,
 		CarRepo:    repo,

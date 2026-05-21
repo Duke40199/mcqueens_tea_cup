@@ -48,3 +48,7 @@ type CfsStateRepository interface {
 	GetLatestCfsState(ctx context.Context) (*entity.CfsState, error)
 	CreateCfsState(discordID, content string) (int64, error)
 }
+
+type AllNetStoreLocationsRepository interface {
+	UpsertStoreLocation(ctx context.Context, storeLocEntity entity.StoreLocation) (int64, error)
+}
