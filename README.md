@@ -12,7 +12,6 @@ A multi-purpose bot for Vietnam's Initial D The Arcade server. Main features inc
 - CI / CD: Github Actions / Railway
 ## Project Structure
 - Design Pattern: Clean Architecture / Hexagonal Architecture
-The project appears to follow the principles of clean architecture, emphasizing separation of concerns, modularity, and testability. The structure is organized into layers, each with a specific responsibility, and dependencies flow inward.
 - File structure:
 ```mcqueens_tea_cup/
 mcqueens_tea_cup/
