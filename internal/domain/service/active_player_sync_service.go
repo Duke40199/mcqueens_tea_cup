@@ -1,4 +1,4 @@
-package usecase
+package service
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -19,14 +20,14 @@ const segaTimeLayout = "2006/01/02 15:04:05"
 
 type ActivePlayerSyncService struct {
 	Session          *discordgo.Session
-	SegaClient       entity.SegaClient
+	SegaClient       port.SegaIDACClient
 	AreaRepo         database.AreaRepository
 	OBRankingCfgRepo database.OBRankingCfgRepository
 	MetaLogic        *MetaLogicService
 	Config           config.ActivePlayersSyncConfig
 }
 
-func NewActivePlayerSyncService(s *discordgo.Session, client entity.SegaClient, areaRepo database.AreaRepository, obRepo database.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
+func NewActivePlayerSyncService(s *discordgo.Session, client port.SegaIDACClient, areaRepo database.AreaRepository, obRepo database.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
 	return &ActivePlayerSyncService{
 		Session:          s,
 		SegaClient:       client,

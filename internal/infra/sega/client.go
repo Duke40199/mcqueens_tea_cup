@@ -10,13 +10,14 @@ import (
 
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 )
 
 type SegaIDACClient struct {
 	SegaIdacCfg *config.SegaClientConfig
 }
 
-func NewSegaIDACClient(segaIdacCfg *config.SegaClientConfig) *SegaIDACClient {
+func NewSegaIDACClient(segaIdacCfg *config.SegaClientConfig) port.SegaIDACClient {
 	return &SegaIDACClient{
 		SegaIdacCfg: segaIdacCfg,
 	}

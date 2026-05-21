@@ -10,9 +10,9 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/database"
 	discord_handler "McQueens_Tea_Cup/internal/adapter/discord"
 	"McQueens_Tea_Cup/internal/config"
+	"McQueens_Tea_Cup/internal/domain/service"
 	"McQueens_Tea_Cup/internal/infra/db"
 	"McQueens_Tea_Cup/internal/infra/sega"
-	"McQueens_Tea_Cup/internal/usecase"
 )
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 
 	// 5. Init clients
 	segaClient := sega.NewSegaIDACClient(&cfg.SegaClientCfg)
-	metaLogic := usecase.NewMetaLogicService(segaClient, carRepo)
+	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,
 		aliasRepo,
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// 7.a. Cron Job: Online Battle Car Meta
-	metaSync := usecase.NewMetaSyncService(discordSession.Session, metaLogic, cfg.MetaSyncCfg)
+	metaSync := service.NewMetaSyncService(discordSession.Session, metaLogic, cfg.MetaSyncCfg)
 	go func() {
 		ctx := context.Background()
 		for {
@@ -83,7 +83,7 @@ func main() {
 	}()
 
 	// 7.b. Cron Job: Online Battle Active Players
-	activePlayersSync := usecase.NewActivePlayerSyncService(discordSession.Session, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
+	activePlayersSync := service.NewActivePlayerSyncService(discordSession.Session, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
 	go func() {
 		ctx := context.Background()
 		for {
