@@ -49,7 +49,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 				}
 			}
 		}
-		if foundCar != nil {
+		if foundCar == nil {
 			sendDeferredError("⚠️ Car not found with input!")
 			return
 		}
@@ -66,7 +66,6 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		// 	carDisplayName = val
 		// }
 	}
-
 	// 2.d Resolve Player Area
 	areaInput := strings.ToLower(optMap["area"])
 	if val, ok := entity.AreaAliases[areaInput]; ok {
