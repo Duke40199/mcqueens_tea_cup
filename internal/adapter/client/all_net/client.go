@@ -23,7 +23,7 @@ func NewAllNetClient(config config.Config) port.AllNetClient {
 	}
 }
 
-func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode, areaCode string) ([]entity.StoreLocation, error) {
+func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode, areaCode string) ([]entity.StoreLocation, string, error) {
 	url := c.config.GetAllNetClientCfg().AllNetHost + c.config.GetAllNetClientCfg().GetListStoreLocationURLPath
 	url = strings.Replace(url, ":gameCode", gameCode, 1)
 	url = strings.Replace(url, ":languageCode", languageCode, 1)
@@ -33,24 +33,24 @@ func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode,
 	// Use NewRequestWithContext to respect the provided ctx
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Execute the request
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, "", fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	// Parse the HTML response body directly with goquery
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+		return nil, "", fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
 	var data []entity.StoreLocation
@@ -72,6 +72,10 @@ func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode,
 			data = append(data, store)
 		}
 	})
+	// Find the first span inside the h3 within the content_box
+	areaName := doc.Find("div.content_box h3 span").First().Text()
+	areaName = strings.TrimSpace(areaName)
 
-	return data, nil
+	fmt.Printf("Parsed Area: %s\n", areaName)
+	return data, areaName, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type AllNetClient interface {
-	GetListStore(ctx context.Context, gameCode, languageCode, areaCode string) ([]entity.StoreLocation, error)
+	GetListStore(ctx context.Context, gameCode, languageCode, areaCode string) ([]entity.StoreLocation, string, error)
 }
 
 type SegaIDACClient interface {

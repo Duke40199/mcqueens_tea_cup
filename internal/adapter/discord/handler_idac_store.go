@@ -15,7 +15,7 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 	})
 	// 1. Validate & Parse Inputs
 	areaCode, _ := optMap["area"]
-	listStore, err := h.StoreLocationService.GetListAllNextStore(context.Background(), areaCode)
+	listStore, foundAreaName, err := h.StoreLocationService.GetListAllNextStore(context.Background(), areaCode)
 	if err != nil {
 		h.SendDeferredError(i, "Error finding list store.")
 		return
@@ -28,11 +28,17 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 	var pages []string
 	var currentMessage strings.Builder
 	itemsInChunk := 0
-	header := fmt.Sprintf("# (WIP) All.net Store Location\n")
+	header := fmt.Sprintf("# (WIP) All.net Store Location (%s)\n", foundAreaName)
 
 	// Initialize first page with header
 	currentMessage.WriteString(header)
-
+	// write not found if list is empty
+	if len(listStore) == 0 {
+		currentMessage.WriteString("No stores found for the specified area.")
+		pages = append(pages, currentMessage.String())
+		h.SendPagination(i, pages)
+		return
+	}
 	for j := 0; j < len(listStore); j++ {
 		var entry string
 		entry = fmt.Sprintf("%d. **%s** — %s \n", j+1, listStore[j].Name, listStore[j].Address)

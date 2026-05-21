@@ -31,6 +31,6 @@ func (s *StoreLocationService) UpsertStoreLocation(ctx context.Context, listStor
 	return s.storeLocationRepo.UpsertStoreLocation(ctx, listStoreLocations[0])
 }
 
-func (s *StoreLocationService) GetListAllNextStore(ctx context.Context, areaCode string) ([]entity.StoreLocation, error) {
+func (s *StoreLocationService) GetListAllNextStore(ctx context.Context, areaCode string) ([]entity.StoreLocation, string, error) {
 	return s.allNetClient.GetListStore(ctx, s.cfg.GetAllNetClientCfg().IDACGameCode, s.cfg.GetAllNetClientCfg().EnglishLanguageCode, areaCode)
 }
