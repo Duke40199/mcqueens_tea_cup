@@ -7,12 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"McQueens_Tea_Cup/internal/adapter/client/sega_idac"
 	"McQueens_Tea_Cup/internal/adapter/database"
 	discord_handler "McQueens_Tea_Cup/internal/adapter/discord"
+	"McQueens_Tea_Cup/internal/adapter/repository"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/service"
-	"McQueens_Tea_Cup/internal/infra/db"
-	"McQueens_Tea_Cup/internal/infra/sega"
 )
 
 func main() {
@@ -29,13 +29,13 @@ func main() {
 	}
 
 	// 3. Init Repositories
-	aliasRepo := db.NewAliasRepo(dbConn)
-	obRankingCfgRepo := db.NewOBRankingCfgRepository(dbConn)
-	areaRepo := db.NewAreaRepository(dbConn)
-	taTimeMetadataRepo := db.NewTATimeMetadataRepository(dbConn)
-	rankingCfgRepo := db.NewRankingCfgRepo(dbConn)
-	cfsStateRepo := db.NewCfsStateRepository(dbConn)
-	carRepo := db.NewCarRepository(dbConn)
+	aliasRepo := repository.NewAliasRepo(dbConn)
+	obRankingCfgRepo := repository.NewOBRankingCfgRepository(dbConn)
+	areaRepo := repository.NewAreaRepository(dbConn)
+	taTimeMetadataRepo := repository.NewTATimeMetadataRepository(dbConn)
+	rankingCfgRepo := repository.NewRankingCfgRepo(dbConn)
+	cfsStateRepo := repository.NewCfsStateRepository(dbConn)
+	carRepo := repository.NewCarRepository(dbConn)
 
 	// 4. Init Discord Session
 	discordSession, err := discord_handler.NewDiscordSession(&cfg.DiscordCfg)
@@ -48,7 +48,7 @@ func main() {
 	defer discordSession.CloseSession()
 
 	// 5. Init clients
-	segaClient := sega.NewSegaIDACClient(&cfg.SegaClientCfg)
+	segaClient := sega_idac.NewSegaIDACClient(&cfg.SegaClientCfg)
 	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,

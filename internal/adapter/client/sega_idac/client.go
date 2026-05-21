@@ -1,4 +1,4 @@
-package sega
+package sega_idac
 
 import (
 	"encoding/json"
