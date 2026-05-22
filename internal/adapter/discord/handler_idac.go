@@ -20,13 +20,14 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 	// 2. Validate input
-	inputTrackVariant := optMap["variant"]
+	inputTrack := optMap["track"]
+	//inputTrackVariant := optMap["variant"]
 	inputArea := strings.ToLower(optMap["area"])
-	if inputTrackVariant == "" {
-		h.SendDeferredError(i, "⚠️ **Please select a track variant.**")
-		return
-	}
-	finalCourseID := inputTrackVariant
+	//if inputTrackVariant == "" {
+	//	h.SendDeferredError(i, "⚠️ **Please select a track variant.**")
+	//	return
+	//}
+	finalCourseID := inputTrack
 	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
 		h.SendDeferredError(i, "⚠️ **Track not found based on input.**")
@@ -115,7 +116,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 
 	// Initialize first page with header
 	currentMessage.WriteString(header)
-	listCarPercentages, err := h.GetListTACarsPercentage(i, optMap)
+	listCarPercentages, err := h.GetListTACarsPercentage(i, finalCourseID, optMap)
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ Failed to get top three TA cars: "+err.Error())
 		return
@@ -195,7 +196,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	h.SendPagination(i, pages)
 }
 
-func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap map[string]string) ([]CarPercentage, error) {
+func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCourseID string, optMap map[string]string) ([]CarPercentage, error) {
 	// 1. DEFER
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -206,8 +207,8 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap
 	}
 	// 2. Validate Inputs
 	// We look for 'variant' because that holds the actual Course ID now
-	if optMap["variant"] == "" || optMap["variant"] == "none" {
-		sendDeferredError("⚠️ **Missing Arguments**\nPlease select both a **Track** and a **Variant**.")
+	if segaCourseID == "" {
+		sendDeferredError("⚠️ **GetListTACarsPercentage: Invalid course input.")
 		return nil, nil
 	}
 	// Defaults
@@ -216,7 +217,6 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap
 	}
 	// The User selected: Track="Akina", Variant="course-12" (Downhill)
 	// We only care about the Variant ID now.
-	finalCourseID := optMap["variant"]
 
 	// Resolve Area Alias
 	areaInput := strings.ToLower(optMap["area"])
@@ -224,7 +224,7 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap
 		optMap["area"] = val
 	}
 	// Display Names (Optional: Lookup ID back to Name for pretty printing)
-	courseName := entity.CourseDisplayNameByCode[finalCourseID]
+	courseName := entity.CourseDisplayNameByCode[segaCourseID]
 	if courseName == "" {
 		// Fallback
 		courseName = optMap["track"]
@@ -237,7 +237,7 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, optMap
 	var limit = 1000
 
 	// 3. Fetch Data
-	records, err := h.SegaClient.GetListTimeTrail(finalCourseID, "area-all", "car-all", "")
+	records, err := h.SegaClient.GetListTimeTrail(segaCourseID, "area-all", "car-all", "")
 	if err != nil {
 		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
 		return nil, err
@@ -521,11 +521,12 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
+	finalCourseID := optMap["track"]
 	// 1. Input Validation
-	if optMap["variant"] == "" {
-		h.SendDeferredError(i, "⚠️ **Missing Track**\nPlease select a track variant.")
-		return
-	}
+	//if optMap["variant"] == "" {
+	//	h.SendDeferredError(i, "⚠️ **Missing Track**\nPlease select a track variant.")
+	//	return
+	//}
 	// 2. Resolve Player 1
 	p1Name, foundP1Area, isFoundP1, err := h.ResolvePlayerCredentialDB(optMap["player1"], optMap["area1"])
 	if err != nil {
@@ -558,15 +559,14 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	} else {
 		area2 = foundP2Area
 	}
-	courseID := optMap["variant"]
-	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.Background(), courseID)
+	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.Background(), finalCourseID)
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ error getting taMetadata:"+err.Error())
 		return
 	}
 	var p1Result, p2Result *entity.TimeAttackRecord
 	// Get Player 1 Sega Time Trail results
-	listTAResult1, err := h.SegaClient.GetListTimeTrail(courseID, area1, "car-all", "")
+	listTAResult1, err := h.SegaClient.GetListTimeTrail(finalCourseID, area1, "car-all", "")
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ error getting player1Info:"+err.Error())
 		return
@@ -585,7 +585,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	if area2 == area1 {
 		listTAResult2 = listTAResult1
 	} else {
-		listTAResult2, err = h.SegaClient.GetListTimeTrail(courseID, area2, "car-all", "")
+		listTAResult2, err = h.SegaClient.GetListTimeTrail(finalCourseID, area2, "car-all", "")
 		if err != nil {
 			h.SendDeferredError(i, "error getting player2Info:"+err.Error())
 			return
@@ -611,7 +611,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	}
 	// 6. Build Response
 	var sb strings.Builder
-	courseName := entity.CourseDisplayNameByCode[courseID]
+	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
 		courseName = optMap["track"]
 	}
@@ -633,7 +633,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		var taRank = "NO DATA"
 		if p != nil {
 			timeRecord, _ := entity.ParseRaceTime(p.Record)
-			taRank, _ = h.GetPlayerTimeAttackRank(timeRecord, courseID, taTimeMetadata)
+			taRank, _ = h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
 			sb.WriteString(fmt.Sprintf("**%s**\n", p.Name))
 			sb.WriteString(fmt.Sprintf("- **Local Rank:** #%s\n", p.Rank))
 			sb.WriteString(fmt.Sprintf("- **Time:** `%s`\n", p.Record))

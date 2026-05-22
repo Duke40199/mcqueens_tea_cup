@@ -35,7 +35,8 @@ type Handler struct {
 	SegaClient   port.SegaIDACClient
 	AllNetClient port.AllNetClient
 	// local memory
-	CarChoices []*entity.CarMetadata
+	CarChoices   []*entity.CarMetadata
+	TrackChoices map[string]string
 }
 
 // NewHandler creates our controller
@@ -74,6 +75,7 @@ func NewHandler(
 		OwnerID:      "384015507302383616",
 	}
 	discordHandler.CarChoices = discordHandler.PreloadListCarSelection()
+	discordHandler.TrackChoices = entity.MergedTrackRegistry
 	return discordHandler
 }
 
