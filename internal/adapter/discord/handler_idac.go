@@ -57,7 +57,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 			h.SendDeferredError(i, "⚠️ Car not found with input.")
 			return
 		}
-		if inputArea != "" {
+		if inputArea != "" && inputArea != "all" {
 			h.SendDeferredError(i, "ℹ️ Currently search with car only supported with __**all**__ area input.")
 			return
 		}
