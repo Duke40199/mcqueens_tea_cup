@@ -2,7 +2,6 @@ package entity
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -675,15 +674,68 @@ var TrackRegistry = map[string][]TrackVariant{
 	},
 }
 
-// GetTrackNames Helper to get keys for the Dropdown
-func GetTrackNames() []string {
-	keys := make([]string, 0, len(TrackRegistry))
-	for k := range TrackRegistry {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys) // Ensure consistent order
-	return keys
+var MergedTrackRegistry = map[string]string{
+	"Akina Lake / Counter-Clockwise (CCW) |『秋名湖 / 左周り』":     "course-0",
+	"Akina Lake / Clockwise (CW) |『秋名湖 / 右周り』":              "course-2",
+	"Hakone / Downhill |『箱根 / 下り』":                          "course-52",
+	"Hakone / Uphill |『箱根 / 上り』":                            "course-54",
+	"Usui / Counter-Clockwise (CCW) |『碓氷 / 左周り』":            "course-36",
+	"Usui / Clockwise (CW) |『碓氷 / 右周り』":                     "course-38",
+	"Myogi / Downhill |『妙義 / 下り』":                           "course-4",
+	"Myogi / Uphill |『妙義 / 上り』":                             "course-6",
+	"Akagi / Downhill |『赤城 / 下り』":                           "course-8",
+	"Akagi / Uphill |『赤城 / 上り』":                             "course-10",
+	"Akina / Downhill |『秋名 / 下り』":                           "course-12",
+	"Akina / Uphill |『秋名 / 上り』":                             "course-14",
+	"Irohazaka / Downhill |『いろは坂 / 下り』":                     "course-16",
+	"Irohazaka / Uphill |『いろは坂 / 逆走』":                       "course-18",
+	"Tsukuba / Outbound |『筑波 / 往路』":                         "course-20",
+	"Tsukuba / Inbound |『筑波 / 復路』":                          "course-22",
+	"Happogahara / Outbound |『八方ヶ原 / 往路』":                   "course-24",
+	"Happogahara / Inbound |『八方ヶ原 / 復路』":                    "course-26",
+	"Nagao / Downhill |『長岡 / 下り』":                           "course-28",
+	"Nagao / Uphill |『長岡 / 上り』":                             "course-30",
+	"Tsubaki Line / Downhill |『椿ライン / 下り』":                  "course-32",
+	"Tsubaki Line / Uphill |『椿ライン / 上り』":                    "course-34",
+	"Sadamine / Downhill |『定峰 / 下り』":                        "course-40",
+	"Sadamine / Uphill |『定峰 / 上り』":                          "course-42",
+	"Tsuchisaka / Outbound |『土坂 / 往路』":                      "course-44",
+	"Tsuchisaka / Inbound |『土坂 / 復路』":                       "course-46",
+	"Akina Snow / Downhill |『秋名 (雪) / 下り』":                  "course-48",
+	"Akina Snow / Uphill |『秋名 (雪) / 上り』":                    "course-50",
+	"Momiji Line / Downhill |『もみじライン / 下り』":                 "course-56",
+	"Momiji Line / Uphill |『もみじライン / 上り』":                   "course-58",
+	"Nanamagari / Downhill |『七曲り / 下り』":                     "course-60",
+	"Nanamagari / Uphill |『七曲り / 上り』":                       "course-62",
+	"Gunsai / Outbound |『群サイ / 往路』":                         "course-64",
+	"Gunsai / Inbound |『群サイ / 復路』":                          "course-66",
+	"Odawara / Outbound |『小田原 / 往路』":                        "course-68",
+	"Odawara / Inbound |『小田原 / 復路』":                         "course-70",
+	"Tsukuba Snow / Outbound |『筑波 (雪) / 往路』":                "course-72",
+	"Tsukuba Snow / Inbound |『筑波 (雪) / 復路』":                 "course-74",
+	"Yabitsu / Downhill |『ヤビツ / 下り』":                        "course-76",
+	"Yabitsu / Uphill |『ヤビツ / 上り』":                          "course-78",
+	"Tsuchisaka (Snow) / Outbound |『土坂 (雪) / 往路』":           "course-80",
+	"Tsuchisaka (Snow) / Inbound |『土坂 (雪) / 復路』":            "course-82",
+	"Manazuru / Forward |『真鶴 / 順走』":                         "course-84",
+	"Manazuru / Reverse |『真鶴 / 逆走』":                         "course-86",
+	"Usui (Snow) / Counter-Clockwise (CCW) |『碓氷 (雪) / 左周り』": "course-88",
+	"Usui (Snow) / Clockwise (CW) |『碓氷 (雪) / 右周り』":          "course-90",
+	"Akina (Rain) / Downhill |『秋名 (雨) / 下り』":                "course-92",
+	"Akina (Rain) / Uphill |『秋名 (雨) / 上り』":                  "course-94",
+	"Irohazaka (Rain) / Downhill |『いろは坂（雨） / 下り』":           "course-96",
+	"Irohazaka (Rain) / Uphill |『いろは坂（雨） / 逆走』":             "course-98",
 }
+
+// GetTrackNames Helper to get keys for the Dropdown
+//func GetTrackNames() []Merge {
+//	keys := make([]string, 0, len(MergedTrackRegistry))
+//	for k := range MergedTrackRegistry {
+//		keys = append(keys, k)
+//	}
+//	sort.Strings(keys) // Ensure consistent order
+//	return keys
+//}
 
 // ResolveCarID calculates the final car ID based on the model alias and spec string.
 // Logic: FinalID = BaseID + (SpecIndex * 65536)

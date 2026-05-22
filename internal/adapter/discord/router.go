@@ -69,13 +69,15 @@ func (h *Handler) RegisterCommands() error {
 	maxLimit := 1000.0
 
 	trackChoices := []*discordgo.ApplicationCommandOptionChoice{}
-	for _, name := range idac_domain.GetTrackNames() {
+	for trackName, courseID := range idac_domain.MergedTrackRegistry {
 		trackChoices = append(trackChoices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  name,
-			Value: name,
+			Name:  trackName,
+			Value: courseID,
 		})
+		if len(trackChoices) == 25 {
+			break
+		}
 	}
-
 	// 2. Define All Commands
 	commands := []*discordgo.ApplicationCommand{
 		// --- IDAC Complex Command ---
@@ -90,16 +92,9 @@ func (h *Handler) RegisterCommands() error {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "track",
-							Description: "Select the track",
-							Required:    true,
-							Choices:     trackChoices,
-						},
-						{
 							Type:         discordgo.ApplicationCommandOptionString,
-							Name:         "variant",
-							Description:  "Select direction/condition (Downhill, Uphill, etc)",
+							Name:         "track",
+							Description:  "Select the track",
 							Required:     true,
 							Autocomplete: true,
 						},
@@ -168,18 +163,11 @@ func (h *Handler) RegisterCommands() error {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "track",
-							Description: "Select the track",
-							Required:    true,
-							Choices:     trackChoices, // Reuses the list from time-attack
-						},
-						{
 							Type:         discordgo.ApplicationCommandOptionString,
-							Name:         "variant",
-							Description:  "Select direction/condition",
+							Name:         "track",
+							Description:  "Select the track",
 							Required:     true,
-							Autocomplete: true, // Reuses the autocomplete handler
+							Autocomplete: true,
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,

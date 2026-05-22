@@ -3,6 +3,7 @@ package discord
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -144,6 +145,9 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	switch focused.Name {
 	case "variant":
 		choices = h.handleVariantAutocomplete(subCmd)
+	case "track":
+		query := focused.StringValue()
+		choices = h.SearchTrackChoiceQuery(query)
 	case "car":
 		query := focused.StringValue()
 		choices = h.SearchCarChoiceQuery(query)
@@ -185,6 +189,29 @@ func (h *Handler) SearchCarChoiceQuery(query string) []*discordgo.ApplicationCom
 		if len(choices) >= 25 {
 			break
 		}
+	}
+	return choices
+}
+
+func (h *Handler) SearchTrackChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
+	query = strings.ToLower(strings.TrimSpace(query))
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for trackName, courseID := range h.TrackChoices {
+		if query != "" && !strings.Contains(strings.ToLower(trackName), query) {
+			continue
+		}
+		choices = append(choices,
+			&discordgo.ApplicationCommandOptionChoice{
+				Name:  trackName,
+				Value: courseID,
+			},
+		)
+	}
+	sort.Slice(choices, func(i, j int) bool {
+		return choices[i].Name < choices[j].Name
+	})
+	if len(choices) > 25 {
+		choices = choices[:25]
 	}
 	return choices
 }
