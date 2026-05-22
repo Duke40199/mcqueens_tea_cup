@@ -19,31 +19,29 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
-	sendDeferredError := func(msg string) {
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
-	}
 	// 2. Validate input
-	// 2.a Track
-	if optMap["variant"] == "" {
-		sendDeferredError("⚠️ **Please select a track variant.**")
+	inputTrackVariant := optMap["variant"]
+	inputArea := strings.ToLower(optMap["area"])
+	if inputTrackVariant == "" {
+		h.SendDeferredError(i, "⚠️ **Please select a track variant.**")
 		return
 	}
-	finalCourseID := optMap["variant"]
+	finalCourseID := inputTrackVariant
 	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
-		// Fallback
-		courseName = optMap["track"]
+		h.SendDeferredError(i, "⚠️ **Track not found based on input.**")
+		return
 	}
 	// 2.b. Car Input
 	var finalCarID string
 	var foundCar *entity.CarMetadata
-	isInputCar := optMap["car"] != "" || optMap["car"] != "all"
+	isInputCar := optMap["car"] != "" && optMap["car"] != "all"
 	if !isInputCar {
 		finalCarID = "car-all"
 	}
 	if isInputCar {
 		if specInput == "" {
-			sendDeferredError("⚠️ **Please select a car spec.**")
+			h.SendDeferredError(i, "⚠️ **Please select a car spec.**")
 			return
 		}
 		for _, carChoice := range h.CarChoices {
@@ -56,13 +54,17 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 			}
 		}
 		if foundCar == nil {
-			sendDeferredError("⚠️ Car not found with input.")
+			h.SendDeferredError(i, "⚠️ Car not found with input.")
+			return
+		}
+		if inputArea != "" {
+			h.SendDeferredError(i, "ℹ️ Currently search with car only supported with __**all**__ area input.")
 			return
 		}
 	}
 	// Get Car Display Name from Input
 	var carDisplayName string
-	if finalCarID == "car-all" {
+	if !isInputCar {
 		carDisplayName = "All"
 	} else {
 		carDisplayName = foundCar.Name
@@ -73,8 +75,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		// }
 	}
 	// 2.d Resolve Player Area
-	areaInput := strings.ToLower(optMap["area"])
-	if val, ok := entity.AreaAliases[areaInput]; ok {
+	if val, ok := entity.AreaAliases[inputArea]; ok {
 		optMap["area"] = val
 	}
 	areaName := optMap["area"]
@@ -87,7 +88,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	finalArea := optMap["area"]
 	records, err := h.SegaClient.GetListTimeTrail(finalCourseID, finalArea, finalCarID, specInput)
 	if err != nil {
-		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
+		h.SendDeferredError(i, "⚠️ Failed to fetch data from Sega API: "+err.Error())
 		return
 	}
 	if len(records) == 0 {
@@ -100,10 +101,10 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		resultLimit = len(records)
 	}
 	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), finalCourseID)
-	//if taTimeMetadata == nil {
-	//	sendDeferredError("⚠️ Failed to metadata TA time.")
-	//	return
-	//}
+	if err != nil {
+		h.SendDeferredError(i, "⚠️ Failed to metadata TA time, error log:"+err.Error())
+		return
+	}
 	// 4. Build Pages (Slice of Strings)
 	var pages []string
 	var currentMessage strings.Builder
@@ -116,7 +117,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	currentMessage.WriteString(header)
 	listCarPercentages, err := h.GetListTACarsPercentage(i, optMap)
 	if err != nil {
-		sendDeferredError("⚠️ Failed to get top three TA cars: " + err.Error())
+		h.SendDeferredError(i, "⚠️ Failed to get top three TA cars: "+err.Error())
 		return
 	}
 	// Initialize car percentage header
@@ -128,7 +129,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	}
 	carListFullInfo, err := h.GetListCarDetailByTAFormat(context.TODO(), listCarNameSegaFormat)
 	if err != nil {
-		sendDeferredError("⚠️ Failed to GetListCarDetailByTAFormat: " + err.Error())
+		h.SendDeferredError(i, "⚠️ Failed to GetListCarDetailByTAFormat: "+err.Error())
 		return
 	}
 	var carCount = 0
