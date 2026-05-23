@@ -1,12 +1,29 @@
 package port
 
 import (
-	"McQueens_Tea_Cup/internal/domain/entity"
 	"context"
+
+	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
-type StoreLocationService interface {
-	// Define the methods for the StoreLocationService
+type IDACStoreLocationService interface {
 	GetListAllNextStore(ctx context.Context, areaCode string) ([]entity.StoreLocation, string, error)
 	// UpsertStoreLocation(ctx context.Context, listStoreLocations []entity.StoreLocation) (int64, error)
 }
+
+type IDACCarService interface {
+	GetListCarDetailByTAFormat(ctx context.Context, listCarSegaFormat []string) (map[string]entity.CarSpecInfo, error)
+	GetListTopTACarsWithPercentage(ctx context.Context, segaCourseID string, resultCount int64) ([]entity.IDACCarUsagePercentage, error)
+}
+
+type IDACTimeAttackService interface {
+	GetMetadataBySegaCourseID(ctx context.Context, segaCourseID string) ([]*entity.TimeAttackRankingMetadata, error)
+}
+
+type IDACAreaService interface {
+	GetAreaMetadata(ctx context.Context) ([]entity.IDACAreaMetadata, error)
+}
+type IDACPlayerInfoService interface {
+}
+
+type IDACTrackService interface{}

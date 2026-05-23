@@ -14,8 +14,8 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 	// 1. Validate & Parse Inputs
-	areaCode, _ := optMap["area"]
-	listStore, foundAreaName, err := h.StoreLocationService.GetListAllNextStore(context.Background(), areaCode)
+	areaCode, _ := optMap["area-select"]
+	listStore, foundAreaName, err := h.IDACStoreLocationService.GetListAllNextStore(context.Background(), areaCode)
 	if err != nil {
 		h.SendDeferredError(i, "Error finding list store.")
 		return

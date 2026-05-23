@@ -101,7 +101,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	if len(records) < resultLimit {
 		resultLimit = len(records)
 	}
-	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), finalCourseID)
+	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), finalCourseID)
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ Failed to metadata TA time, error log:"+err.Error())
 		return
@@ -196,7 +196,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	h.SendPagination(i, pages)
 }
 
-func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCourseID string, optMap map[string]string) ([]CarPercentage, error) {
+func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCourseID string, optMap map[string]string) ([]entity.IDACCarUsagePercentage, error) {
 	// 1. DEFER
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -237,67 +237,27 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCo
 	var limit = 1000
 
 	// 3. Fetch Data
-	records, err := h.SegaClient.GetListTimeTrail(segaCourseID, "area-all", "car-all", "")
+	listMostUsedCars, err := h.IDACCarService.GetListTopTACarsWithPercentage(context.Background(), segaCourseID, 4)
 	if err != nil {
-		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
+		sendDeferredError("⚠️ Failed to GetListTopTACarsWithPercentage: " + err.Error())
 		return nil, err
 	}
-	if len(records) == 0 {
+	if len(listMostUsedCars) == 0 {
 		msg := fmt.Sprintf("# Not found Sega Data")
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 		return nil, err
 	}
-
-	if len(records) < limit {
-		limit = len(records)
+	if len(listMostUsedCars) < limit {
+		limit = len(listMostUsedCars)
 	}
 	// 4. Calculate percentage
-	carUsagePercentage := calculateCarUsagePercentage(records)
-	return carUsagePercentage, nil
-}
-
-type CarPercentage struct {
-	CarName     string
-	SegaCarName string
-	Count       int
-	Percentage  float64
-}
-
-func calculateCarUsagePercentage(records []entity.TimeAttackRecord) []CarPercentage {
-	carUsage := make(map[string]CarPercentage)
-	for _, r := range records {
-		if _, ok := carUsage[r.CarName]; ok {
-			car := carUsage[r.CarName]
-			car.Count++
-			carUsage[r.CarName] = car
-		} else {
-			carPercentage := CarPercentage{
-				SegaCarName: r.CarName,
-				Count:       1,
-				Percentage:  0,
-			}
-			splitName := strings.Split(r.CarName, "[")
-			carPercentage.CarName = splitName[0]
-			carUsage[r.CarName] = carPercentage
-		}
-	}
-	total := len(records)
-	var sortedCars []CarPercentage
-	for _, car := range carUsage {
-		car.Percentage = (float64(car.Count) / float64(total)) * 100
-		sortedCars = append(sortedCars, car)
-	}
-	// Sort slice
-	sort.Slice(sortedCars, func(i, j int) bool {
-		return sortedCars[i].Percentage > sortedCars[j].Percentage
-	})
-	return sortedCars
+	return listMostUsedCars, nil
 }
 
 // GetPlayerTimeAttackRank assumes thresholds is sorted ascending by RequiredTime
 func (h *Handler) GetPlayerTimeAttackRank(playerTime time.Time, courseID string, thresholds []*entity.TimeAttackRankingMetadata) (string, error) {
 	if thresholds == nil {
-		taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), courseID)
+		taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), courseID)
 		if err != nil {
 			return "", err
 		}
@@ -559,7 +519,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	} else {
 		area2 = foundP2Area
 	}
-	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.Background(), finalCourseID)
+	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), finalCourseID)
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ error getting taMetadata:"+err.Error())
 		return

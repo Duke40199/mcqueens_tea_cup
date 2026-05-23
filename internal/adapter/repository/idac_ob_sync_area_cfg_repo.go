@@ -19,7 +19,7 @@ func NewAreaRepository(db *sql.DB) database.AreaRepository {
 }
 
 func (r *AreaRepository) GetOBActiveAreas(ctx context.Context) ([]entity.AreaSyncInfo, error) {
-	query := `SELECT sega_code, name, COALESCE(timezone, 'Asia/Tokyo') FROM sega_idac_area_codes_metadata WHERE is_cron_ob_active_status = true`
+	query := `SELECT sega_code, name, COALESCE(timezone, 'Asia/Tokyo') FROM idac_ob_sync_area_cfg WHERE is_cron_ob_active_status = true`
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err

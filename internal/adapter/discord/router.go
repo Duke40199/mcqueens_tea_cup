@@ -401,10 +401,11 @@ func (h *Handler) RegisterCommands() error {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "area",
-							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
-							Required:    false,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "area-select",
+							Description:  "Filter by Country/Area (e.g. 'vn', 'jp')",
+							Required:     true,
+							Autocomplete: true,
 						},
 					},
 				},

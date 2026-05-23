@@ -34,6 +34,10 @@ type AreaRepository interface {
 	GetOBActiveAreas(ctx context.Context) ([]entity.AreaSyncInfo, error)
 }
 
+type IDACAreaMetadataRepository interface {
+	GetAll(ctx context.Context) ([]entity.IDACAreaMetadata, error)
+}
+
 type RankingCfgRepository interface {
 	GetListTimeAttackRankingCfg(ctx context.Context) ([]*entity.TimeAttackRankingCfg, error)
 	GetListPlayerGradeCfg(ctx context.Context) ([]*entity.PlayerGradeCfg, error)

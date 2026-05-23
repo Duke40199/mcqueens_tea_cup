@@ -908,13 +908,6 @@ type CarSpecInfo struct {
 	Aliases       []string
 }
 
-// AreaSyncInfo represents an area that is part of a synchronization group
-type AreaSyncInfo struct {
-	AreaCode string
-	AreaName string
-	Timezone string
-}
-
 type CarMetadata struct {
 	ID                  string  `json:"id"` // pk
 	SegaCarID           int64   `json:"car_id"`
