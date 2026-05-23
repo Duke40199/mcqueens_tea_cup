@@ -29,14 +29,17 @@ type Handler struct {
 	TATimeMetadataRepo database.TATimeMetadataRepository
 	CfsStateRepo       database.CfsStateRepository
 	// internal services
-	MetaLogic                *service.MetaLogicService
-	IDACStoreLocationService port.IDACStoreLocationService
-	IDACCarService           port.IDACCarService
+	MetaLogic                     *service.MetaLogicService
+	IDACStoreLocationService      port.IDACStoreLocationService
+	IDACCarService                port.IDACCarService
+	IDACTimeAttackMetadataService port.IDACTimeAttackService
+	IdacAreaService               port.IDACAreaService
 	// clients
 	SegaClient   port.SegaIDACClient
 	AllNetClient port.AllNetClient
 	// local memory
 	CarChoices   []*entity.CarMetadata
+	AreaMetadata []entity.IDACAreaMetadata
 	TrackChoices map[string]string
 }
 
@@ -54,6 +57,8 @@ func NewHandler(
 	metaLogic *service.MetaLogicService,
 	storeLocationService port.IDACStoreLocationService,
 	idacCarService port.IDACCarService,
+	idacTimeAttackService port.IDACTimeAttackService,
+	idacAreaService port.IDACAreaService,
 	// clients
 	segaClient port.SegaIDACClient,
 	allNetClient port.AllNetClient,
@@ -69,14 +74,21 @@ func NewHandler(
 		TATimeMetadataRepo: taTimeMetadataRepo,
 		CfsStateRepo:       cfsStateRepo,
 		// internal services
-		MetaLogic:                metaLogic,
-		IDACStoreLocationService: storeLocationService,
-		IDACCarService:           idacCarService,
+		MetaLogic:                     metaLogic,
+		IDACStoreLocationService:      storeLocationService,
+		IDACCarService:                idacCarService,
+		IDACTimeAttackMetadataService: idacTimeAttackService,
+		IdacAreaService:               idacAreaService,
 		// clients
 		SegaClient:   segaClient,
 		AllNetClient: allNetClient,
 		OwnerID:      "384015507302383616",
 	}
+	idacAreaMetadata, err := discordHandler.IdacAreaService.GetAreaMetadata(context.Background())
+	if err != nil {
+		panic("cannot get idac area metadata" + err.Error())
+	}
+	discordHandler.AreaMetadata = idacAreaMetadata
 	discordHandler.CarChoices = discordHandler.PreloadListCarSelection()
 	discordHandler.TrackChoices = entity.MergedTrackRegistry
 	return discordHandler

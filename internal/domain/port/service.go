@@ -16,6 +16,13 @@ type IDACCarService interface {
 	GetListTopTACarsWithPercentage(ctx context.Context, segaCourseID string, resultCount int64) ([]entity.IDACCarUsagePercentage, error)
 }
 
+type IDACTimeAttackService interface {
+	GetMetadataBySegaCourseID(ctx context.Context, segaCourseID string) ([]*entity.TimeAttackRankingMetadata, error)
+}
+
+type IDACAreaService interface {
+	GetAreaMetadata(ctx context.Context) ([]entity.IDACAreaMetadata, error)
+}
 type IDACPlayerInfoService interface {
 }
 

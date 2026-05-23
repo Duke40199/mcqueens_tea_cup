@@ -101,7 +101,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	if len(records) < resultLimit {
 		resultLimit = len(records)
 	}
-	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), finalCourseID)
+	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), finalCourseID)
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ Failed to metadata TA time, error log:"+err.Error())
 		return
@@ -237,16 +237,11 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCo
 	var limit = 1000
 
 	// 3. Fetch Data
-	listMostUsedCars, err := h.IDACCarService.GetListTopTACarsWithPercentage(context.Background(), segaCourseID, 3)
+	listMostUsedCars, err := h.IDACCarService.GetListTopTACarsWithPercentage(context.Background(), segaCourseID, 4)
 	if err != nil {
 		sendDeferredError("⚠️ Failed to GetListTopTACarsWithPercentage: " + err.Error())
 		return nil, err
 	}
-	//records, err := h.SegaClient.GetListTimeTrail(segaCourseID, "area-all", "car-all", "")
-	//if err != nil {
-	//	sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
-	//	return nil, err
-	//}
 	if len(listMostUsedCars) == 0 {
 		msg := fmt.Sprintf("# Not found Sega Data")
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
@@ -256,52 +251,13 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCo
 		limit = len(listMostUsedCars)
 	}
 	// 4. Calculate percentage
-	//carUsagePercentage := calculateCarUsagePercentage(records)
 	return listMostUsedCars, nil
-}
-
-type CarPercentage struct {
-	CarName     string
-	SegaCarName string
-	Count       int
-	Percentage  float64
-}
-
-func calculateCarUsagePercentage(records []entity.TimeAttackRecord) []CarPercentage {
-	carUsage := make(map[string]CarPercentage)
-	for _, r := range records {
-		if _, ok := carUsage[r.CarName]; ok {
-			car := carUsage[r.CarName]
-			car.Count++
-			carUsage[r.CarName] = car
-		} else {
-			carPercentage := CarPercentage{
-				SegaCarName: r.CarName,
-				Count:       1,
-				Percentage:  0,
-			}
-			splitName := strings.Split(r.CarName, "[")
-			carPercentage.CarName = splitName[0]
-			carUsage[r.CarName] = carPercentage
-		}
-	}
-	total := len(records)
-	var sortedCars []CarPercentage
-	for _, car := range carUsage {
-		car.Percentage = (float64(car.Count) / float64(total)) * 100
-		sortedCars = append(sortedCars, car)
-	}
-	// Sort slice
-	sort.Slice(sortedCars, func(i, j int) bool {
-		return sortedCars[i].Percentage > sortedCars[j].Percentage
-	})
-	return sortedCars
 }
 
 // GetPlayerTimeAttackRank assumes thresholds is sorted ascending by RequiredTime
 func (h *Handler) GetPlayerTimeAttackRank(playerTime time.Time, courseID string, thresholds []*entity.TimeAttackRankingMetadata) (string, error) {
 	if thresholds == nil {
-		taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.TODO(), courseID)
+		taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), courseID)
 		if err != nil {
 			return "", err
 		}
@@ -563,7 +519,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	} else {
 		area2 = foundP2Area
 	}
-	taTimeMetadata, err := h.TATimeMetadataRepo.GetByCourseID(context.Background(), finalCourseID)
+	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), finalCourseID)
 	if err != nil {
 		h.SendDeferredError(i, "⚠️ error getting taMetadata:"+err.Error())
 		return

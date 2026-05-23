@@ -15,7 +15,7 @@ type StoreLocationService struct {
 	storeLocationRepo database.AllNetStoreLocationsRepository
 }
 
-func NewStoreLocationService(
+func NewIDACStoreLocationService(
 	cfg config.Config,
 	allNetClient port.AllNetClient,
 	storeLocationRepo database.AllNetStoreLocationsRepository,

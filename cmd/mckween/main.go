@@ -37,6 +37,7 @@ func main() {
 	rankingCfgRepo := repository.NewRankingCfgRepo(dbConn)
 	cfsStateRepo := repository.NewCfsStateRepository(dbConn)
 	carRepo := repository.NewCarRepository(dbConn)
+	areaMetadataRepo := repository.NewIDACAreaMetadataRepository(dbConn)
 
 	// 4. Init Discord Session
 	discordSession, err := discord_handler.NewDiscordSession(&cfg.DiscordCfg)
@@ -52,9 +53,12 @@ func main() {
 	segaClient := sega_idac.NewSegaIDACClient(cfg)
 	allNetClient := all_net.NewAllNetClient(cfg)
 	// 5. Init services
-	storeLocationService := service.NewStoreLocationService(cfg, allNetClient, nil)
 	idacCarService := service.NewIDACCarService(cfg, carRepo, segaClient)
+	idacTimeAttackMetadata := service.NewIDACTimeAttackService(cfg, taTimeMetadataRepo, segaClient)
+	storeLocationService := service.NewIDACStoreLocationService(cfg, allNetClient, nil)
 	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
+	idacAreaService := service.NewIDACAreaService(cfg, areaMetadataRepo, segaClient)
+
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,
 		aliasRepo,
@@ -66,6 +70,8 @@ func main() {
 		metaLogic,
 		storeLocationService,
 		idacCarService,
+		idacTimeAttackMetadata,
+		idacAreaService,
 		segaClient,
 		allNetClient,
 	)
