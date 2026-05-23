@@ -196,7 +196,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	h.SendPagination(i, pages)
 }
 
-func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCourseID string, optMap map[string]string) ([]CarPercentage, error) {
+func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCourseID string, optMap map[string]string) ([]entity.IDACCarUsagePercentage, error) {
 	// 1. DEFER
 	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -237,23 +237,27 @@ func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCo
 	var limit = 1000
 
 	// 3. Fetch Data
-	records, err := h.SegaClient.GetListTimeTrail(segaCourseID, "area-all", "car-all", "")
+	listMostUsedCars, err := h.IDACCarService.GetListTopTACarsWithPercentage(context.Background(), segaCourseID, 3)
 	if err != nil {
-		sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
+		sendDeferredError("⚠️ Failed to GetListTopTACarsWithPercentage: " + err.Error())
 		return nil, err
 	}
-	if len(records) == 0 {
+	//records, err := h.SegaClient.GetListTimeTrail(segaCourseID, "area-all", "car-all", "")
+	//if err != nil {
+	//	sendDeferredError("⚠️ Failed to fetch data from Sega API: " + err.Error())
+	//	return nil, err
+	//}
+	if len(listMostUsedCars) == 0 {
 		msg := fmt.Sprintf("# Not found Sega Data")
 		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
 		return nil, err
 	}
-
-	if len(records) < limit {
-		limit = len(records)
+	if len(listMostUsedCars) < limit {
+		limit = len(listMostUsedCars)
 	}
 	// 4. Calculate percentage
-	carUsagePercentage := calculateCarUsagePercentage(records)
-	return carUsagePercentage, nil
+	//carUsagePercentage := calculateCarUsagePercentage(records)
+	return listMostUsedCars, nil
 }
 
 type CarPercentage struct {

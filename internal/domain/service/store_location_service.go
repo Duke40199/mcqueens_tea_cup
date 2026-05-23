@@ -19,7 +19,7 @@ func NewStoreLocationService(
 	cfg config.Config,
 	allNetClient port.AllNetClient,
 	storeLocationRepo database.AllNetStoreLocationsRepository,
-) port.StoreLocationService {
+) port.IDACStoreLocationService {
 	return &StoreLocationService{
 		cfg:               cfg,
 		allNetClient:      allNetClient,

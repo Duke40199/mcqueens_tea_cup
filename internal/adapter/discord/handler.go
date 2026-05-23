@@ -29,8 +29,9 @@ type Handler struct {
 	TATimeMetadataRepo database.TATimeMetadataRepository
 	CfsStateRepo       database.CfsStateRepository
 	// internal services
-	MetaLogic            *service.MetaLogicService
-	StoreLocationService port.StoreLocationService
+	MetaLogic                *service.MetaLogicService
+	IDACStoreLocationService port.IDACStoreLocationService
+	IDACCarService           port.IDACCarService
 	// clients
 	SegaClient   port.SegaIDACClient
 	AllNetClient port.AllNetClient
@@ -51,7 +52,8 @@ func NewHandler(
 	cfsStateRepo database.CfsStateRepository,
 	// internal services
 	metaLogic *service.MetaLogicService,
-	storeLocationService port.StoreLocationService,
+	storeLocationService port.IDACStoreLocationService,
+	idacCarService port.IDACCarService,
 	// clients
 	segaClient port.SegaIDACClient,
 	allNetClient port.AllNetClient,
@@ -67,8 +69,9 @@ func NewHandler(
 		TATimeMetadataRepo: taTimeMetadataRepo,
 		CfsStateRepo:       cfsStateRepo,
 		// internal services
-		MetaLogic:            metaLogic,
-		StoreLocationService: storeLocationService,
+		MetaLogic:                metaLogic,
+		IDACStoreLocationService: storeLocationService,
+		IDACCarService:           idacCarService,
 		// clients
 		SegaClient:   segaClient,
 		AllNetClient: allNetClient,

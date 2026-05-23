@@ -52,7 +52,8 @@ func main() {
 	segaClient := sega_idac.NewSegaIDACClient(cfg)
 	allNetClient := all_net.NewAllNetClient(cfg)
 	// 5. Init services
-	storeLocationService := service.NewStoreLocationService(cfg, allNetClient, nil) // TODO: inject actual client & repo
+	storeLocationService := service.NewStoreLocationService(cfg, allNetClient, nil)
+	idacCarService := service.NewIDACCarService(cfg, carRepo, segaClient)
 	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,
@@ -64,6 +65,7 @@ func main() {
 		cfsStateRepo,
 		metaLogic,
 		storeLocationService,
+		idacCarService,
 		segaClient,
 		allNetClient,
 	)
