@@ -54,5 +54,5 @@ type CfsStateRepository interface {
 }
 
 type AllNetStoreLocationsRepository interface {
-	UpsertStoreLocation(ctx context.Context, storeLocEntity entity.StoreLocation) (int64, error)
+	BulkUpsertStoreLocation(ctx context.Context, stores []entity.StoreLocation) error
 }

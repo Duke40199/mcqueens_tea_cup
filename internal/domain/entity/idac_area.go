@@ -19,7 +19,7 @@ type IDACAreaMetadata struct {
 	AreaType     string
 	Aliases      pq.StringArray
 	SegaAreaCode string
-	ALlNetCode   string
+	ALLNetCode   string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

@@ -8,6 +8,8 @@ import (
 
 type IDACStoreLocationService interface {
 	GetListAllNextStore(ctx context.Context, areaCode string) ([]entity.StoreLocation, string, error)
+	GetMapStoreFromTopPlayers(ctx context.Context, areaCode string) (map[string]entity.StoreLocation, error)
+	BulkUpsertStoreLocation(ctx context.Context, listStoreLocations []entity.StoreLocation) error
 	// UpsertStoreLocation(ctx context.Context, listStoreLocations []entity.StoreLocation) (int64, error)
 }
 

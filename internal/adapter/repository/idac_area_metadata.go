@@ -36,7 +36,7 @@ func (r *IDACAreaMetadataRepository) GetAll(ctx context.Context) ([]entity.IDACA
 			&area.Aliases,
 			&area.CreatedAt,
 			&area.UpdatedAt,
-			&area.ALlNetCode,
+			&area.ALLNetCode,
 			&area.AreaType); err != nil {
 			return nil, err
 		}

@@ -229,7 +229,7 @@ func (h *Handler) SearchAreaChoiceQuery(query string) []*discordgo.ApplicationCo
 		choices = append(choices,
 			&discordgo.ApplicationCommandOptionChoice{
 				Name:  area.Name,
-				Value: area.ALlNetCode,
+				Value: area.ALLNetCode,
 			},
 		)
 	}

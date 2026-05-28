@@ -38,6 +38,7 @@ func main() {
 	cfsStateRepo := repository.NewCfsStateRepository(dbConn)
 	carRepo := repository.NewCarRepository(dbConn)
 	areaMetadataRepo := repository.NewIDACAreaMetadataRepository(dbConn)
+	storeLocationRepo := repository.NewAllNetStoreLocationsRepository(dbConn)
 
 	// 4. Init Discord Session
 	discordSession, err := discord_handler.NewDiscordSession(&cfg.DiscordCfg)
@@ -55,7 +56,7 @@ func main() {
 	// 5. Init services
 	idacCarService := service.NewIDACCarService(cfg, carRepo, segaClient)
 	idacTimeAttackMetadata := service.NewIDACTimeAttackService(cfg, taTimeMetadataRepo, segaClient)
-	storeLocationService := service.NewIDACStoreLocationService(cfg, allNetClient, nil)
+	storeLocationService := service.NewIDACStoreLocationService(cfg, allNetClient, segaClient, storeLocationRepo)
 	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
 	idacAreaService := service.NewIDACAreaService(cfg, areaMetadataRepo, segaClient)
 
