@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,28 +139,19 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		splitSegaCarName := strings.Split(listCarNameSegaFormat[z], "[")
 		// if not found by chassis code -> find by aliases
 		var foundCarFullInfo entity.CarSpecInfo
-		if value, ok := carListFullInfo[splitSegaCarName[0]]; !ok {
-			for _, carFullInfo := range carListFullInfo {
-				if carFullInfo.Aliases == nil {
-					continue
-				}
-				for _, alias := range carFullInfo.Aliases {
-					if splitSegaCarName[0] == alias {
-						foundCarFullInfo = carFullInfo
-						break
-					}
-				}
+		for _, carFullInfo := range carListFullInfo {
+			if slices.Contains(carFullInfo.Aliases, splitSegaCarName[0]) || splitSegaCarName[0] == carFullInfo.ModelCode {
+				foundCarFullInfo = carFullInfo
+				continue
 			}
-		} else {
-			foundCarFullInfo = value
 		}
+
 		entry := fmt.Sprintf("%d. %s %s **%s %s (%s)** - `%.1f%%`\n", carCount+1,
 			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.BaseSpec)],
 			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.SpecStyleName)],
 			strings.ToTitle(foundCarFullInfo.Maker),
 			foundCarFullInfo.CarName,
 			foundCarFullInfo.ModelCode,
-
 			listCarPercentages[z].Percentage)
 		headerCarPercentage += entry
 		carCount++

@@ -167,7 +167,7 @@ func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecM
 		return nil, err
 	}
 	defer rows.Close()
-
+	// key: sega_spec_id, since it's unique to each car
 	result := make(map[string]entity.CarSpecInfo)
 	for rows.Next() {
 		var maker, name, modelCode, baseSpec, specStyleName, segaSpecID string
@@ -185,8 +185,7 @@ func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecM
 			SegaSpecID:    segaSpecID,
 			Aliases:       aliases,
 		}
-		// Map model_code -> CarSpecInfo
-		result[modelCode] = info
+		result[segaSpecID] = info
 	}
 	return result, rows.Err()
 }
