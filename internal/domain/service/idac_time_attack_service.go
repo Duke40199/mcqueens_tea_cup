@@ -37,3 +37,9 @@ func (s *IDACTimeAttackService) GetMetadataBySegaCourseID(ctx context.Context, s
 	}
 	return timeAttackMetadata, nil
 }
+
+// GetTimeTrail returns the raw Time Trial records for a course/area/car from the
+// Sega client, keeping the transport concern out of the presentation layer.
+func (s *IDACTimeAttackService) GetTimeTrail(ctx context.Context, courseID, area, carID, spec string) ([]entity.TimeAttackRecord, error) {
+	return s.segaClient.GetListTimeTrail(courseID, area, carID, spec)
+}

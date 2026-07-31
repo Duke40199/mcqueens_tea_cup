@@ -34,6 +34,10 @@ type Handler struct {
 	IDACCarService                port.IDACCarService
 	IDACTimeAttackMetadataService port.IDACTimeAttackService
 	IdacAreaService               port.IDACAreaService
+	OBRankingService              port.IDACOBRankingService
+	TeamService                   port.IDACTeamService
+	PlayerService                 port.IDACPlayerService
+	OBMetaService                 port.IDACOBMetaService
 	// clients
 	SegaClient   port.SegaIDACClient
 	AllNetClient port.AllNetClient
@@ -59,6 +63,10 @@ func NewHandler(
 	idacCarService port.IDACCarService,
 	idacTimeAttackService port.IDACTimeAttackService,
 	idacAreaService port.IDACAreaService,
+	obRankingService port.IDACOBRankingService,
+	teamService port.IDACTeamService,
+	playerService port.IDACPlayerService,
+	obMetaService port.IDACOBMetaService,
 	// clients
 	segaClient port.SegaIDACClient,
 	allNetClient port.AllNetClient,
@@ -79,6 +87,10 @@ func NewHandler(
 		IDACCarService:                idacCarService,
 		IDACTimeAttackMetadataService: idacTimeAttackService,
 		IdacAreaService:               idacAreaService,
+		OBRankingService:              obRankingService,
+		TeamService:                   teamService,
+		PlayerService:                 playerService,
+		OBMetaService:                 obMetaService,
 		// clients
 		SegaClient:   segaClient,
 		AllNetClient: allNetClient,

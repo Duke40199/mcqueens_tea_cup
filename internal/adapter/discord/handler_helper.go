@@ -156,6 +156,9 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	case "area-select":
 		query := focused.StringValue()
 		choices = h.SearchAreaChoiceQuery(query)
+	case "country-select":
+		query := focused.StringValue()
+		choices = h.SearchCountryChoiceQuery(query)
 	}
 	err := s.InteractionRespond(
 		i.Interaction,
@@ -230,6 +233,29 @@ func (h *Handler) SearchAreaChoiceQuery(query string) []*discordgo.ApplicationCo
 			&discordgo.ApplicationCommandOptionChoice{
 				Name:  area.Name,
 				Value: area.ALLNetCode,
+			},
+		)
+	}
+	sort.Slice(choices, func(i, j int) bool {
+		return choices[i].Name < choices[j].Name
+	})
+	if len(choices) > 25 {
+		choices = choices[:25]
+	}
+	return choices
+}
+
+func (h *Handler) SearchCountryChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
+	query = strings.ToLower(strings.TrimSpace(query))
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for _, area := range h.AreaMetadata {
+		if query != "" && !strings.Contains(strings.ToLower(area.Name), query) {
+			continue
+		}
+		choices = append(choices,
+			&discordgo.ApplicationCommandOptionChoice{
+				Name:  area.Name,
+				Value: area.SegaAreaCode,
 			},
 		)
 	}

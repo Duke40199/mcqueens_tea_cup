@@ -44,7 +44,7 @@ func (c *SegaIDACClient) GetListTimeTrail(courseID, areaCode, carID, spec string
 	// 3. Parse response
 	var data entity.IdacTimeAttackRecordResponse
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		fmt.Printf("=== SegaIDACClient: GetListTimeTrailResults: cannot parse res %d, err %s\n", resp.StatusCode, error.Error)
+		fmt.Printf("=== SegaIDACClient: GetListTimeTrailResults: cannot parse res %d, err %s\n", resp.StatusCode, err)
 		return nil, err
 	}
 	return data.Records, nil
@@ -110,7 +110,7 @@ func (c *SegaIDACClient) GetTeamRanking(roundNum int, rankCode string) ([]entity
 	// 3. Parse response
 	var data entity.IdacTeamRankingResponse
 	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		fmt.Printf("=== SegaIDACClient: GetTeamRanking: cannot parse res %d, err %s\n", resp.StatusCode, error.Error)
+		fmt.Printf("=== SegaIDACClient: GetTeamRanking: cannot parse res %d, err %s\n", resp.StatusCode, err)
 		return nil, err
 	}
 	foundTeams := make([]entity.TeamRecord, 0)

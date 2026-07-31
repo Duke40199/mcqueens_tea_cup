@@ -20,10 +20,29 @@ type IDACCarService interface {
 
 type IDACTimeAttackService interface {
 	GetMetadataBySegaCourseID(ctx context.Context, segaCourseID string) ([]*entity.TimeAttackRankingMetadata, error)
+	GetTimeTrail(ctx context.Context, courseID, area, carID, spec string) ([]entity.TimeAttackRecord, error)
 }
 
 type IDACAreaService interface {
 	GetAreaMetadata(ctx context.Context) ([]entity.IDACAreaMetadata, error)
+}
+
+type IDACOBRankingService interface {
+	GetRanking(ctx context.Context, round, area string, limit int) (*entity.OBRankingView, error)
+}
+
+type IDACTeamService interface {
+	GetSortedTeamRankings(ctx context.Context, rankCodes []string) (int, []entity.TeamRecord, error)
+}
+
+type IDACPlayerService interface {
+	ResolvePlayer(ctx context.Context, input, manualArea string) (string, string, bool, error)
+	GetPlayerProfile(ctx context.Context, ign, area string) (*entity.PlayerProfileView, error)
+	GetTournamentInfo(ctx context.Context, areaCode string) (*entity.TournamentInfoView, error)
+}
+
+type IDACOBMetaService interface {
+	GetMeta(ctx context.Context, area string, limit int) (*entity.OBMetaView, error)
 }
 type IDACPlayerInfoService interface {
 }

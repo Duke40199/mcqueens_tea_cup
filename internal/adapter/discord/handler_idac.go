@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -15,26 +14,19 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[string]string, specInput string) {
-	// 1. DEFER
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
-	// 2. Validate input
+func (h *Handler) HandleTimeAttack(cc *CommandContext) error {
+	optMap := cc.OptMap
+	specInput := cc.SpecInput
+
+	// 1. Validate input
 	inputTrack := optMap["track"]
-	//inputTrackVariant := optMap["variant"]
-	inputArea := strings.ToLower(optMap["area"])
-	//if inputTrackVariant == "" {
-	//	h.SendDeferredError(i, "⚠️ **Please select a track variant.**")
-	//	return
-	//}
+	inputArea := strings.ToLower(optMap["country-select"])
 	finalCourseID := inputTrack
 	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
-		h.SendDeferredError(i, "⚠️ **Track not found based on input.**")
-		return
+		return cc.Edit("⚠️ **Track not found based on input.**")
 	}
-	// 2.b. Car Input
+	// 1.b. Car Input
 	var finalCarID string
 	var foundCar *entity.CarMetadata
 	isInputCar := optMap["car"] != "" && optMap["car"] != "all"
@@ -43,8 +35,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	}
 	if isInputCar {
 		if specInput == "" {
-			h.SendDeferredError(i, "⚠️ **Please select a car spec.**")
-			return
+			return cc.Edit("⚠️ **Please select a car spec.**")
 		}
 		for _, carChoice := range h.CarChoices {
 			for _, specID := range carChoice.SpecIDs {
@@ -56,12 +47,10 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 			}
 		}
 		if foundCar == nil {
-			h.SendDeferredError(i, "⚠️ Car not found with input.")
-			return
+			return cc.Edit("⚠️ Car not found with input.")
 		}
 		if inputArea != "" && inputArea != "all" {
-			h.SendDeferredError(i, "ℹ️ Currently search with car only supported with __**all**__ area input.")
-			return
+			return cc.Edit("ℹ️ Currently search with car only supported with __**all**__ area input.")
 		}
 	}
 	// Get Car Display Name from Input
@@ -70,13 +59,8 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		carDisplayName = "All"
 	} else {
 		carDisplayName = foundCar.Name
-		// if emoji, ok := entity.SpecEmojis[strings.ToLower(specInput)]; ok {
-		// 	carDisplayName = fmt.Sprintf("%s %s", emoji, val)
-		// } else {
-		// 	carDisplayName = val
-		// }
 	}
-	// 2.d Resolve Player Area
+	// 1.d Resolve Player Area
 	if val, ok := entity.AreaAliases[inputArea]; ok {
 		optMap["area"] = val
 	}
@@ -85,56 +69,52 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		areaName = val
 	}
 
-	var resultLimit = 1000
-	// 3. Fetch Data
+	resultLimit := 1000
+	// 2. Fetch Data via the service
 	finalArea := optMap["area"]
-	records, err := h.SegaClient.GetListTimeTrail(finalCourseID, finalArea, finalCarID, specInput)
+	records, err := h.IDACTimeAttackMetadataService.GetTimeTrail(cc.Ctx, finalCourseID, finalArea, finalCarID, specInput)
 	if err != nil {
-		h.SendDeferredError(i, "⚠️ Failed to fetch data from Sega API: "+err.Error())
-		return
+		return fmt.Errorf("fetching time trial records: %w", err)
 	}
 	if len(records) == 0 {
-		msg := fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\nNo records found.", courseName, areaName, carDisplayName)
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
-		return
+		return cc.Edit(fmt.Sprintf("# Initial D Rankings (Time Trial)\n🗾 : %s | 🌎 : %s | 🚗 : %s\n\nNo records found.", courseName, areaName, carDisplayName))
 	}
-
 	if len(records) < resultLimit {
 		resultLimit = len(records)
 	}
-	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), finalCourseID)
+	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(cc.Ctx, finalCourseID)
 	if err != nil {
-		h.SendDeferredError(i, "⚠️ Failed to metadata TA time, error log:"+err.Error())
-		return
+		return fmt.Errorf("fetching time attack metadata: %w", err)
 	}
-	// 4. Build Pages (Slice of Strings)
+
+	// 3. Build Pages (Slice of Strings)
 	var pages []string
 	var currentMessage strings.Builder
 	itemsInChunk := 0
 
 	// Pre-calculate Header
 	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n 🗾 : %s | 🌎 : %s | 🚗 : %s\n", courseName, areaName, carDisplayName)
-
-	// Initialize first page with header
 	currentMessage.WriteString(header)
-	listCarPercentages, err := h.GetListTACarsPercentage(i, finalCourseID, optMap)
+
+	// Top-3 most used cars section
+	listCarPercentages, err := h.IDACCarService.GetListTopTACarsWithPercentage(cc.Ctx, finalCourseID, 4)
 	if err != nil {
-		h.SendDeferredError(i, "⚠️ Failed to get top three TA cars: "+err.Error())
-		return
+		return fmt.Errorf("fetching top TA cars: %w", err)
 	}
-	// Initialize car percentage header
+	if len(listCarPercentages) < 3 {
+		return cc.Edit("⚠️ Not enough car data available for this track yet.")
+	}
 	headerCarPercentage := "## Top 3 Most Used Cars (based on top 1000 **Global** results)\n"
 	// car name sega format: FD3S[DH]
 	listCarNameSegaFormat := make([]string, 0)
 	for i := 0; i < 3; i++ {
 		listCarNameSegaFormat = append(listCarNameSegaFormat, listCarPercentages[i].SegaCarName)
 	}
-	carListFullInfo, err := h.GetListCarDetailByTAFormat(context.TODO(), listCarNameSegaFormat)
+	carListFullInfo, err := h.IDACCarService.GetListCarDetailByTAFormat(cc.Ctx, listCarNameSegaFormat)
 	if err != nil {
-		h.SendDeferredError(i, "⚠️ Failed to GetListCarDetailByTAFormat: "+err.Error())
-		return
+		return fmt.Errorf("fetching car detail by TA format: %w", err)
 	}
-	var carCount = 0
+	carCount := 0
 	for z := 0; z < 3; z++ {
 		splitSegaCarName := strings.Split(listCarNameSegaFormat[z], "[")
 		// if not found by chassis code -> find by aliases
@@ -168,7 +148,7 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 		}
 		entry := fmt.Sprintf("%s. **%s**  — `%s` — **%s** — `%s`\n", r.Rank, recordRank, r.Record, r.Name, r.CarName)
 
-		// Split if 10 items OR length > 1900
+		// Split if 10 items OR length > 2000
 		if itemsInChunk >= 10 || currentMessage.Len()+len(entry) > 2000 {
 			pages = append(pages, currentMessage.String())
 			currentMessage.Reset()
@@ -184,66 +164,9 @@ func (h *Handler) HandleTimeAttack(i *discordgo.InteractionCreate, optMap map[st
 	if currentMessage.Len() > 0 {
 		pages = append(pages, currentMessage.String())
 	}
-	// 5. Hand over to Pagination Helper
-	h.SendPagination(i, pages)
-}
-
-func (h *Handler) GetListTACarsPercentage(i *discordgo.InteractionCreate, segaCourseID string, optMap map[string]string) ([]entity.IDACCarUsagePercentage, error) {
-	// 1. DEFER
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
-
-	sendDeferredError := func(msg string) {
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
-	}
-	// 2. Validate Inputs
-	// We look for 'variant' because that holds the actual Course ID now
-	if segaCourseID == "" {
-		sendDeferredError("⚠️ **GetListTACarsPercentage: Invalid course input.")
-		return nil, nil
-	}
-	// Defaults
-	if _, ok := optMap["car"]; !ok {
-		optMap["car"] = "car-all"
-	}
-	// The User selected: Track="Akina", Variant="course-12" (Downhill)
-	// We only care about the Variant ID now.
-
-	// Resolve Area Alias
-	areaInput := strings.ToLower(optMap["area"])
-	if val, ok := entity.AreaAliases[areaInput]; ok {
-		optMap["area"] = val
-	}
-	// Display Names (Optional: Lookup ID back to Name for pretty printing)
-	courseName := entity.CourseDisplayNameByCode[segaCourseID]
-	if courseName == "" {
-		// Fallback
-		courseName = optMap["track"]
-	}
-	areaName := optMap["area"]
-	if val, ok := entity.AreaDisplayNameByCode[areaName]; ok {
-		areaName = val
-	}
-	// Check Limit
-	var limit = 1000
-
-	// 3. Fetch Data
-	listMostUsedCars, err := h.IDACCarService.GetListTopTACarsWithPercentage(context.Background(), segaCourseID, 4)
-	if err != nil {
-		sendDeferredError("⚠️ Failed to GetListTopTACarsWithPercentage: " + err.Error())
-		return nil, err
-	}
-	if len(listMostUsedCars) == 0 {
-		msg := fmt.Sprintf("# Not found Sega Data")
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
-		return nil, err
-	}
-	if len(listMostUsedCars) < limit {
-		limit = len(listMostUsedCars)
-	}
-	// 4. Calculate percentage
-	return listMostUsedCars, nil
+	// 4. Hand over to Pagination Helper
+	cc.SendPages(pages)
+	return nil
 }
 
 // GetPlayerTimeAttackRank assumes thresholds is sorted ascending by RequiredTime
@@ -316,22 +239,10 @@ func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key strin
 	})
 }
 
-func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[string]string) {
-	// 0. DEFER INTERACTION
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
+func (h *Handler) HandleTeamRanking(cc *CommandContext) error {
+	optMap := cc.OptMap
 
-	// Error Helper
-	sendDeferredError := func(msg string) {
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
-	}
-	roundNum, err := h.SegaClient.GetCurrentRound()
-	if err != nil {
-		sendDeferredError("⚠️ Error fetching round info.")
-		return
-	}
-	// 2. Resolve Country Filter
+	// 1. Resolve Country Filter
 	filterCountryID := -1
 	filterCountryName := "All"
 	if countryInput, ok := optMap["country"]; ok && countryInput != "" {
@@ -351,7 +262,7 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 		}
 	}
 
-	// 3. Parse Limit
+	// 2. Parse Limit
 	limit := 10
 	if limitStr, ok := optMap["limit"]; ok {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
@@ -359,11 +270,10 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 		}
 	}
 
-	// 4. Determine Target Ranks
+	// 3. Determine Target Ranks
 	rankCodeInput := optMap["rank"]
-	targetRanks := []string{}
+	var targetRanks []string
 	rankDisplayName := "Unknown"
-
 	if rankCodeInput == "all" {
 		targetRanks = []string{"6", "5", "4", "3"}
 		rankDisplayName = "All Classes"
@@ -381,43 +291,23 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 		}
 	}
 
-	// 5. Fetch and Aggregate Records
-	var allRecords []entity.TeamRecord
-	for _, code := range targetRanks {
-		records, err := h.SegaClient.GetTeamRanking(roundNum, code)
-		if err != nil {
-			if len(targetRanks) == 1 {
-				sendDeferredError(fmt.Sprintf("⚠️ Error fetching data for rank %s", code))
-				return
-			}
-			continue
-		}
-		allRecords = append(allRecords, records...)
+	// 4. Fetch aggregated + sorted records via the service
+	roundNum, allRecords, err := h.TeamService.GetSortedTeamRankings(cc.Ctx, targetRanks)
+	if err != nil {
+		return fmt.Errorf("fetching team rankings: %w", err)
 	}
-
 	if len(allRecords) == 0 {
-		sendDeferredError("No records found.")
-		return
+		return cc.Edit("No records found.")
 	}
 
-	// 6. Sort Combined Records by Points (Descending)
-	sort.Slice(allRecords, func(i, j int) bool {
-		p1, _ := strconv.Atoi(allRecords[i].Point)
-		p2, _ := strconv.Atoi(allRecords[j].Point)
-		return p1 > p2
-	})
-
-	// 7. Filter and Build Pages
+	// 5. Filter and Build Pages
 	var pages []string
 	var currentMessage strings.Builder
 	itemsInChunk := 0
 	foundCount := 0
 
-	// Pre-calculate Header (will be added to every page)
 	header := fmt.Sprintf("# Initial D Team Rankings (Round %d)\n", roundNum)
 	header += fmt.Sprintf("**Class:** %s | **Region:** %s\n\n", rankDisplayName, filterCountryName)
-
-	// Add header to the first page buffer
 	currentMessage.WriteString(header)
 
 	for _, r := range allRecords {
@@ -430,24 +320,19 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 			break
 		}
 
-		// Calculate display rank
 		globalRank := foundCount + 1
 		countryFlag := entity.GetCountryFlag(r.Country)
 
-		// Format Entry
 		entry := fmt.Sprintf("%d. %s **%s** \n", globalRank, r.LeagueEmoji, r.TeamName)
 		entry += fmt.Sprintf("+ **Country:** %s\n", countryFlag)
 		entry += fmt.Sprintf("+ **Points:** %s\n", r.Point)
 		entry += fmt.Sprintf("+ **Ace:** %s | **Leader:** %s\n\n", r.AceUserName, r.LeaderUserName)
 
-		// Check Splitting Condition (Every 5 teams OR 1900 chars)
-		// Teams take up more vertical space, so 5 items per page is usually safer/cleaner than 10.
-		// You can change `itemsInChunk >= 5` to 10 if you prefer.
+		// Split every 5 teams OR 1900 chars
 		if itemsInChunk >= 5 || currentMessage.Len()+len(entry) > 1900 {
 			pages = append(pages, currentMessage.String())
-
 			currentMessage.Reset()
-			currentMessage.WriteString(header) // Add header to next page
+			currentMessage.WriteString(header)
 			itemsInChunk = 0
 		}
 
@@ -456,48 +341,38 @@ func (h *Handler) HandleTeamRanking(i *discordgo.InteractionCreate, optMap map[s
 		foundCount++
 	}
 
-	// Append whatever is left
 	if currentMessage.Len() > 0 {
 		pages = append(pages, currentMessage.String())
 	}
-
 	if len(pages) == 0 {
-		sendDeferredError("No teams found matching criteria.")
-		return
+		return cc.Edit("No teams found matching criteria.")
 	}
-	// 8. Send via Pagination Helper
-	h.SendPagination(i, pages)
+	// 6. Send via Pagination Helper
+	cc.SendPages(pages)
+	return nil
 }
 
-func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map[string]string) {
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
+func (h *Handler) HandlePlayerCompare(cc *CommandContext) error {
+	optMap := cc.OptMap
 	finalCourseID := optMap["track"]
-	// 1. Input Validation
-	//if optMap["variant"] == "" {
-	//	h.SendDeferredError(i, "⚠️ **Missing Track**\nPlease select a track variant.")
-	//	return
-	//}
-	// 2. Resolve Player 1
-	p1Name, foundP1Area, isFoundP1, err := h.ResolvePlayerCredentialDB(optMap["player1"], optMap["area1"])
+
+	// 1. Resolve Player 1
+	p1Name, foundP1Area, isFoundP1, err := h.PlayerService.ResolvePlayer(cc.Ctx, optMap["player1"], optMap["area1"])
 	if err != nil {
 		fmt.Printf("⚠️ **Player 1 Error:** %s\n", err.Error())
 	}
 	if !isFoundP1 && optMap["area1"] == "" {
-		h.SendDeferredError(i, "⚠️ **Searching Player1 by IGN error:** Please input area1.")
-		return
+		return cc.Edit("⚠️ **Searching Player1 by IGN error:** Please input area1.")
 	}
-	// 3. Resolve Player 2
-	p2Name, foundP2Area, isFoundP2, err := h.ResolvePlayerCredentialDB(optMap["player2"], optMap["area2"])
+	// 2. Resolve Player 2
+	p2Name, foundP2Area, isFoundP2, err := h.PlayerService.ResolvePlayer(cc.Ctx, optMap["player2"], optMap["area2"])
 	if err != nil {
 		fmt.Printf("⚠️ **Player 2 Error:** %s\n", err.Error())
 	}
 	if !isFoundP2 && optMap["area2"] == "" {
-		h.SendDeferredError(i, "⚠️ **Searching Player2 by IGN error:** Please input area2.")
-		return
+		return cc.Edit("⚠️ **Searching Player2 by IGN error:** Please input area2.")
 	}
-	// 4. Map sega codes (area, course, car) & make requests to get list TA
+	// 3. Map sega codes (area, course, car) & make requests to get list TA
 	var area1, area2 string
 	if !isFoundP1 {
 		area1 = entity.AreaAliases[optMap["area1"]] // optMap["area1"] = tokyo -> area1 = area-12
@@ -511,17 +386,15 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	} else {
 		area2 = foundP2Area
 	}
-	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(context.Background(), finalCourseID)
+	taTimeMetadata, err := h.IDACTimeAttackMetadataService.GetMetadataBySegaCourseID(cc.Ctx, finalCourseID)
 	if err != nil {
-		h.SendDeferredError(i, "⚠️ error getting taMetadata:"+err.Error())
-		return
+		return fmt.Errorf("fetching time attack metadata: %w", err)
 	}
 	var p1Result, p2Result *entity.TimeAttackRecord
 	// Get Player 1 Sega Time Trail results
-	listTAResult1, err := h.SegaClient.GetListTimeTrail(finalCourseID, area1, "car-all", "")
+	listTAResult1, err := h.IDACTimeAttackMetadataService.GetTimeTrail(cc.Ctx, finalCourseID, area1, "car-all", "")
 	if err != nil {
-		h.SendDeferredError(i, "⚠️ error getting player1Info:"+err.Error())
-		return
+		return fmt.Errorf("fetching player 1 time trial: %w", err)
 	}
 	normalizedTarget := strings.ToLower(strings.TrimSpace(entity.NormalizeTextWidth(p1Name)))
 	for _, result := range listTAResult1 {
@@ -537,10 +410,9 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	if area2 == area1 {
 		listTAResult2 = listTAResult1
 	} else {
-		listTAResult2, err = h.SegaClient.GetListTimeTrail(finalCourseID, area2, "car-all", "")
+		listTAResult2, err = h.IDACTimeAttackMetadataService.GetTimeTrail(cc.Ctx, finalCourseID, area2, "car-all", "")
 		if err != nil {
-			h.SendDeferredError(i, "error getting player2Info:"+err.Error())
-			return
+			return fmt.Errorf("fetching player 2 time trial: %w", err)
 		}
 	}
 	normalizedTarget = strings.ToLower(strings.TrimSpace(entity.NormalizeTextWidth(p2Name)))
@@ -561,7 +433,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	if p2Result == nil && duplicatedResult != nil {
 		p2Result = duplicatedResult
 	}
-	// 6. Build Response
+	// 4. Build Response
 	var sb strings.Builder
 	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
@@ -576,13 +448,13 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		areaName2 = area2
 	}
 
-	sb.WriteString(fmt.Sprintf("# Player Comparison\n"))
+	sb.WriteString("# Player Comparison\n")
 	sb.WriteString(fmt.Sprintf("**Course:** %s\n", courseName))
 
 	// Helper to print
 	printPlayer := func(label, areaName, inputName, errStr string, p *entity.TimeAttackRecord) {
 		sb.WriteString(fmt.Sprintf("### %s (%s): ", label, areaName))
-		var taRank = "NO DATA"
+		taRank := "NO DATA"
 		if p != nil {
 			timeRecord, _ := entity.ParseRaceTime(p.Record)
 			taRank, _ = h.GetPlayerTimeAttackRank(timeRecord, finalCourseID, taTimeMetadata)
@@ -604,7 +476,7 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 	printPlayer("Player 1", areaName1, p1Name, "", p1Result)
 	printPlayer("Player 2", areaName2, p2Name, "", p2Result)
 
-	// 7. Calculate Delta
+	// 5. Calculate Delta
 	if p1Result != nil && p2Result != nil {
 		sb.WriteString("---\n")
 		ms1, err1 := entity.ParseIdacTime(p1Result.Record)
@@ -624,8 +496,5 @@ func (h *Handler) HandlePlayerCompare(i *discordgo.InteractionCreate, optMap map
 		}
 	}
 
-	finalContent := sb.String()
-	h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: &finalContent,
-	})
+	return cc.Edit(sb.String())
 }
