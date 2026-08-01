@@ -104,13 +104,13 @@ func (h *Handler) RegisterCommands() error {
 							Description: "Area ID or Alias (e.g. 'vn', 'area-57')",
 							Required:    true,
 						},
-						{
-							Type:         discordgo.ApplicationCommandOptionString,
-							Name:         "country-select",
-							Description:  "Select or search a country",
-							Required:     true,
-							Autocomplete: true,
-						},
+						//{
+						//	Type:         discordgo.ApplicationCommandOptionString,
+						//	Name:         "country-select",
+						//	Description:  "Select or search a country",
+						//	Required:     true,
+						//	Autocomplete: true,
+						//},
 						{
 							Type:         discordgo.ApplicationCommandOptionString,
 							Name:         "car",

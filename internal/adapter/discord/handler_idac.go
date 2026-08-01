@@ -263,7 +263,7 @@ func (h *Handler) HandleTeamRanking(cc *CommandContext) error {
 	}
 
 	// 2. Parse Limit
-	limit := 10
+	limit := 1000
 	if limitStr, ok := optMap["limit"]; ok {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 			limit = l
