@@ -20,7 +20,9 @@ func (h *Handler) HandleTimeAttack(cc *CommandContext) error {
 
 	// 1. Validate input
 	inputTrack := optMap["track"]
-	inputArea := strings.ToLower(optMap["country-select"])
+	//inputArea := strings.ToLower(optMap["country-select"])
+	inputArea := strings.ToLower(optMap["area"])
+
 	finalCourseID := inputTrack
 	courseName := entity.CourseDisplayNameByCode[finalCourseID]
 	if courseName == "" {
