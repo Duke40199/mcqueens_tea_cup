@@ -1,30 +1,22 @@
 package discord
 
 import (
-	"McQueens_Tea_Cup/internal/domain/entity"
-	"context"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
-func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map[string]string) {
-	// 0. DEFER
-	h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
+func (h *Handler) HandleStoreLocation(cc *CommandContext) error {
 	// 1. Validate & Parse Inputs
-	allNetAreaCode, _ := optMap["area-select"]
-	listAllNetStore, foundAreaName, err := h.IDACStoreLocationService.GetListAllNextStore(context.Background(), allNetAreaCode)
+	allNetAreaCode := cc.OptMap["area-select"]
+	listAllNetStore, foundAreaName, err := h.IDACStoreLocationService.GetListAllNextStore(cc.Ctx, allNetAreaCode)
 	if err != nil {
-		h.SendDeferredError(i, "Error finding list store.")
-		return
+		return fmt.Errorf("fetching AllNet store list: %w", err)
 	}
 	if listAllNetStore == nil {
-		h.SendDeferredError(i, "Cannot find list store.")
-		return
+		return NewUserError("Cannot find list store.")
 	}
 	var segaAreaCode string
 	for _, area := range h.AreaMetadata {
@@ -34,13 +26,11 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 		}
 	}
 	if segaAreaCode == "" {
-		h.SendDeferredError(i, "Cannot find area code.")
-		return
+		return NewUserError("Cannot find area code.")
 	}
-	mapSegaStore, err := h.IDACStoreLocationService.GetMapStoreFromTopPlayers(context.Background(), segaAreaCode)
+	mapSegaStore, err := h.IDACStoreLocationService.GetMapStoreFromTopPlayers(cc.Ctx, segaAreaCode)
 	if err != nil {
-		h.SendDeferredError(i, "Error finding list store.")
-		return
+		return fmt.Errorf("fetching Sega store map: %w", err)
 	}
 	if len(mapSegaStore) == 0 {
 		fmt.Printf("No area found from Sega API.")
@@ -67,7 +57,7 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 	sort.Slice(listAllNetStore, func(i, j int) bool {
 		return listAllNetStore[i].Name < listAllNetStore[j].Name
 	})
-	err = h.IDACStoreLocationService.BulkUpsertStoreLocation(context.Background(), listAllNetStore)
+	err = h.IDACStoreLocationService.BulkUpsertStoreLocation(cc.Ctx, listAllNetStore)
 	if err != nil {
 		fmt.Printf("error bulk upsert store location: %v\n", err)
 	}
@@ -83,8 +73,8 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 	if len(listAllNetStore) == 0 {
 		currentMessage.WriteString("No stores found for the specified area.")
 		pages = append(pages, currentMessage.String())
-		h.SendPagination(i, pages)
-		return
+		cc.SendPages(pages)
+		return nil
 	}
 	for j := 0; j < len(listAllNetStore); j++ {
 		var entry string
@@ -107,5 +97,6 @@ func (h *Handler) HandleStoreLocation(i *discordgo.InteractionCreate, optMap map
 		pages = append(pages, currentMessage.String())
 	}
 	// 5. Hand over to Pagination Helper
-	h.SendPagination(i, pages)
+	cc.SendPages(pages)
+	return nil
 }

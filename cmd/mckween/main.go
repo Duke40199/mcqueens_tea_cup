@@ -57,8 +57,12 @@ func main() {
 	idacCarService := service.NewIDACCarService(cfg, carRepo, segaClient)
 	idacTimeAttackMetadata := service.NewIDACTimeAttackService(cfg, taTimeMetadataRepo, segaClient)
 	storeLocationService := service.NewIDACStoreLocationService(cfg, allNetClient, segaClient, storeLocationRepo)
-	metaLogic := service.NewMetaLogicService(segaClient, carRepo)
 	idacAreaService := service.NewIDACAreaService(cfg, areaMetadataRepo, segaClient)
+	obRankingService := service.NewIDACOBRankingService(segaClient, obRankingCfgRepo)
+	teamService := service.NewIDACTeamService(segaClient)
+	playerService := service.NewIDACPlayerService(segaClient, aliasRepo, rankingCfgRepo, obRankingCfgRepo)
+	obMetaService := service.NewIDACOBMetaService(segaClient, carRepo)
+	metaLogic := service.NewMetaLogicService(obMetaService)
 
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,
@@ -73,6 +77,10 @@ func main() {
 		idacCarService,
 		idacTimeAttackMetadata,
 		idacAreaService,
+		obRankingService,
+		teamService,
+		playerService,
+		obMetaService,
 		segaClient,
 		allNetClient,
 	)

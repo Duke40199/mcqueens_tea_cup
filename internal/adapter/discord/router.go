@@ -106,6 +106,13 @@ func (h *Handler) RegisterCommands() error {
 						},
 						{
 							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "country-select",
+							Description:  "Select or search a country",
+							Required:     true,
+							Autocomplete: true,
+						},
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
 							Name:         "car",
 							Description:  "Select / search a car",
 							Required:     false,
@@ -329,36 +336,7 @@ func (h *Handler) RegisterCommands() error {
 					Name:        string(CommandNameIDACOBMeta),
 					Description: "Get Online Battle meta cars",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "rank",
-							Description: "Filter results by rank",
-							Required:    false,
-							Choices: []*discordgo.ApplicationCommandOptionChoice{
-								{Name: "Pride", Value: "pride"},
-								{Name: "Ruby", Value: "ruby"},
-								{Name: "Emerald", Value: "emerald"},
-								{Name: "Red", Value: "red"},
-								{Name: "Blue", Value: "blue"},
-								{Name: "Green", Value: "green"},
-							},
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
-							Name:        "area",
-							Description: "Filter by Country/Area (e.g. 'vn', 'jp')",
-							Required:    false,
-						},
-						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
-							Name:        "limit",
-							Description: "Number of results to show (1-25, default: 10)",
-							Required:    false,
-							MinValue:    &minLimit,
-							MaxValue:    maxLimit,
-						},
-					},
+					Options:     []*discordgo.ApplicationCommandOption{},
 				},
 				{
 					Name:        string(CommandNameIDACPlayerInfoTournament),
@@ -536,20 +514,20 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 
 	switch CommandName(subcommand.Name) {
 	case CommandNameIDACTimeAttack:
-		h.HandleTimeAttack(i, optMap, specInput)
+		h.dispatch(i, optMap, specInput, h.HandleTimeAttack)
 	case CommandNameIDACTeam:
-		h.HandleTeamRanking(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandleTeamRanking)
 	case CommandNameIDACPlayerProfile:
-		h.HandlePlayerInfo(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandlePlayerInfo)
 	case CommandNameIDACTimeAttackCompare:
-		h.HandlePlayerCompare(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandlePlayerCompare)
 	case CommandNameIDACOBRanking:
-		h.HandleOBRanking(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandleOBRanking)
 	case CommandNameIDACOBMeta:
-		h.HandleOBMeta(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandleOBMeta)
 	case CommandNameIDACPlayerInfoTournament:
-		h.HandlePlayerTournamentInfo(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandlePlayerTournamentInfo)
 	case CommandNameIDACListStoreLocation:
-		h.HandleStoreLocation(i, optMap)
+		h.dispatch(i, optMap, specInput, h.HandleStoreLocation)
 	}
 }
