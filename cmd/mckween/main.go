@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"McQueens_Tea_Cup/internal/adapter/client/all_net"
 	"McQueens_Tea_Cup/internal/adapter/client/sega_idac"
@@ -121,12 +123,41 @@ func main() {
 		}
 	}()
 
+	// 7.c. Health server
+	// The bot is outbound-only (Discord gateway, Sega/AllNet HTTP, Postgres) and
+	// never accepts inbound traffic. Web-service hosts like Render port-scan the
+	// container and route health checks to an open port, so we expose a tiny HTTP
+	// endpoint purely to satisfy that. Bind 0.0.0.0 (not localhost) or the scan
+	// won't detect it. Deployed as a background worker, this is simply unused.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "10000" // Render's default
+	}
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	healthSrv := &http.Server{Addr: "0.0.0.0:" + port, Handler: healthMux}
+	go func() {
+		log.Printf("🩺 Health server listening on :%s", port)
+		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("❌ Health server error: %v", err)
+		}
+	}()
+
 	// 8. Init graceful shutdown
 	log.Println("✅ Bot is running. Press CTRL-C to exit.")
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 	log.Println("Gracefully shutting down...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := healthSrv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("⚠️ Health server shutdown error: %v", err)
+	}
 }
 
 // ---------------------------------------------------------
