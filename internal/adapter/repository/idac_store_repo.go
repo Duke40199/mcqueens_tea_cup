@@ -20,7 +20,7 @@ type AllNetStoreLocationsRepository struct {
 func NewAllNetStoreLocationsRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.AllNetStoreLocationsRepository {
 	return &AllNetStoreLocationsRepository{
 		DB:        db,
-		tableName: tables.IDACStores,
+		tableName: quoteIdent(tables.IDACStores),
 	}
 }
 

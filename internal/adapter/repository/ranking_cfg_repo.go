@@ -21,7 +21,7 @@ type RankingCfgRepository struct {
 func NewRankingCfgRepo(db *sql.DB, tables config.DatabaseTablesConfig) port.RankingCfgRepository {
 	return &RankingCfgRepository{
 		DB:        db,
-		tableName: tables.CfgPlayerRanking,
+		tableName: quoteIdent(tables.CfgPlayerRanking),
 	}
 }
 

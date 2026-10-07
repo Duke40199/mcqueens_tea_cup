@@ -22,7 +22,7 @@ type OBRankingCfgRepository struct {
 func NewOBRankingCfgRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.OBRankingCfgRepository {
 	return &OBRankingCfgRepository{
 		DB:        db,
-		tableName: tables.OBRankingCfg,
+		tableName: quoteIdent(tables.OBRankingCfg),
 	}
 }
 
