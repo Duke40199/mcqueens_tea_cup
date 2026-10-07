@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
 )
@@ -16,10 +15,10 @@ type IDACOBMetaService struct {
 	// clients
 	segaClient port.SegaIDACClient
 	// repos
-	carRepo database.CarRepository
+	carRepo port.CarRepository
 }
 
-func NewIDACOBMetaService(segaClient port.SegaIDACClient, carRepo database.CarRepository) port.IDACOBMetaService {
+func NewIDACOBMetaService(segaClient port.SegaIDACClient, carRepo port.CarRepository) port.IDACOBMetaService {
 	return &IDACOBMetaService{segaClient: segaClient, carRepo: carRepo}
 }
 

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/utils"
 )
 
@@ -17,7 +17,7 @@ type AllNetStoreLocationsRepository struct {
 	tableName string
 }
 
-func NewAllNetStoreLocationsRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.AllNetStoreLocationsRepository {
+func NewAllNetStoreLocationsRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.AllNetStoreLocationsRepository {
 	return &AllNetStoreLocationsRepository{
 		DB:        db,
 		tableName: tables.IDACStores,

@@ -1,4 +1,4 @@
-package database
+package port
 
 import (
 	"context"
@@ -15,7 +15,7 @@ type AliasRepository interface {
 	Load() error
 }
 
-// AliasRepository defines how we interact with player aliases.
+// OBRankingCfgRepository defines how we interact with Online Battle ranking config.
 type OBRankingCfgRepository interface {
 	GetRankingCfgMap(ctx context.Context) (map[string]entity.OBRankingCfg, error)
 	GetBySegaID(ctx context.Context, segaID string) (*entity.OBRankingCfg, error)

@@ -98,8 +98,11 @@ func main() {
 		logger.Error(context.Background(), "failed to register commands", err)
 	}
 
+	// Notifier abstracts Discord message publishing for the sync services.
+	notifier := discord_handler.NewDiscordNotifier(discordSession.Session)
+
 	// 7.a. Cron Job: Online Battle Car Meta
-	metaSync := service.NewMetaSyncService(discordSession.Session, metaLogic, cfg.MetaSyncCfg)
+	metaSync := service.NewMetaSyncService(notifier, metaLogic, cfg.MetaSyncCfg)
 	go func() {
 		for {
 			// Fresh trace ID per sync run so its logs can be correlated.
@@ -116,7 +119,7 @@ func main() {
 	}()
 
 	// 7.b. Cron Job: Online Battle Active Players
-	activePlayersSync := service.NewActivePlayerSyncService(discordSession.Session, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
+	activePlayersSync := service.NewActivePlayerSyncService(notifier, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
 	go func() {
 		for {
 			// Fresh trace ID per sync run so its logs can be correlated.

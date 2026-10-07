@@ -5,7 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
@@ -15,15 +14,15 @@ import (
 type IDACCarService struct {
 	cfg config.Config
 	// repos
-	carRepo           database.CarRepository
-	storeLocationRepo database.AllNetStoreLocationsRepository
+	carRepo           port.CarRepository
+	storeLocationRepo port.AllNetStoreLocationsRepository
 	// clients
 	segaClient port.SegaIDACClient
 }
 
 func NewIDACCarService(
 	cfg config.Config,
-	carRepo database.CarRepository,
+	carRepo port.CarRepository,
 	segaClient port.SegaIDACClient,
 ) port.IDACCarService {
 	return &IDACCarService{

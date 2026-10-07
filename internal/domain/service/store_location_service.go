@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
@@ -13,14 +12,14 @@ type StoreLocationService struct {
 	cfg               config.Config
 	allNetClient      port.AllNetClient
 	segaIDACClient    port.SegaIDACClient
-	storeLocationRepo database.AllNetStoreLocationsRepository
+	storeLocationRepo port.AllNetStoreLocationsRepository
 }
 
 func NewIDACStoreLocationService(
 	cfg config.Config,
 	allNetClient port.AllNetClient,
 	segaIDACCLient port.SegaIDACClient,
-	storeLocationRepo database.AllNetStoreLocationsRepository,
+	storeLocationRepo port.AllNetStoreLocationsRepository,
 ) port.IDACStoreLocationService {
 	return &StoreLocationService{
 		cfg:               cfg,

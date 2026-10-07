@@ -7,29 +7,26 @@ import (
 	"strings"
 	"time"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 const segaTimeLayout = "2006/01/02 15:04:05"
 
 type ActivePlayerSyncService struct {
-	Session          *discordgo.Session
+	Notifier         port.Notifier
 	SegaClient       port.SegaIDACClient
-	AreaRepo         database.AreaRepository
-	OBRankingCfgRepo database.OBRankingCfgRepository
+	AreaRepo         port.AreaRepository
+	OBRankingCfgRepo port.OBRankingCfgRepository
 	MetaLogic        *MetaLogicService
 	Config           config.ActivePlayersSyncConfig
 }
 
-func NewActivePlayerSyncService(s *discordgo.Session, client port.SegaIDACClient, areaRepo database.AreaRepository, obRepo database.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
+func NewActivePlayerSyncService(notifier port.Notifier, client port.SegaIDACClient, areaRepo port.AreaRepository, obRepo port.OBRankingCfgRepository, logic *MetaLogicService, cfg config.ActivePlayersSyncConfig) *ActivePlayerSyncService {
 	return &ActivePlayerSyncService{
-		Session:          s,
+		Notifier:         notifier,
 		SegaClient:       client,
 		AreaRepo:         areaRepo,
 		OBRankingCfgRepo: obRepo,
@@ -86,20 +83,18 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	lastReportedTimeStr := ""
 	lastDetectedHeaderPrefix := "_Detected at: "
 
-	messages, err := s.Session.ChannelMessages(s.Config.ChannelID, 50, "", "", "")
-	var botMessages []*discordgo.Message
-	if err == nil {
-		for _, m := range messages {
-			if m.Author.ID == s.Session.State.User.ID {
-				botMessages = append(botMessages, m)
-				if lastReportedTimeStr == "" && strings.Contains(m.Content, lastDetectedHeaderPrefix) {
-					start := strings.Index(m.Content, lastDetectedHeaderPrefix) + len(lastDetectedHeaderPrefix)
-					end := strings.Index(m.Content[start:], " (JST)")
-					if end > -1 {
-						lastReportedTimeStr = m.Content[start : start+end]
-						logger.Info(ctx, fmt.Sprintf("found existing state in Discord, last reported: %s", lastReportedTimeStr))
-					}
-				}
+	botMessages, err := s.Notifier.BotMessages(ctx, s.Config.ChannelID, 50)
+	if err != nil {
+		logger.Warn(ctx, fmt.Sprintf("could not fetch existing messages: %v", err))
+		botMessages = nil
+	}
+	for _, m := range botMessages {
+		if lastReportedTimeStr == "" && strings.Contains(m.Content, lastDetectedHeaderPrefix) {
+			start := strings.Index(m.Content, lastDetectedHeaderPrefix) + len(lastDetectedHeaderPrefix)
+			end := strings.Index(m.Content[start:], " (JST)")
+			if end > -1 {
+				lastReportedTimeStr = m.Content[start : start+end]
+				logger.Info(ctx, fmt.Sprintf("found existing state in Discord, last reported: %s", lastReportedTimeStr))
 			}
 		}
 	}
@@ -264,34 +259,10 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	if currentMessage.Len() > 0 {
 		pages = append(pages, currentMessage.String())
 	}
-	// Reverse to get chronological order (oldest first)
-	for i, j := 0, len(botMessages)-1; i < j; i, j = i+1, j-1 {
-		botMessages[i], botMessages[j] = botMessages[j], botMessages[i]
-	}
 
-	// 6. Edit or Send
-	for i, page := range pages {
-		if i < len(botMessages) {
-			_, err := s.Session.ChannelMessageEdit(s.Config.ChannelID, botMessages[i].ID, page)
-			if err != nil {
-				logger.Error(ctx, fmt.Sprintf("could not edit message %s", botMessages[i].ID), err)
-			}
-		} else {
-			_, err := s.Session.ChannelMessageSend(s.Config.ChannelID, page)
-			if err != nil {
-				logger.Error(ctx, "error sending active players page", err)
-			}
-		}
-	}
-
-	// 7. Prune leftover
-	if len(botMessages) > len(pages) {
-		for i := len(pages); i < len(botMessages); i++ {
-			err := s.Session.ChannelMessageDelete(s.Config.ChannelID, botMessages[i].ID)
-			if err != nil {
-				logger.Error(ctx, fmt.Sprintf("could not delete leftover message %s", botMessages[i].ID), err)
-			}
-		}
+	// Reconcile the channel to the freshly rendered pages (edit / send / delete).
+	if err := s.Notifier.SyncPages(ctx, s.Config.ChannelID, botMessages, pages); err != nil {
+		logger.Error(ctx, "failed to sync active player pages", err)
 	}
 
 	logger.Info(ctx, fmt.Sprintf("active player sync completed for %d areas", len(activePlayersByArea)))

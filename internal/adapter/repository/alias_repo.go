@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
 
 	_ "github.com/lib/pq"
@@ -19,7 +19,7 @@ type AliasRepository struct {
 }
 
 // NewAliasRepo returns the struct that satisfies AliasRepository
-func NewAliasRepo(db *sql.DB, tables config.DatabaseTablesConfig) database.AliasRepository {
+func NewAliasRepo(db *sql.DB, tables config.DatabaseTablesConfig) port.AliasRepository {
 	return &AliasRepository{
 		DB:        db,
 		tableName: tables.PlayerAlias,

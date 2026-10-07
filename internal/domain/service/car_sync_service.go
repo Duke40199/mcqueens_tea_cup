@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
@@ -14,10 +13,10 @@ import (
 
 type CarSyncService struct {
 	SegaClient port.SegaIDACClient
-	CarRepo    database.CarRepository
+	CarRepo    port.CarRepository
 }
 
-func NewCarSyncService(client port.SegaIDACClient, repo database.CarRepository) *CarSyncService {
+func NewCarSyncService(client port.SegaIDACClient, repo port.CarRepository) *CarSyncService {
 	return &CarSyncService{
 		SegaClient: client,
 		CarRepo:    repo,

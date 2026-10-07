@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
 
 	_ "github.com/lib/pq"
@@ -20,7 +20,7 @@ type TATimeMetadataRepository struct {
 }
 
 // NewTATimeMetadataRepository returns the struct that satisfies TATimeMetadataRepository
-func NewTATimeMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.TATimeMetadataRepository {
+func NewTATimeMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.TATimeMetadataRepository {
 	return &TATimeMetadataRepository{
 		DB:                    db,
 		taTimeMetadataTable:   tables.IDACTATimeMetadata,

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
 )
 
@@ -16,7 +16,7 @@ type CfsStateRepo struct {
 	tableName string
 }
 
-func NewCfsStateRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.CfsStateRepository {
+func NewCfsStateRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.CfsStateRepository {
 	return &CfsStateRepo{DB: db, tableName: tables.CfsState}
 }
 
