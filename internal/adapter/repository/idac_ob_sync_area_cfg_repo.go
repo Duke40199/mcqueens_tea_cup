@@ -18,7 +18,7 @@ type AreaRepository struct {
 func NewAreaRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.AreaRepository {
 	return &AreaRepository{
 		DB:        db,
-		tableName: tables.IDACOBSyncAreaCfg,
+		tableName: quoteIdent(tables.IDACOBSyncAreaCfg),
 	}
 }
 

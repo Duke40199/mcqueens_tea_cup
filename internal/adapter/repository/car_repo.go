@@ -24,8 +24,8 @@ type CarRepository struct {
 func NewCarRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.CarRepository {
 	return &CarRepository{
 		DB:             db,
-		carsTable:      tables.IDACCarsMetadata,
-		carStylesTable: tables.IDACCarStylesMetadata,
+		carsTable:      quoteIdent(tables.IDACCarsMetadata),
+		carStylesTable: quoteIdent(tables.IDACCarStylesMetadata),
 	}
 }
 

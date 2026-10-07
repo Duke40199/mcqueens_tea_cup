@@ -18,7 +18,7 @@ type IDACAreaMetadataRepository struct {
 func NewIDACAreaMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.IDACAreaMetadataRepository {
 	return &IDACAreaMetadataRepository{
 		DB:        db,
-		tableName: tables.IDACAreaMetadata,
+		tableName: quoteIdent(tables.IDACAreaMetadata),
 	}
 }
 

@@ -22,7 +22,7 @@ type AliasRepository struct {
 func NewAliasRepo(db *sql.DB, tables config.DatabaseTablesConfig) port.AliasRepository {
 	return &AliasRepository{
 		DB:        db,
-		tableName: tables.PlayerAlias,
+		tableName: quoteIdent(tables.PlayerAlias),
 	}
 }
 

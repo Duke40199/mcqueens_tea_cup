@@ -17,7 +17,7 @@ type CfsStateRepo struct {
 }
 
 func NewCfsStateRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.CfsStateRepository {
-	return &CfsStateRepo{DB: db, tableName: tables.CfsState}
+	return &CfsStateRepo{DB: db, tableName: quoteIdent(tables.CfsState)}
 }
 
 func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState, error) {

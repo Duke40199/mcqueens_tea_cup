@@ -23,8 +23,8 @@ type TATimeMetadataRepository struct {
 func NewTATimeMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.TATimeMetadataRepository {
 	return &TATimeMetadataRepository{
 		DB:                    db,
-		taTimeMetadataTable:   tables.IDACTATimeMetadata,
-		cfgPlayerRankingTable: tables.CfgPlayerRanking,
+		taTimeMetadataTable:   quoteIdent(tables.IDACTATimeMetadata),
+		cfgPlayerRankingTable: quoteIdent(tables.CfgPlayerRanking),
 	}
 }
 
