@@ -21,7 +21,7 @@ func NewCfsStateRepository(db *sql.DB, tables config.DatabaseTablesConfig) datab
 
 func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState, error) {
 	query := fmt.Sprintf(`SELECT id FROM %s ORDER BY created_at DESC LIMIT 1;`, r.tableName)
-	row := r.DB.QueryRow(query)
+	row := r.DB.QueryRowContext(ctx, query)
 
 	var cfsState entity.CfsState
 	err := row.Scan(&cfsState.ID)
@@ -36,7 +36,7 @@ func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState,
 	return &cfsState, nil
 }
 
-func (r *CfsStateRepo) CreateCfsState(discordID, content string) (int64, error) {
+func (r *CfsStateRepo) CreateCfsState(ctx context.Context, discordID, content string) (int64, error) {
 	// Let databaseQL automatically generate the next `id` using SERIAL,
 	// and then immediately return that new `id` back to us.
 	query := fmt.Sprintf(`
@@ -45,7 +45,7 @@ func (r *CfsStateRepo) CreateCfsState(discordID, content string) (int64, error) 
 		RETURNING id;
 	`, r.tableName)
 	var newID int64
-	err := r.DB.QueryRow(query, discordID, content).Scan(&newID)
+	err := r.DB.QueryRowContext(ctx, query, discordID, content).Scan(&newID)
 
 	return newID, err
 }

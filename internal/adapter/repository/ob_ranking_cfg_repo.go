@@ -26,7 +26,9 @@ func NewOBRankingCfgRepository(db *sql.DB, tables config.DatabaseTablesConfig) d
 
 // GetByAliasKey fetches alias from DB
 func (o *OBRankingCfgRepository) GetBySegaID(key string) (*entity.OBRankingCfg, error) {
-	query := fmt.Sprintf(`SELECT * FROM %s WHERE sega_id = $1`, o.tableName)
+	// Explicit columns matching the scan below (id, sega_id, name). Using SELECT *
+	// returned all 4 columns while Scan only consumed 3, erroring on every call.
+	query := fmt.Sprintf(`SELECT id, sega_id, name FROM %s WHERE sega_id = $1`, o.tableName)
 
 	row := o.DB.QueryRow(query, key)
 
@@ -45,7 +47,9 @@ func (o *OBRankingCfgRepository) GetBySegaID(key string) (*entity.OBRankingCfg, 
 }
 
 func (o *OBRankingCfgRepository) GetRankingCfgMap() (map[string]entity.OBRankingCfg, error) {
-	query := fmt.Sprintf(`SELECT * FROM %s`, o.tableName)
+	// Explicit columns (in scan order) so an added/reordered column can't corrupt
+	// the positional Scan below.
+	query := fmt.Sprintf(`SELECT id, name, sega_id, emoji FROM %s`, o.tableName)
 
 	rows, err := o.DB.Query(query)
 	if err != nil {
@@ -65,5 +69,5 @@ func (o *OBRankingCfgRepository) GetRankingCfgMap() (map[string]entity.OBRanking
 		}
 		cfgMap[cfg.SegaID] = cfg
 	}
-	return cfgMap, nil
+	return cfgMap, rows.Err()
 }

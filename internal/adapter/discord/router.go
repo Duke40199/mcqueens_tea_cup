@@ -401,6 +401,9 @@ func (h *Handler) RegisterCommands() error {
 					Name:        "message",
 					Description: "Your anonymous message",
 					Required:    true,
+					// Keep the confession within Discord's 2000-char message limit,
+					// leaving room for the "#cfsNNNN: " prefix added on send.
+					MaxLength: 1900,
 				},
 			},
 		},
