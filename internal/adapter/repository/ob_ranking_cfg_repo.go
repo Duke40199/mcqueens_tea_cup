@@ -38,7 +38,7 @@ func (o *OBRankingCfgRepository) GetBySegaID(ctx context.Context, key string) (*
 	err := row.Scan(&cfg.ID, &cfg.SegaID, &cfg.Name)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, err // Not found
+			return nil, nil // Not found is not an error
 		}
 		logger.Error(ctx, "failed to get ob ranking cfg by sega id", err)
 		return nil, err

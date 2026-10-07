@@ -36,7 +36,7 @@ func (a *AliasRepository) GetByAliasKey(ctx context.Context, key string) (entity
 	err := row.Scan(&alias.Ign, &alias.Area)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return entity.PlayerAlias{}, false, err // Not found
+			return entity.PlayerAlias{}, false, nil // Not found is not an error
 		}
 		logger.Error(ctx, "failed to get alias by key", err)
 		return entity.PlayerAlias{}, false, err
@@ -56,7 +56,7 @@ func (a *AliasRepository) GetByIgnAndAreaCode(ctx context.Context, ign, areaCode
 	err := row.Scan(&alias.Ign, &alias.Area)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return entity.PlayerAlias{}, false, err // Not found
+			return entity.PlayerAlias{}, false, nil // Not found is not an error
 		}
 		logger.Error(ctx, "failed to get alias by ign and area", err)
 		return entity.PlayerAlias{}, false, err
