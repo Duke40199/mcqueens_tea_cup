@@ -3,6 +3,7 @@ package discord
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"slices"
 	"strconv"
@@ -189,6 +190,16 @@ func (h *Handler) GetPlayerTimeAttackRank(playerTime time.Time, courseID string,
 }
 
 func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key string, optMap map[string]string) {
+	// Defer first: the DB write and the blocking h.Session.User() lookup below can
+	// exceed Discord's 3-second response window, which would expire the token and
+	// make the final reply fail.
+	if err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	}); err != nil {
+		log.Printf("player-alias: failed to defer interaction: %v", err)
+		return
+	}
+
 	ign := optMap["ign"]
 	area := optMap["area"]
 
@@ -232,13 +243,12 @@ func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key strin
 		}
 	}
 
-	_ = h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:         msg,
-			AllowedMentions: &discordgo.MessageAllowedMentions{},
-		},
-	})
+	if _, err := h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content:         &msg,
+		AllowedMentions: &discordgo.MessageAllowedMentions{},
+	}); err != nil {
+		log.Printf("player-alias: failed to edit response: %v", err)
+	}
 }
 
 func (h *Handler) HandleTeamRanking(cc *CommandContext) error {

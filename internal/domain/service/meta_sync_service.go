@@ -65,44 +65,53 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 	// Polling Phase
 	jstLoc := time.FixedZone("JST", 9*60*60)
 	for {
+		// Stop polling after the max duration regardless of the data state. This
+		// MUST live at the top of the loop (not nested inside the "data found"
+		// checks below): during a Sega outage the response has no "Calculated at:"
+		// header, so a nested break would never fire and the loop would spin every
+		// minute until ctx is cancelled.
+		if time.Since(startTime) > maxPollingDuration {
+			log.Printf("❌ MetaSync: Max polling duration reached. Using latest available data.")
+			detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
+			break
+		}
+
 		// Get formatted pages (this also fetches from Sega internally)
 		pages, err = s.MetaLogic.GetOBMetaPages(ctx, 1000, "all")
 		if err != nil {
 			return "", fmt.Errorf("failed to get meta pages: %w", err)
 		}
 
-		// Validation: check if data is fresh
+		// Validation: check if data is fresh. Test the raw Index result for the
+		// header before adding the prefix length — otherwise calcDateStart is 14
+		// even when the header is absent, which both defeats the guard and risks a
+		// slice-out-of-range on msg[calcDateStart:].
 		if len(pages) > 0 {
 			msg := pages[0]
-			calcDateStart := strings.Index(msg, "Calculated at: ") + len("Calculated at: ")
-			calcDateEnd := strings.Index(msg[calcDateStart:], " (JST)")
-			if calcDateStart > -1 && calcDateEnd > -1 {
-				calcDate := msg[calcDateStart : calcDateStart+calcDateEnd]
+			if headerIdx := strings.Index(msg, "Calculated at: "); headerIdx > -1 {
+				calcDateStart := headerIdx + len("Calculated at: ")
+				if calcDateEnd := strings.Index(msg[calcDateStart:], " (JST)"); calcDateEnd > -1 {
+					calcDate := msg[calcDateStart : calcDateStart+calcDateEnd]
 
-				// State-Aware Refresh Check
-				isNewerThanDiscord := true
-				if lastReportedTimeStr != "" {
-					respTime, _ := time.ParseInLocation("2006/01/02 15:04:05", calcDate, jstLoc)
-					discordTime, _ := time.ParseInLocation("2006/01/02 15:04:05", lastReportedTimeStr, jstLoc)
-					isNewerThanDiscord = respTime.After(discordTime)
-				}
+					// State-Aware Refresh Check
+					isNewerThanDiscord := true
+					if lastReportedTimeStr != "" {
+						respTime, _ := time.ParseInLocation("2006/01/02 15:04:05", calcDate, jstLoc)
+						discordTime, _ := time.ParseInLocation("2006/01/02 15:04:05", lastReportedTimeStr, jstLoc)
+						isNewerThanDiscord = respTime.After(discordTime)
+					}
 
-				if s.MetaLogic.IsDataFresh(calcDate) && isNewerThanDiscord {
-					log.Printf("✅ MetaSync: Data is fresh & newer (CalcDate: %s). Proceeding...", calcDate)
-					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
-					break
-				}
+					if s.MetaLogic.IsDataFresh(calcDate) && isNewerThanDiscord {
+						log.Printf("✅ MetaSync: Data is fresh & newer (CalcDate: %s). Proceeding...", calcDate)
+						detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
+						break
+					}
 
-				if time.Since(startTime) > maxPollingDuration {
-					log.Printf("❌ MetaSync: Max polling duration reached. Using latest available data.")
-					detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
-					break
-				}
-
-				if !isNewerThanDiscord {
-					log.Printf("😴 MetaSync: Data (%s) is already reported in Discord. Waiting...", calcDate)
-				} else {
-					log.Printf("⚠️ MetaSync: Sega is late (CalcDate: %s). Polling again...", calcDate)
+					if !isNewerThanDiscord {
+						log.Printf("😴 MetaSync: Data (%s) is already reported in Discord. Waiting...", calcDate)
+					} else {
+						log.Printf("⚠️ MetaSync: Sega is late (CalcDate: %s). Polling again...", calcDate)
+					}
 				}
 			}
 		}
