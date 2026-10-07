@@ -15,8 +15,12 @@ type PostgresDB struct {
 }
 
 func NewPostgresDBConn(cfg config.DatabaseConfig) (*sql.DB, error) {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name)
+	sslMode := cfg.SSLMode
+	if sslMode == "" {
+		sslMode = "require"
+	}
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, sslMode)
 	dbConn, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		// Return the error so the caller decides how to handle it, instead of

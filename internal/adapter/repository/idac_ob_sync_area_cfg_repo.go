@@ -38,5 +38,5 @@ func (r *AreaRepository) GetOBActiveAreas(ctx context.Context) ([]entity.AreaSyn
 		}
 		areas = append(areas, area)
 	}
-	return areas, nil
+	return areas, rows.Err()
 }

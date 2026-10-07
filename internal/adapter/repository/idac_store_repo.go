@@ -9,6 +9,7 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/utils"
 )
 
 type AllNetStoreLocationsRepository struct {
@@ -41,21 +42,32 @@ func (r *AllNetStoreLocationsRepository) BulkUpsertStoreLocation(ctx context.Con
 	if len(stores) == 0 {
 		return nil
 	}
-	var valueStrings []string
-	var valueArgs []interface{}
-	for i, store := range stores {
-		// We multiply the index by 5 since there are 5 columns per store
-		n := i * 4
-		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, NOW())", n+1, n+2, n+3, n+4))
-		valueArgs = append(valueArgs, store.Name, store.Address, store.SegaAreaCode, store.AllNetAreaCode)
+
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
 	}
-	query := fmt.Sprintf(`
-		INSERT INTO %s (name, address, sega_area_code, all_net_area_code, created_at)
-		VALUES %s
-		ON CONFLICT (name) DO UPDATE SET
-			address = EXCLUDED.address,
-			sega_area_code = EXCLUDED.sega_area_code,
-			all_net_area_code = EXCLUDED.all_net_area_code;`, r.tableName, strings.Join(valueStrings, ","))
-	_, err := r.DB.ExecContext(ctx, query, valueArgs...)
-	return err
+	defer tx.Rollback() // no-op once Commit succeeds
+
+	// Chunk so we never exceed Postgres's 65535 bind-parameter limit (4 params/row).
+	for _, batch := range utils.ChunkSlice(stores, pgMaxBulkRows) {
+		var valueStrings []string
+		var valueArgs []interface{}
+		for i, store := range batch {
+			n := i * 4 // 4 bound columns per store (created_at uses NOW())
+			valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, NOW())", n+1, n+2, n+3, n+4))
+			valueArgs = append(valueArgs, store.Name, store.Address, store.SegaAreaCode, store.AllNetAreaCode)
+		}
+		query := fmt.Sprintf(`
+			INSERT INTO %s (name, address, sega_area_code, all_net_area_code, created_at)
+			VALUES %s
+			ON CONFLICT (name) DO UPDATE SET
+				address = EXCLUDED.address,
+				sega_area_code = EXCLUDED.sega_area_code,
+				all_net_area_code = EXCLUDED.all_net_area_code;`, r.tableName, strings.Join(valueStrings, ","))
+		if _, err := tx.ExecContext(ctx, query, valueArgs...); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

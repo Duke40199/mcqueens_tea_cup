@@ -10,6 +10,7 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/utils"
 
 	"github.com/lib/pq"
 )
@@ -33,47 +34,62 @@ func (r *CarRepository) UpsertCars(ctx context.Context, cars []entity.CarMetadat
 		return nil
 	}
 
-	query := fmt.Sprintf(`INSERT INTO %s (id, sega_id, name, model_code, maker, base_spec, style_ids) VALUES `, r.carsTable)
-	values := []any{}
-	placeholders := []string{}
-	// Batch insert
-	for i, car := range cars {
-		placeholders = append(placeholders,
-			fmt.Sprintf("($%d,$%d, $%d, $%d, $%d, $%d, $%d)", i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
-		values = append(values, car.ID, car.SegaCarID, car.Name, car.ModelCode, car.Maker, car.BaseStyleName, pq.Int64Array(car.CarStyleIDs))
-	}
-	query += strings.Join(placeholders, ",")
-	query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name, maker = EXCLUDED.maker, base_spec = EXCLUDED.base_spec;`
-
-	_, err := r.DB.ExecContext(ctx, query, values...)
+	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
-		log.Printf("error upserting cars: %v. Query: %s", err, formatQuery(query, values))
 		return err
 	}
-	return nil
+	defer tx.Rollback() // no-op once Commit succeeds
+
+	// Chunk so we never exceed Postgres's 65535 bind-parameter limit (7 params/row).
+	for _, batch := range utils.ChunkSlice(cars, pgMaxBulkRows) {
+		query := fmt.Sprintf(`INSERT INTO %s (id, sega_id, name, model_code, maker, base_spec, style_ids) VALUES `, r.carsTable)
+		values := make([]any, 0, len(batch)*7)
+		placeholders := make([]string, 0, len(batch))
+		for i, car := range batch {
+			placeholders = append(placeholders,
+				fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d)", i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
+			values = append(values, car.ID, car.SegaCarID, car.Name, car.ModelCode, car.Maker, car.BaseStyleName, pq.Int64Array(car.CarStyleIDs))
+		}
+		query += strings.Join(placeholders, ",")
+		query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name, maker = EXCLUDED.maker, base_spec = EXCLUDED.base_spec;`
+
+		if _, err := tx.ExecContext(ctx, query, values...); err != nil {
+			log.Printf("error upserting cars: %v", err)
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *CarRepository) UpsertCarStyles(ctx context.Context, styles []entity.CarStyleMetadata) error {
 	if len(styles) == 0 {
 		return nil
 	}
-	query := fmt.Sprintf(`INSERT INTO %s (id, sega_id, name, car_id) VALUES `, r.carStylesTable)
-	values := []any{}
-	placeholders := []string{}
 
-	for i, style := range styles {
-		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d)", i*4+1, i*4+2, i*4+3, i*4+4))
-		values = append(values, style.ID, style.StyleCarID, style.RouteStyleName, style.CarID)
-	}
-
-	query += strings.Join(placeholders, ",")
-	query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name;`
-
-	_, err := r.DB.ExecContext(ctx, query, values...)
+	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
-		log.Printf("error upserting styles: %v. Query: %s", err, formatQuery(query, values))
+		return err
 	}
-	return err
+	defer tx.Rollback() // no-op once Commit succeeds
+
+	// Chunk so we never exceed Postgres's 65535 bind-parameter limit (4 params/row).
+	for _, batch := range utils.ChunkSlice(styles, pgMaxBulkRows) {
+		query := fmt.Sprintf(`INSERT INTO %s (id, sega_id, name, car_id) VALUES `, r.carStylesTable)
+		values := make([]any, 0, len(batch)*4)
+		placeholders := make([]string, 0, len(batch))
+		for i, style := range batch {
+			placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d)", i*4+1, i*4+2, i*4+3, i*4+4))
+			values = append(values, style.ID, style.StyleCarID, style.RouteStyleName, style.CarID)
+		}
+		query += strings.Join(placeholders, ",")
+		query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name;`
+
+		if _, err := tx.ExecContext(ctx, query, values...); err != nil {
+			log.Printf("error upserting styles: %v", err)
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // GetBaseSpecMap returns a map of (model_code OR alias) -> CarSpecInfo
@@ -123,25 +139,6 @@ func (r *CarRepository) GetSegaIDToUUIDMap(ctx context.Context) (map[int64]strin
 		result[segaID] = id
 	}
 	return result, rows.Err()
-}
-
-func formatQuery(query string, args []any) string {
-	for i, arg := range args {
-		placeholder := fmt.Sprintf("$%d", i+1)
-		var val string
-		switch v := arg.(type) {
-		case string:
-			val = fmt.Sprintf("'%s'", v)
-		case int, int64, float64:
-			val = fmt.Sprintf("%v", v)
-		case bool:
-			val = fmt.Sprintf("%v", v)
-		default:
-			val = fmt.Sprintf("'%v'", v)
-		}
-		query = strings.Replace(query, placeholder, val, 1)
-	}
-	return query
 }
 
 func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecMap map[string]string) (map[string]entity.CarSpecInfo, error) {

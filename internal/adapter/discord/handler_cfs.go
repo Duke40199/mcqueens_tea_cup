@@ -1,8 +1,10 @@
 package discord
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -34,7 +36,9 @@ func (h *Handler) HandleAnonymousCommand(i *discordgo.InteractionCreate) {
 	}
 
 	// 3. Persist the confession (this also allocates the sequential id).
-	newID, err := h.CfsStateRepo.CreateCfsState(discordID, messageContent)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	newID, err := h.CfsStateRepo.CreateCfsState(ctx, discordID, messageContent)
 	if err != nil {
 		log.Printf("cfs: failed to create cfs state: %v", err)
 		h.editEphemeralReply(i, "⚠️ Something went wrong saving your confession. Please try again.")

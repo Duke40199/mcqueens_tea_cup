@@ -122,11 +122,19 @@ func (h *Handler) HandleTimeAttack(cc *CommandContext) error {
 		splitSegaCarName := strings.Split(listCarNameSegaFormat[z], "[")
 		// if not found by chassis code -> find by aliases
 		var foundCarFullInfo entity.CarSpecInfo
+		found := false
 		for _, carFullInfo := range carListFullInfo {
 			if slices.Contains(carFullInfo.Aliases, splitSegaCarName[0]) || splitSegaCarName[0] == carFullInfo.ModelCode {
 				foundCarFullInfo = carFullInfo
-				continue
+				found = true
+				break // stop at the first match; a later alias collision must not overwrite it
 			}
+		}
+		if !found {
+			headerCarPercentage += fmt.Sprintf("%d. **%s** - `%.1f%%`\n",
+				carCount+1, listCarPercentages[z].SegaCarName, listCarPercentages[z].Percentage)
+			carCount++
+			continue
 		}
 
 		entry := fmt.Sprintf("%d. %s %s **%s %s (%s)** - `%.1f%%`\n", carCount+1,

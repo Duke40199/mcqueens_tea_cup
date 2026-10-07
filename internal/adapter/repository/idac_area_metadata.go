@@ -23,7 +23,12 @@ func NewIDACAreaMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfi
 }
 
 func (r *IDACAreaMetadataRepository) GetAll(ctx context.Context) ([]entity.IDACAreaMetadata, error) {
-	query := fmt.Sprintf(`SELECT * FROM %s`, r.tableName)
+	// Explicit column list (in scan order) so an added/reordered column can't
+	// silently corrupt the positional Scan below.
+	query := fmt.Sprintf(
+		`SELECT id, sega_area_code, name, aliases, created_at, updated_at, all_net_area_code, area_type FROM %s`,
+		r.tableName,
+	)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -46,5 +51,5 @@ func (r *IDACAreaMetadataRepository) GetAll(ctx context.Context) ([]entity.IDACA
 		}
 		areas = append(areas, area)
 	}
-	return areas, nil
+	return areas, rows.Err()
 }

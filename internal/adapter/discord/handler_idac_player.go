@@ -52,7 +52,12 @@ func (h *Handler) HandlePlayerTournamentInfo(cc *CommandContext) error {
 	if !isInputArea {
 		return NewUserError("Area input is required.")
 	}
-	areaCode := entity.AreaAliases[areaInput]
+	// Resolve an alias (e.g. "vn") to its code, but fall back to the raw input so
+	// direct codes like "area-57" aren't silently turned into an empty string.
+	areaCode := areaInput
+	if val, ok := entity.AreaAliases[strings.ToLower(areaInput)]; ok {
+		areaCode = val
+	}
 
 	// 2. Orchestrate via the domain service
 	view, err := h.PlayerService.GetTournamentInfo(cc.Ctx, areaCode)

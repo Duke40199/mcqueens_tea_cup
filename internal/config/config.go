@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -95,6 +96,7 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	Name     string
+	SSLMode  string
 }
 
 // DatabaseTablesConfig holds the physical table names, so they can be
@@ -145,6 +147,7 @@ func LoadConfig() (*AppConfig, error) {
 			User:     getEnv("DB_USER", ""),
 			Password: getEnv("DB_PASSWORD", ""),
 			Name:     getEnv("DB_NAME", ""),
+			SSLMode:  getEnv("DB_SSLMODE", "require"),
 		},
 		DatabaseTablesCfg: DatabaseTablesConfig{
 			IDACCarsMetadata:      getEnv("DB_TABLE_IDAC_CARS_METADATA", "sega_idac_cars_metadata"),
@@ -189,9 +192,28 @@ func LoadConfig() (*AppConfig, error) {
 		},
 	}
 
-	// Validations
+	// Validations: fail fast with a clear message naming the actual env var.
+	missing := []string{}
 	if cfg.DiscordCfg.Token == "" {
-		return nil, fmt.Errorf("DISCORD_TOKEN is missing")
+		missing = append(missing, "DISCORD_BOT_TOKEN")
+	}
+	if cfg.DatabaseCfg.Host == "" {
+		missing = append(missing, "DB_HOST")
+	}
+	if cfg.DatabaseCfg.Port == 0 {
+		missing = append(missing, "DB_PORT")
+	}
+	if cfg.DatabaseCfg.User == "" {
+		missing = append(missing, "DB_USER")
+	}
+	if cfg.DatabaseCfg.Name == "" {
+		missing = append(missing, "DB_NAME")
+	}
+	if cfg.SegaClientCfg.SegaIDACHost == "" {
+		missing = append(missing, "SEGA_IDAC_HOST")
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
 
 	return cfg, nil

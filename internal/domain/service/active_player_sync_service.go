@@ -105,7 +105,8 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	}
 
 	// 5. Polling Phase (Canary Check)
-	jstLoc, _ := time.LoadLocation("Asia/Tokyo")
+	// Use a fixed offset instead of LoadLocation("Asia/Tokyo")
+	jstLoc := time.FixedZone("JST", 9*60*60)
 	canaryArea := areas[0]
 
 	for {

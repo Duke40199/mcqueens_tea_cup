@@ -42,7 +42,7 @@ func (r *RankingCfgRepository) GetListTimeAttackRankingCfg(ctx context.Context) 
 		}
 		listCfg = append(listCfg, &cfg)
 	}
-	return listCfg, nil
+	return listCfg, rows.Err()
 }
 
 // GetListPlayerGradeCfg fetches player grade cfg from DB
@@ -62,7 +62,7 @@ func (r *RankingCfgRepository) GetListPlayerGradeCfg(ctx context.Context) ([]*en
 		}
 		listCfg = append(listCfg, &cfg)
 	}
-	return listCfg, nil
+	return listCfg, rows.Err()
 }
 
 // GetListPlayerGradeCfg fetches player grade cfg from DB
@@ -82,7 +82,7 @@ func (r *RankingCfgRepository) GetPlayerGradeBySegaIDs(ctx context.Context, grad
 		}
 		listCfg = append(listCfg, &cfg)
 	}
-	return listCfg, nil
+	return listCfg, rows.Err()
 }
 
 // Load is not needed for DB (Query on demand), so we leave it empty to satisfy interface
