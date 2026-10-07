@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
@@ -12,14 +11,14 @@ import (
 type IDACAreaService struct {
 	cfg config.Config
 	// repos
-	idacAreaMetadataRepo database.IDACAreaMetadataRepository
+	idacAreaMetadataRepo port.IDACAreaMetadataRepository
 	// clients
 	segaClient port.SegaIDACClient
 }
 
 func NewIDACAreaService(
 	cfg config.Config,
-	idacAreaMetadataRepo database.IDACAreaMetadataRepository,
+	idacAreaMetadataRepo port.IDACAreaMetadataRepository,
 	segaClient port.SegaIDACClient,
 ) port.IDACAreaService {
 	return &IDACAreaService{

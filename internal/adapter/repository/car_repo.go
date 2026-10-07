@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
 	"McQueens_Tea_Cup/pkg/utils"
 
@@ -21,7 +21,7 @@ type CarRepository struct {
 	carStylesTable string
 }
 
-func NewCarRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.CarRepository {
+func NewCarRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.CarRepository {
 	return &CarRepository{
 		DB:             db,
 		carsTable:      tables.IDACCarsMetadata,

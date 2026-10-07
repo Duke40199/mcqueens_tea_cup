@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 
 	_ "github.com/lib/pq"
 )
@@ -18,7 +18,7 @@ type RankingCfgRepository struct {
 }
 
 // NewRankingCfgRepo returns the struct that satisfies RankingCfgRepository
-func NewRankingCfgRepo(db *sql.DB, tables config.DatabaseTablesConfig) database.RankingCfgRepository {
+func NewRankingCfgRepo(db *sql.DB, tables config.DatabaseTablesConfig) port.RankingCfgRepository {
 	return &RankingCfgRepository{
 		DB:        db,
 		tableName: tables.CfgPlayerRanking,

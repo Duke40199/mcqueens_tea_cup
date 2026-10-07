@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 )
 
 type AreaRepository struct {
@@ -15,7 +15,7 @@ type AreaRepository struct {
 	tableName string
 }
 
-func NewAreaRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.AreaRepository {
+func NewAreaRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.AreaRepository {
 	return &AreaRepository{
 		DB:        db,
 		tableName: tables.IDACOBSyncAreaCfg,

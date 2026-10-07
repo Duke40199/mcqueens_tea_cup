@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
@@ -12,15 +11,15 @@ import (
 type IDACTimeAttackService struct {
 	cfg config.Config
 	// repos
-	carRepo          database.CarRepository
-	timeMetadataRepo database.TATimeMetadataRepository
+	carRepo          port.CarRepository
+	timeMetadataRepo port.TATimeMetadataRepository
 	// clients
 	segaClient port.SegaIDACClient
 }
 
 func NewIDACTimeAttackService(
 	cfg config.Config,
-	timeMetadataRepo database.TATimeMetadataRepository,
+	timeMetadataRepo port.TATimeMetadataRepository,
 	segaClient port.SegaIDACClient,
 ) port.IDACTimeAttackService {
 	return &IDACTimeAttackService{

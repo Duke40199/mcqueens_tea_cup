@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
 )
@@ -13,12 +12,12 @@ type IDACOBRankingService struct {
 	// clients
 	segaClient port.SegaIDACClient
 	// repos
-	obRankingCfgRepo database.OBRankingCfgRepository
+	obRankingCfgRepo port.OBRankingCfgRepository
 }
 
 func NewIDACOBRankingService(
 	segaClient port.SegaIDACClient,
-	obRankingCfgRepo database.OBRankingCfgRepository,
+	obRankingCfgRepo port.OBRankingCfgRepository,
 ) port.IDACOBRankingService {
 	return &IDACOBRankingService{
 		segaClient:       segaClient,

@@ -7,20 +7,19 @@ import (
 	"time"
 
 	"McQueens_Tea_Cup/internal/config"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/pkg/logger"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 type MetaSyncService struct {
-	Session   *discordgo.Session
+	Notifier  port.Notifier
 	MetaLogic *MetaLogicService
 	MetaCfg   config.MetaSyncConfig
 }
 
-func NewMetaSyncService(s *discordgo.Session, logic *MetaLogicService, cfg config.MetaSyncConfig) *MetaSyncService {
+func NewMetaSyncService(notifier port.Notifier, logic *MetaLogicService, cfg config.MetaSyncConfig) *MetaSyncService {
 	return &MetaSyncService{
-		Session:   s,
+		Notifier:  notifier,
 		MetaLogic: logic,
 		MetaCfg:   cfg,
 	}
@@ -44,20 +43,18 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 	lastReportedTimeStr := ""
 	lastDetectedHeaderPrefix := "_Detected at: "
 
-	messages, err := s.Session.ChannelMessages(s.MetaCfg.ChannelID, 50, "", "", "")
-	var botMessages []*discordgo.Message
-	if err == nil {
-		for _, m := range messages {
-			if m.Author.ID == s.Session.State.User.ID {
-				botMessages = append(botMessages, m)
-				if lastReportedTimeStr == "" && strings.Contains(m.Content, lastDetectedHeaderPrefix) {
-					start := strings.Index(m.Content, lastDetectedHeaderPrefix) + len(lastDetectedHeaderPrefix)
-					end := strings.Index(m.Content[start:], " (JST)")
-					if end > -1 {
-						lastReportedTimeStr = m.Content[start : start+end]
-						logger.Info(ctx, fmt.Sprintf("found existing state in Discord, last reported: %s", lastReportedTimeStr))
-					}
-				}
+	botMessages, err := s.Notifier.BotMessages(ctx, s.MetaCfg.ChannelID, 50)
+	if err != nil {
+		logger.Warn(ctx, fmt.Sprintf("could not fetch existing messages: %v", err))
+		botMessages = nil
+	}
+	for _, m := range botMessages {
+		if lastReportedTimeStr == "" && strings.Contains(m.Content, lastDetectedHeaderPrefix) {
+			start := strings.Index(m.Content, lastDetectedHeaderPrefix) + len(lastDetectedHeaderPrefix)
+			end := strings.Index(m.Content[start:], " (JST)")
+			if end > -1 {
+				lastReportedTimeStr = m.Content[start : start+end]
+				logger.Info(ctx, fmt.Sprintf("found existing state in Discord, last reported: %s", lastReportedTimeStr))
 			}
 		}
 	}
@@ -124,40 +121,9 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 		}
 	}
 
-	// botMessages already fetched at beginning for state
-
-	// Reverse botMessages to get them in chronological order (oldest first)
-	for i, j := 0, len(botMessages)-1; i < j; i, j = i+1, j-1 {
-		botMessages[i], botMessages[j] = botMessages[j], botMessages[i]
-	}
-
-	// 3. Edit existing messages or send new ones
-	for i, page := range pages {
-		if i < len(botMessages) {
-			// Edit existing message
-			_, err := s.Session.ChannelMessageEdit(s.MetaCfg.ChannelID, botMessages[i].ID, page)
-			if err != nil {
-				logger.Error(ctx, fmt.Sprintf("could not edit message %s", botMessages[i].ID), err)
-				// Fallback: if edit fails, try sending a new one?
-				// For now just log it.
-			}
-		} else {
-			// Send new message
-			_, err := s.Session.ChannelMessageSend(s.MetaCfg.ChannelID, page)
-			if err != nil {
-				logger.Error(ctx, "error sending meta page", err)
-			}
-		}
-	}
-
-	// 4. Delete leftover old messages if new pages are fewer than old messages
-	if len(botMessages) > len(pages) {
-		for i := len(pages); i < len(botMessages); i++ {
-			err := s.Session.ChannelMessageDelete(s.MetaCfg.ChannelID, botMessages[i].ID)
-			if err != nil {
-				logger.Error(ctx, fmt.Sprintf("could not delete leftover message %s", botMessages[i].ID), err)
-			}
-		}
+	// Reconcile the channel to the freshly rendered pages (edit / send / delete).
+	if err := s.Notifier.SyncPages(ctx, s.MetaCfg.ChannelID, botMessages, pages); err != nil {
+		logger.Error(ctx, "failed to sync meta pages", err)
 	}
 
 	logger.Info(ctx, "OBMeta sync completed")

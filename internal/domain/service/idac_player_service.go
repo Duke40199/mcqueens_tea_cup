@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
 )
@@ -19,16 +18,16 @@ type IDACPlayerService struct {
 	// clients
 	segaClient port.SegaIDACClient
 	// repos
-	aliasRepo        database.AliasRepository
-	rankingCfgRepo   database.RankingCfgRepository
-	obRankingCfgRepo database.OBRankingCfgRepository
+	aliasRepo        port.AliasRepository
+	rankingCfgRepo   port.RankingCfgRepository
+	obRankingCfgRepo port.OBRankingCfgRepository
 }
 
 func NewIDACPlayerService(
 	segaClient port.SegaIDACClient,
-	aliasRepo database.AliasRepository,
-	rankingCfgRepo database.RankingCfgRepository,
-	obRankingCfgRepo database.OBRankingCfgRepository,
+	aliasRepo port.AliasRepository,
+	rankingCfgRepo port.RankingCfgRepository,
+	obRankingCfgRepo port.OBRankingCfgRepository,
 ) port.IDACPlayerService {
 	return &IDACPlayerService{
 		segaClient:       segaClient,

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/internal/domain/port"
 )
 
 type IDACAreaMetadataRepository struct {
@@ -15,7 +15,7 @@ type IDACAreaMetadataRepository struct {
 	tableName string
 }
 
-func NewIDACAreaMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.IDACAreaMetadataRepository {
+func NewIDACAreaMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) port.IDACAreaMetadataRepository {
 	return &IDACAreaMetadataRepository{
 		DB:        db,
 		tableName: tables.IDACAreaMetadata,
