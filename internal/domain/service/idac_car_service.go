@@ -43,6 +43,7 @@ func (s *IDACCarService) GetListCarDetailByTAFormat(ctx context.Context, listCar
 		end := strings.LastIndex(segaFormat, "]")
 		if start == -1 || end == -1 || end <= start {
 			aliasSpecMap[splitStr[0]] = "" // No valid brackets found
+			continue                       // avoid slicing with start/end == -1
 		}
 		aliasSpecMap[splitStr[0]] = segaFormat[start+1 : end]
 	}
