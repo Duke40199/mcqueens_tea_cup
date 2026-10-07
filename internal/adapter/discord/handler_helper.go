@@ -15,7 +15,7 @@ import (
 	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
 )
 
-// sendPagination sends a paginated message with Next/Prev buttons
+// SendPagination sends a paginated message with Next/Prev buttons
 func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string) {
 	// If only 1 page, just send it without buttons
 	if len(pages) == 1 {
@@ -76,10 +76,14 @@ func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string)
 
 	// Create the handler function
 	cleanup := h.Session.AddHandler(func(s *discordgo.Session, ic *discordgo.InteractionCreate) {
-		// Filter: Must be Button click, match Message ID, and match User ID (optional security)
-		if ic.Type != discordgo.InteractionMessageComponent ||
-			ic.Message.ID != msg.ID ||
-			ic.Member.User.ID != i.Member.User.ID {
+		defer recoverInteraction("pagination handler")
+		// Filter: Must be a button click on THIS message from the user who invoked the command.
+		if ic.Type != discordgo.InteractionMessageComponent || ic.Message == nil || ic.Message.ID != msg.ID {
+			return
+		}
+		clicker := interactionUser(ic)
+		invoker := interactionUser(i)
+		if clicker == nil || invoker == nil || clicker.ID != invoker.ID {
 			return
 		}
 

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
@@ -20,19 +21,20 @@ var desuwaGif []byte
 //go:embed resource/miemebell.json
 var miemebellJson []byte
 
-var languageChoice = []*discordgo.ApplicationCommandOptionChoice{
-	{
-		Name:  "Vietnamese",
-		Value: "vn",
-	},
-	{
-		Name:  "English",
-		Value: "en",
-	},
-	{
-		Name:  "Desuwa",
-		Value: "desuwa",
-	},
+func interactionUser(i *discordgo.InteractionCreate) *discordgo.User {
+	if i == nil {
+		return nil
+	}
+	if i.Member != nil && i.Member.User != nil {
+		return i.Member.User
+	}
+	return i.User
+}
+
+func recoverInteraction(context string) {
+	if r := recover(); r != nil {
+		log.Printf("discord: recovered from panic in %s: %v\n%s", context, r, debug.Stack())
+	}
 }
 
 type CommandName string
@@ -421,6 +423,7 @@ func (h *Handler) RegisterCommands() error {
 
 	// 3. Register Event Router
 	h.Session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		defer recoverInteraction("interaction router")
 		switch i.Type {
 		// A. Execute Commands
 		case discordgo.InteractionApplicationCommand:

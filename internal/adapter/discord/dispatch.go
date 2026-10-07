@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"runtime/debug"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -55,6 +56,12 @@ func (h *Handler) dispatch(i *discordgo.InteractionCreate, optMap map[string]str
 		SpecInput:   specInput,
 		h:           h,
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("discord: recovered from panic in command handler: %v\n%s", r, debug.Stack())
+			cc.replyError(NewUserError("Something went wrong while processing that command. Please try again later."))
+		}
+	}()
 
 	if err := fn(cc); err != nil {
 		cc.replyError(err)
