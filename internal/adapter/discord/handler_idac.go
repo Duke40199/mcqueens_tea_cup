@@ -3,7 +3,6 @@ package discord
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 	"slices"
 	"strconv"
@@ -11,6 +10,8 @@ import (
 	"time"
 
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
+	"McQueens_Tea_Cup/pkg/tracer"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -198,13 +199,18 @@ func (h *Handler) GetPlayerTimeAttackRank(playerTime time.Time, courseID string,
 }
 
 func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key string, optMap map[string]string) {
+	ctx := tracer.NewContext(context.Background())
+	if u := interactionUser(i); u != nil {
+		ctx = tracer.WithUserID(ctx, u.ID)
+	}
+
 	// Defer first: the DB write and the blocking h.Session.User() lookup below can
 	// exceed Discord's 3-second response window, which would expire the token and
 	// make the final reply fail.
 	if err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	}); err != nil {
-		log.Printf("player-alias: failed to defer interaction: %v", err)
+		logger.Error(ctx, "failed to defer interaction", err)
 		return
 	}
 
@@ -255,7 +261,7 @@ func (h *Handler) HandleSetPlayerAlias(i *discordgo.InteractionCreate, key strin
 		Content:         &msg,
 		AllowedMentions: &discordgo.MessageAllowedMentions{},
 	}); err != nil {
-		log.Printf("player-alias: failed to edit response: %v", err)
+		logger.Error(ctx, "failed to edit response", err)
 	}
 }
 
@@ -379,7 +385,7 @@ func (h *Handler) HandlePlayerCompare(cc *CommandContext) error {
 	// 1. Resolve Player 1
 	p1Name, foundP1Area, isFoundP1, err := h.PlayerService.ResolvePlayer(cc.Ctx, optMap["player1"], optMap["area1"])
 	if err != nil {
-		fmt.Printf("⚠️ **Player 1 Error:** %s\n", err.Error())
+		logger.Error(cc.Ctx, "player 1 resolve error", err)
 	}
 	if !isFoundP1 && optMap["area1"] == "" {
 		return cc.Edit("⚠️ **Searching Player1 by IGN error:** Please input area1.")
@@ -387,7 +393,7 @@ func (h *Handler) HandlePlayerCompare(cc *CommandContext) error {
 	// 2. Resolve Player 2
 	p2Name, foundP2Area, isFoundP2, err := h.PlayerService.ResolvePlayer(cc.Ctx, optMap["player2"], optMap["area2"])
 	if err != nil {
-		fmt.Printf("⚠️ **Player 2 Error:** %s\n", err.Error())
+		logger.Error(cc.Ctx, "player 2 resolve error", err)
 	}
 	if !isFoundP2 && optMap["area2"] == "" {
 		return cc.Edit("⚠️ **Searching Player2 by IGN error:** Please input area2.")

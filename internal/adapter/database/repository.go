@@ -8,8 +8,8 @@ import (
 
 // AliasRepository defines how we interact with player aliases.
 type AliasRepository interface {
-	GetByAliasKey(discordID string) (entity.PlayerAlias, bool, error)
-	GetByIgnAndAreaCode(ign, areaCode string) (entity.PlayerAlias, bool, error)
+	GetByAliasKey(ctx context.Context, discordID string) (entity.PlayerAlias, bool, error)
+	GetByIgnAndAreaCode(ctx context.Context, ign, areaCode string) (entity.PlayerAlias, bool, error)
 
 	SetPlayerAlias(discordID, ign, area string) error
 	Load() error
@@ -17,8 +17,8 @@ type AliasRepository interface {
 
 // AliasRepository defines how we interact with player aliases.
 type OBRankingCfgRepository interface {
-	GetRankingCfgMap() (map[string]entity.OBRankingCfg, error)
-	GetBySegaID(segaID string) (*entity.OBRankingCfg, error)
+	GetRankingCfgMap(ctx context.Context) (map[string]entity.OBRankingCfg, error)
+	GetBySegaID(ctx context.Context, segaID string) (*entity.OBRankingCfg, error)
 }
 
 type CarRepository interface {

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/pkg/logger"
 )
 
 type IDACCarService struct {
@@ -57,11 +57,11 @@ func (s *IDACCarService) GetListCarDetailByTAFormat(ctx context.Context, listCar
 func (s *IDACCarService) GetListTopTACarsWithPercentage(ctx context.Context, segaCourseID string, resultCount int64) ([]entity.IDACCarUsagePercentage, error) {
 	records, err := s.segaClient.GetListTimeTrail(ctx, segaCourseID, "area-all", "car-all", "")
 	if err != nil {
-		fmt.Println("⚠️ Failed to fetch data from Sega API: " + err.Error())
+		logger.Error(ctx, "failed to fetch time attack data from Sega", err)
 		return nil, err
 	}
 	if len(records) == 0 {
-		fmt.Println("=== GetListTopTACarsWithPercentage: not found record")
+		logger.Info(ctx, "no time attack records found")
 		return []entity.IDACCarUsagePercentage{}, nil
 	}
 	return calculateCarUsagePercentage(records), nil

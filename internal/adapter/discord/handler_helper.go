@@ -1,8 +1,8 @@
 package discord
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
@@ -12,6 +12,8 @@ import (
 
 	"McQueens_Tea_Cup/internal/domain/entity"
 	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
+	"McQueens_Tea_Cup/pkg/tracer"
 )
 
 // SendPagination and its button handling now live in pagination.go.
@@ -66,7 +68,7 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	)
 
 	if err != nil {
-		log.Println("autocomplete response error:", err)
+		logger.Error(tracer.NewContext(context.Background()), "autocomplete response error", err)
 	}
 }
 

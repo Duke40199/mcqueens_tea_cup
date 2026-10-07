@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 	"McQueens_Tea_Cup/pkg/utils"
 
 	"github.com/lib/pq"
@@ -54,7 +54,7 @@ func (r *CarRepository) UpsertCars(ctx context.Context, cars []entity.CarMetadat
 		query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name, maker = EXCLUDED.maker, base_spec = EXCLUDED.base_spec;`
 
 		if _, err := tx.ExecContext(ctx, query, values...); err != nil {
-			log.Printf("error upserting cars: %v", err)
+			logger.Error(ctx, "error upserting cars", err)
 			return err
 		}
 	}
@@ -85,7 +85,7 @@ func (r *CarRepository) UpsertCarStyles(ctx context.Context, styles []entity.Car
 		query += ` ON CONFLICT (sega_id) DO UPDATE SET name = EXCLUDED.name;`
 
 		if _, err := tx.ExecContext(ctx, query, values...); err != nil {
-			log.Printf("error upserting styles: %v", err)
+			logger.Error(ctx, "error upserting car styles", err)
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func (r *CarRepository) GetBaseSpecMap(ctx context.Context) (map[string]entity.C
 	query := fmt.Sprintf(`SELECT name, maker, model_code, base_spec, COALESCE(aliases, '{}') FROM %s WHERE base_spec != ''`, r.carsTable)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
-		log.Println("error getting base spec map:", err)
+		logger.Error(ctx, "error getting base spec map", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -174,7 +174,7 @@ func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecM
 	query += strings.Join(conditions, " OR ")
 	rows, err := r.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		log.Println("error getting base spec map:", err)
+		logger.Error(ctx, "error getting car with specs by aliases", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -216,7 +216,7 @@ func (r *CarRepository) GetListCarWithAggregatedSpecs(ctx context.Context) ([]*e
 	ORDER BY c.maker, c.name ASC;`, r.carsTable, r.carStylesTable)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
-		log.Println("error getting base spec map:", err)
+		logger.Error(ctx, "error getting list car with aggregated specs", err)
 		return nil, err
 	}
 	defer rows.Close()

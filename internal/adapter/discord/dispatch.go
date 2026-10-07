@@ -3,11 +3,15 @@ package discord
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
 	"runtime/debug"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+
+	"McQueens_Tea_Cup/pkg/logger"
+	"McQueens_Tea_Cup/pkg/tracer"
 )
 
 // commandTimeout bounds how long a single slash-command handler may run before its
@@ -48,14 +52,21 @@ type CommandFunc func(*CommandContext) error
 // Discord's 3-second window, runs the handler, and turns a returned error into a
 // single user-facing edit of the deferred response.
 func (h *Handler) dispatch(i *discordgo.InteractionCreate, optMap map[string]string, specInput string, fn CommandFunc) {
+	// Start a trace for this interaction and tag it with the invoking user so all
+	// downstream logs carry the same trace_id / user_id.
+	base := tracer.NewContext(context.Background())
+	if u := interactionUser(i); u != nil {
+		base = tracer.WithUserID(base, u.ID)
+	}
+
 	if err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	}); err != nil {
-		log.Printf("discord: failed to defer interaction: %v", err)
+		logger.Error(base, "failed to defer interaction", err)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	ctx, cancel := context.WithTimeout(base, commandTimeout)
 	defer cancel()
 
 	cc := &CommandContext{
@@ -68,7 +79,7 @@ func (h *Handler) dispatch(i *discordgo.InteractionCreate, optMap map[string]str
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("discord: recovered from panic in command handler: %v\n%s", r, debug.Stack())
+			logger.Error(ctx, "recovered from panic in command handler", fmt.Errorf("%v", r), slog.String("panic_stack", string(debug.Stack())))
 			cc.replyError(NewUserError("Something went wrong while processing that command. Please try again later."))
 		}
 	}()
@@ -89,7 +100,7 @@ func (cc *CommandContext) Edit(content string) error {
 // SendPages hands the rendered pages to the pagination helper, which edits the
 // deferred response and wires up navigation buttons.
 func (cc *CommandContext) SendPages(pages []string) {
-	cc.h.SendPagination(cc.Interaction, pages)
+	cc.h.SendPagination(cc.Ctx, cc.Interaction, pages)
 }
 
 // replyError edits the deferred response with a user-facing error message.
@@ -101,11 +112,11 @@ func (cc *CommandContext) replyError(err error) {
 	if errors.As(err, &ue) {
 		msg = "⚠️ " + ue.Msg
 	} else {
-		log.Printf("discord: command error: %v", err)
+		logger.Error(cc.Ctx, "command error", err)
 	}
 	if _, e := cc.Session.InteractionResponseEdit(cc.Interaction.Interaction, &discordgo.WebhookEdit{
 		Content: &msg,
 	}); e != nil {
-		log.Printf("discord: failed to send error reply: %v", e)
+		logger.Error(cc.Ctx, "failed to send error reply", e)
 	}
 }

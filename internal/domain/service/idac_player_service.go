@@ -55,7 +55,7 @@ func (s *IDACPlayerService) ResolvePlayer(ctx context.Context, input, manualArea
 
 	if lookupKey != "" {
 		// Discord ID -> strict lookup
-		playerAlias, isFound, err := s.aliasRepo.GetByAliasKey(lookupKey)
+		playerAlias, isFound, err := s.aliasRepo.GetByAliasKey(ctx, lookupKey)
 		if err != nil {
 			return "", "", false, err
 		}
@@ -68,7 +68,7 @@ func (s *IDACPlayerService) ResolvePlayer(ctx context.Context, input, manualArea
 	} else {
 		areaCode := entity.AreaAliases[manualArea]
 		// text input -> custom tag lookup (case-insensitive)
-		val, ok, err := s.aliasRepo.GetByIgnAndAreaCode(strings.ToLower(cleanInput), areaCode)
+		val, ok, err := s.aliasRepo.GetByIgnAndAreaCode(ctx, strings.ToLower(cleanInput), areaCode)
 		if !ok || err != nil {
 			return "", "", false, fmt.Errorf("couldn't find a matching alias")
 		}
@@ -124,7 +124,7 @@ func (s *IDACPlayerService) GetPlayerProfile(ctx context.Context, ign, area stri
 		return nil, err
 	}
 	if obRankingRes != nil {
-		obRankingCfgMap, err := s.obRankingCfgRepo.GetRankingCfgMap()
+		obRankingCfgMap, err := s.obRankingCfgRepo.GetRankingCfgMap(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +156,7 @@ func (s *IDACPlayerService) GetTournamentInfo(ctx context.Context, areaCode stri
 	if err != nil {
 		return nil, err
 	}
-	obRankingCfgMap, err := s.obRankingCfgRepo.GetRankingCfgMap()
+	obRankingCfgMap, err := s.obRankingCfgRepo.GetRankingCfgMap(ctx)
 	if err != nil {
 		return nil, err
 	}

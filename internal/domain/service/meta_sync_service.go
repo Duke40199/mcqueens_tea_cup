@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"McQueens_Tea_Cup/internal/config"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -31,7 +31,7 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("META_CHANNEL_ID not configured")
 	}
 
-	log.Printf("📊 Starting OBMeta Sync to channel %s...", s.MetaCfg.ChannelID)
+	logger.Info(ctx, fmt.Sprintf("starting OBMeta sync to channel %s", s.MetaCfg.ChannelID))
 
 	var pages []string
 	var err error
@@ -55,7 +55,7 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 					end := strings.Index(m.Content[start:], " (JST)")
 					if end > -1 {
 						lastReportedTimeStr = m.Content[start : start+end]
-						log.Printf("📥 MetaSync: Found existing state in Discord. Last reported: %s", lastReportedTimeStr)
+						logger.Info(ctx, fmt.Sprintf("found existing state in Discord, last reported: %s", lastReportedTimeStr))
 					}
 				}
 			}
@@ -71,7 +71,7 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 		// header, so a nested break would never fire and the loop would spin every
 		// minute until ctx is cancelled.
 		if time.Since(startTime) > maxPollingDuration {
-			log.Printf("❌ MetaSync: Max polling duration reached. Using latest available data.")
+			logger.Warn(ctx, "max polling duration reached, using latest available data")
 			detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 			break
 		}
@@ -102,15 +102,15 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 					}
 
 					if s.MetaLogic.IsDataFresh(calcDate) && isNewerThanDiscord {
-						log.Printf("✅ MetaSync: Data is fresh & newer (CalcDate: %s). Proceeding...", calcDate)
+						logger.Info(ctx, fmt.Sprintf("data is fresh & newer (calcDate: %s), proceeding", calcDate))
 						detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 						break
 					}
 
 					if !isNewerThanDiscord {
-						log.Printf("😴 MetaSync: Data (%s) is already reported in Discord. Waiting...", calcDate)
+						logger.Info(ctx, fmt.Sprintf("data (%s) already reported in Discord, waiting", calcDate))
 					} else {
-						log.Printf("⚠️ MetaSync: Sega is late (CalcDate: %s). Polling again...", calcDate)
+						logger.Warn(ctx, fmt.Sprintf("sega is late (calcDate: %s), polling again", calcDate))
 					}
 				}
 			}
@@ -137,7 +137,7 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 			// Edit existing message
 			_, err := s.Session.ChannelMessageEdit(s.MetaCfg.ChannelID, botMessages[i].ID, page)
 			if err != nil {
-				log.Printf("⚠️ Warning: could not edit message %s: %v", botMessages[i].ID, err)
+				logger.Error(ctx, fmt.Sprintf("could not edit message %s", botMessages[i].ID), err)
 				// Fallback: if edit fails, try sending a new one?
 				// For now just log it.
 			}
@@ -145,7 +145,7 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 			// Send new message
 			_, err := s.Session.ChannelMessageSend(s.MetaCfg.ChannelID, page)
 			if err != nil {
-				log.Printf("❌ Error sending meta page: %v", err)
+				logger.Error(ctx, "error sending meta page", err)
 			}
 		}
 	}
@@ -155,11 +155,11 @@ func (s *MetaSyncService) Sync(ctx context.Context) (string, error) {
 		for i := len(pages); i < len(botMessages); i++ {
 			err := s.Session.ChannelMessageDelete(s.MetaCfg.ChannelID, botMessages[i].ID)
 			if err != nil {
-				log.Printf("⚠️ Warning: could not delete leftover message %s: %v", botMessages[i].ID, err)
+				logger.Error(ctx, fmt.Sprintf("could not delete leftover message %s", botMessages[i].ID), err)
 			}
 		}
 	}
 
-	log.Printf("✅ OBMeta Sync Completed")
+	logger.Info(ctx, "OBMeta sync completed")
 	return detectionTime, nil
 }
