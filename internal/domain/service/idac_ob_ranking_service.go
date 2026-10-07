@@ -39,7 +39,7 @@ func (s *IDACOBRankingService) GetRanking(ctx context.Context, round, area strin
 		return &entity.OBRankingView{}, nil
 	}
 
-	cfgMap, err := s.obRankingCfgRepo.GetRankingCfgMap()
+	cfgMap, err := s.obRankingCfgRepo.GetRankingCfgMap(ctx)
 	if err != nil {
 		return nil, err
 	}

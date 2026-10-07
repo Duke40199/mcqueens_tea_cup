@@ -8,6 +8,7 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	_ "github.com/lib/pq"
 )
@@ -59,7 +60,7 @@ func (r *TATimeMetadataRepository) GetByCourseID(ctx context.Context, courseID s
 		return nil, fmt.Errorf("error during row iteration: %w", err)
 	}
 	// 3. Debug how many rows were actually found
-	fmt.Printf("[DEBUG] Query successful. Found %d rows.\n", rowCount)
+	logger.Debug(ctx, fmt.Sprintf("query successful, found %d rows", rowCount))
 
 	return listCfg, nil
 }

@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/pkg/logger"
 )
 
 type MetaLogicService struct {
@@ -100,7 +100,7 @@ func (s *MetaLogicService) SleepUntilNextSync(ctx context.Context, downtimeStart
 		waitDuration := time.Until(wakeTime)
 
 		if waitDuration > 0 {
-			log.Printf("😴 Sleeping for %v until next Sega update (%s)...", waitDuration.Round(time.Second), wakeTime.Format("15:04:05"))
+			logger.Info(ctx, fmt.Sprintf("sleeping for %v until next Sega update (%s)", waitDuration.Round(time.Second), wakeTime.Format("15:04:05")))
 			timer := time.NewTimer(waitDuration)
 			select {
 			case <-timer.C:
@@ -171,14 +171,14 @@ func (s *MetaLogicService) sleepUntilDowntimeEnd(ctx context.Context, now time.T
 	}
 
 	waitDuration := time.Until(wakeTime)
-	log.Printf("😴 Scheduled Downtime: Sleeping for %v until %s...", waitDuration.Round(time.Second), wakeTime.Format("15:04:05"))
+	logger.Info(ctx, fmt.Sprintf("scheduled downtime: sleeping for %v until %s", waitDuration.Round(time.Second), wakeTime.Format("15:04:05")))
 
 	timer := time.NewTimer(waitDuration)
 	defer timer.Stop()
 
 	select {
 	case <-timer.C:
-		log.Printf("☀️ Downtime ended. Resuming sync...")
+		logger.Info(ctx, "downtime ended, resuming sync")
 	case <-ctx.Done():
 		return
 	}

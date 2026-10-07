@@ -10,6 +10,7 @@ import (
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -35,7 +36,7 @@ func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode,
 	url = strings.Replace(url, ":gameCode", gameCode, 1)
 	url = strings.Replace(url, ":languageCode", languageCode, 1)
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
-	fmt.Printf("=== AllNetClient: GetListStoreFromAllNet %s\n", url)
+	logger.Debug(ctx, fmt.Sprintf("request url: %s", url))
 
 	// Use NewRequestWithContext to respect the provided ctx
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -83,6 +84,6 @@ func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode,
 	areaName := doc.Find("div.content_box h3 span").First().Text()
 	areaName = strings.TrimSpace(areaName)
 
-	fmt.Printf("Parsed Area: %s\n", areaName)
+	logger.Debug(ctx, fmt.Sprintf("parsed area: %s", areaName))
 	return data, areaName, nil
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 )
 
 func (h *Handler) HandleStoreLocation(cc *CommandContext) error {
@@ -33,7 +34,7 @@ func (h *Handler) HandleStoreLocation(cc *CommandContext) error {
 		return fmt.Errorf("fetching Sega store map: %w", err)
 	}
 	if len(mapSegaStore) == 0 {
-		fmt.Printf("No area found from Sega API.")
+		logger.Warn(cc.Ctx, "no area found from Sega API")
 	}
 	if len(mapSegaStore) > 0 {
 		allNetMap := make(map[string]bool)
@@ -59,7 +60,7 @@ func (h *Handler) HandleStoreLocation(cc *CommandContext) error {
 	})
 	err = h.IDACStoreLocationService.BulkUpsertStoreLocation(cc.Ctx, listAllNetStore)
 	if err != nil {
-		fmt.Printf("error bulk upsert store location: %v\n", err)
+		logger.Error(cc.Ctx, "error bulk upsert store location", err)
 	}
 	// 4. Build Response
 	var pages []string

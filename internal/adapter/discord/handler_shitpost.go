@@ -2,12 +2,14 @@ package discord
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
+	"McQueens_Tea_Cup/pkg/tracer"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -25,14 +27,15 @@ func (h *Handler) HandleMckween(i *discordgo.InteractionCreate) {
 }
 
 func (h *Handler) HandleMiemebell(i *discordgo.InteractionCreate) {
+	ctx := tracer.NewContext(context.Background())
 	var data entity.MieMeBell
 	// Assuming miemebellJson is accessible here (package level or struct field)
 	if err := json.Unmarshal(miemebellJson, &data); err != nil {
-		log.Println("Error parsing JSON:", err)
+		logger.Error(ctx, "error parsing miemebell JSON", err)
 		return
 	}
 	if len(data.Blocks) == 0 {
-		log.Println("miemebell: no blocks to choose from")
+		logger.Warn(ctx, "miemebell: no blocks to choose from")
 		return
 	}
 	// Use h.Rand if you want to mock random in tests, otherwise global rand is fine for simple bots

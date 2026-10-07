@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -50,12 +50,12 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	}
 
 	if len(areas) == 0 {
-		log.Println("⚠️ No areas found for active player sync")
+		logger.Warn(ctx, "no areas found for active player sync")
 		return "", nil
 	}
 
 	// 2. Get rank configs
-	obRankingCfgMap, err := s.OBRankingCfgRepo.GetRankingCfgMap()
+	obRankingCfgMap, err := s.OBRankingCfgRepo.GetRankingCfgMap(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get ranking cfg map: %w", err)
 	}
@@ -97,7 +97,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 					end := strings.Index(m.Content[start:], " (JST)")
 					if end > -1 {
 						lastReportedTimeStr = m.Content[start : start+end]
-						log.Printf("📥 Found existing state in Discord. Last reported: %s", lastReportedTimeStr)
+						logger.Info(ctx, fmt.Sprintf("found existing state in Discord, last reported: %s", lastReportedTimeStr))
 					}
 				}
 			}
@@ -112,7 +112,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	for {
 		resp, err := s.SegaClient.GetListOBRanking(ctx, roundStr, canaryArea.AreaCode)
 		if err != nil {
-			log.Printf("⚠️ Polling Error for Canary %s: %v", canaryArea.AreaName, err)
+			logger.Error(ctx, fmt.Sprintf("polling error for canary %s", canaryArea.AreaName), err)
 		} else if resp != nil {
 			// State-Aware Refresh Check
 			isNewerThanDiscord := true
@@ -125,20 +125,20 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 
 			// Validation: Fresh by schedule AND newer than existing Discord state
 			if s.MetaLogic.IsDataFresh(resp.CalcDate) && isNewerThanDiscord {
-				log.Printf("✅ Fresh & Newer data detected via Canary (%s: %s). Proceeding to full sync...", canaryArea.AreaName, resp.CalcDate)
+				logger.Info(ctx, fmt.Sprintf("fresh & newer data detected via canary (%s: %s), proceeding to full sync", canaryArea.AreaName, resp.CalcDate))
 				detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 				break
 			}
 
 			if !isNewerThanDiscord {
-				log.Printf("😴 Sega Data (%s) is already reported in Discord (%s). Waiting for next block...", resp.CalcDate, lastReportedTimeStr)
+				logger.Info(ctx, fmt.Sprintf("sega data (%s) already reported in Discord (%s), waiting for next block", resp.CalcDate, lastReportedTimeStr))
 			} else {
-				log.Printf("⚠️ Sega is late (Canary %s: %s). Polling again in %v...", canaryArea.AreaName, resp.CalcDate, pollingInterval)
+				logger.Warn(ctx, fmt.Sprintf("sega is late (canary %s: %s), polling again in %v", canaryArea.AreaName, resp.CalcDate, pollingInterval))
 			}
 		}
 
 		if time.Since(startTime) > maxPollingDuration {
-			log.Printf("❌ Max polling duration reached. Sega is significantly late. Using latest available data.")
+			logger.Warn(ctx, "max polling duration reached, sega is significantly late, using latest available data")
 			detectionTime = time.Now().In(jstLoc).Format("2006/01/02 15:04:05")
 			break
 		}
@@ -156,7 +156,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	for _, area := range areas {
 		resp, err := s.SegaClient.GetListOBRanking(ctx, roundStr, area.AreaCode)
 		if err != nil {
-			log.Printf("⚠️ Error fetching ranking for %s (%s): %v", area.AreaName, area.AreaCode, err)
+			logger.Error(ctx, fmt.Sprintf("error fetching ranking for %s (%s)", area.AreaName, area.AreaCode), err)
 			continue
 		}
 
@@ -274,12 +274,12 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 		if i < len(botMessages) {
 			_, err := s.Session.ChannelMessageEdit(s.Config.ChannelID, botMessages[i].ID, page)
 			if err != nil {
-				log.Printf("⚠️ Warning: could not edit message %s: %v", botMessages[i].ID, err)
+				logger.Error(ctx, fmt.Sprintf("could not edit message %s", botMessages[i].ID), err)
 			}
 		} else {
 			_, err := s.Session.ChannelMessageSend(s.Config.ChannelID, page)
 			if err != nil {
-				log.Printf("❌ Error sending active players page: %v", err)
+				logger.Error(ctx, "error sending active players page", err)
 			}
 		}
 	}
@@ -289,11 +289,11 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 		for i := len(pages); i < len(botMessages); i++ {
 			err := s.Session.ChannelMessageDelete(s.Config.ChannelID, botMessages[i].ID)
 			if err != nil {
-				log.Printf("⚠️ Warning: could not delete leftover message %s: %v", botMessages[i].ID, err)
+				logger.Error(ctx, fmt.Sprintf("could not delete leftover message %s", botMessages[i].ID), err)
 			}
 		}
 	}
 
-	log.Printf("✅ Active Player Sync Completed for %d areas", len(activePlayersByArea))
+	logger.Info(ctx, fmt.Sprintf("active player sync completed for %d areas", len(activePlayersByArea)))
 	return detectionTime, nil
 }

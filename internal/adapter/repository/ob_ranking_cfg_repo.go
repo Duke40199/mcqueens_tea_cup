@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	_ "github.com/lib/pq"
 )
@@ -25,12 +27,12 @@ func NewOBRankingCfgRepository(db *sql.DB, tables config.DatabaseTablesConfig) d
 }
 
 // GetByAliasKey fetches alias from DB
-func (o *OBRankingCfgRepository) GetBySegaID(key string) (*entity.OBRankingCfg, error) {
+func (o *OBRankingCfgRepository) GetBySegaID(ctx context.Context, key string) (*entity.OBRankingCfg, error) {
 	// Explicit columns matching the scan below (id, sega_id, name). Using SELECT *
 	// returned all 4 columns while Scan only consumed 3, erroring on every call.
 	query := fmt.Sprintf(`SELECT id, sega_id, name FROM %s WHERE sega_id = $1`, o.tableName)
 
-	row := o.DB.QueryRow(query, key)
+	row := o.DB.QueryRowContext(ctx, query, key)
 
 	var cfg entity.OBRankingCfg
 	err := row.Scan(&cfg.ID, &cfg.SegaID, &cfg.Name)
@@ -38,23 +40,21 @@ func (o *OBRankingCfgRepository) GetBySegaID(key string) (*entity.OBRankingCfg, 
 		if err == sql.ErrNoRows {
 			return nil, err // Not found
 		}
-		// Log error in a real app
-		fmt.Println("DB Error:", err)
+		logger.Error(ctx, "failed to get ob ranking cfg by sega id", err)
 		return nil, err
 	}
 
 	return &cfg, nil
 }
 
-func (o *OBRankingCfgRepository) GetRankingCfgMap() (map[string]entity.OBRankingCfg, error) {
+func (o *OBRankingCfgRepository) GetRankingCfgMap(ctx context.Context) (map[string]entity.OBRankingCfg, error) {
 	// Explicit columns (in scan order) so an added/reordered column can't corrupt
 	// the positional Scan below.
 	query := fmt.Sprintf(`SELECT id, name, sega_id, emoji FROM %s`, o.tableName)
 
-	rows, err := o.DB.Query(query)
+	rows, err := o.DB.QueryContext(ctx, query)
 	if err != nil {
-		// Log error in a real app
-		fmt.Println("DB Error:", err)
+		logger.Error(ctx, "failed to query ob ranking cfg map", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -64,7 +64,7 @@ func (o *OBRankingCfgRepository) GetRankingCfgMap() (map[string]entity.OBRanking
 		var cfg entity.OBRankingCfg
 		err = rows.Scan(&cfg.ID, &cfg.Name, &cfg.SegaID, &cfg.Emoji)
 		if err != nil {
-			fmt.Println("Failed to scan:", err)
+			logger.Error(ctx, "failed to scan ob ranking cfg row", err)
 			return nil, err
 		}
 		cfgMap[cfg.SegaID] = cfg

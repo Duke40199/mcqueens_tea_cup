@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
-	"log"
 	"strings"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/internal/domain/service"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -114,7 +114,7 @@ func (h *Handler) PreloadListCarSelection() []*entity.CarMetadata {
 	var carChoices []*entity.CarMetadata
 	listCarWithSpecIDs, err := h.CarRepo.GetListCarWithAggregatedSpecs(context.Background())
 	if err != nil {
-		log.Println("error getting list car selection:", err)
+		logger.Error(context.Background(), "error getting list car selection", err)
 		return carChoices
 	}
 	for _, result := range listCarWithSpecIDs {

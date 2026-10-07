@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,8 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/repository"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/service"
+	"McQueens_Tea_Cup/pkg/logger"
+	"McQueens_Tea_Cup/pkg/tracer"
 )
 
 func main() {
@@ -24,6 +27,9 @@ func main() {
 	if err != nil {
 		log.Fatal("Config error:", err)
 	}
+
+	// Init structured logger (level from APP_ENV: "dev" => debug, else info).
+	logger.Init(os.Getenv("APP_ENV"))
 
 	// 2. Connect to DB
 	dbConn, err := database.NewPostgresDBConn(cfg.DatabaseCfg)
@@ -89,21 +95,22 @@ func main() {
 	)
 	// 6. Register Commands & Event Handlers
 	if err := cmdHandler.RegisterCommands(); err != nil {
-		log.Printf("⚠️ Failed to register commands: %v", err)
+		logger.Error(context.Background(), "failed to register commands", err)
 	}
 
 	// 7.a. Cron Job: Online Battle Car Meta
 	metaSync := service.NewMetaSyncService(discordSession.Session, metaLogic, cfg.MetaSyncCfg)
 	go func() {
-		ctx := context.Background()
 		for {
-			log.Println("📊 Starting OBMeta Sync...")
+			// Fresh trace ID per sync run so its logs can be correlated.
+			ctx := tracer.NewContext(context.Background())
+			logger.Info(ctx, "starting OBMeta sync")
 			metaLogic.SleepUntilNextSync(ctx, cfg.MetaSyncCfg.DowntimeStart, cfg.MetaSyncCfg.DowntimeEnd, cfg.MetaSyncCfg.DowntimeTZ)
 			detectTime, err := metaSync.Sync(ctx)
 			if err != nil {
-				log.Printf("❌ Scheduled OBMeta Sync Failed: %v", err)
+				logger.Error(ctx, "scheduled OBMeta sync failed", err)
 			} else {
-				log.Printf("✅ OBMeta Sync detected data at: %s", detectTime)
+				logger.Info(ctx, fmt.Sprintf("OBMeta sync detected data at: %s", detectTime))
 			}
 		}
 	}()
@@ -111,15 +118,16 @@ func main() {
 	// 7.b. Cron Job: Online Battle Active Players
 	activePlayersSync := service.NewActivePlayerSyncService(discordSession.Session, segaClient, areaRepo, obRankingCfgRepo, metaLogic, cfg.ActivePlayersSyncCfg)
 	go func() {
-		ctx := context.Background()
 		for {
-			log.Println("🔍 Starting Active Players SEA Sync...")
+			// Fresh trace ID per sync run so its logs can be correlated.
+			ctx := tracer.NewContext(context.Background())
+			logger.Info(ctx, "starting active players SEA sync")
 			metaLogic.SleepUntilNextSync(ctx, cfg.ActivePlayersSyncCfg.DowntimeStart, cfg.ActivePlayersSyncCfg.DowntimeEnd, cfg.ActivePlayersSyncCfg.DowntimeTZ)
 			detectTime, err := activePlayersSync.Sync(ctx)
 			if err != nil {
-				log.Printf("❌ Scheduled Active Players Sync Failed: %v", err)
+				logger.Error(ctx, "scheduled active players sync failed", err)
 			} else {
-				log.Printf("✅ Active Players Sync detected data at: %s", detectTime)
+				logger.Info(ctx, fmt.Sprintf("active players sync detected data at: %s", detectTime))
 			}
 		}
 	}()
@@ -141,23 +149,23 @@ func main() {
 	})
 	healthSrv := &http.Server{Addr: "0.0.0.0:" + port, Handler: healthMux}
 	go func() {
-		log.Printf("🩺 Health server listening on :%s", port)
+		logger.Info(context.Background(), fmt.Sprintf("health server listening on :%s", port))
 		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("❌ Health server error: %v", err)
+			logger.Error(context.Background(), "health server error", err)
 		}
 	}()
 
 	// 8. Init graceful shutdown
-	log.Println("✅ Bot is running. Press CTRL-C to exit.")
+	logger.Info(context.Background(), "bot is running, press CTRL-C to exit")
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-	log.Println("Gracefully shutting down...")
+	logger.Info(context.Background(), "gracefully shutting down")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := healthSrv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("⚠️ Health server shutdown error: %v", err)
+		logger.Error(context.Background(), "health server shutdown error", err)
 	}
 }
 

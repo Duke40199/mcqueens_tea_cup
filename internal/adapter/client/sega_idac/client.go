@@ -13,6 +13,7 @@ import (
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/pkg/logger"
 )
 
 // segaHTTPTimeout bounds every Sega request so a stalled endpoint can't hang a
@@ -60,7 +61,7 @@ func (c *SegaIDACClient) GetListTimeTrail(ctx context.Context, courseID, areaCod
 	url = strings.Replace(url, ":courseID", courseID, 1)
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
 	url = strings.Replace(url, ":carID", carID, 1)
-	fmt.Printf("=== SegaIDACClient: GetListTimeTrailResults full path: %s\n", url)
+	logger.Debug(ctx, fmt.Sprintf("request url: %s", url))
 	// 2. Fetch + parse
 	var data entity.IdacTimeAttackRecordResponse
 	if err := c.makeHttpRequest(ctx, url, &data); err != nil {
@@ -91,7 +92,7 @@ func (c *SegaIDACClient) GetListOBRanking(ctx context.Context, roundNum string, 
 	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetListOBRankingURLPath
 	url = strings.Replace(url, ":roundNum", roundNum, 1)
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
-	fmt.Printf("=== SegaIDACClient.GetListOBRanking full URL: %s\n", url)
+	logger.Debug(ctx, fmt.Sprintf("request url: %s", url))
 	// 2. Fetch + parse
 	var data entity.IdacOBRankingResponse
 	if err := c.makeHttpRequest(ctx, url, &data); err != nil {
@@ -106,7 +107,7 @@ func (c *SegaIDACClient) GetTeamRanking(ctx context.Context, roundNum int, rankC
 	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetTeamRankingUrlPath
 	url = strings.Replace(url, ":roundCount", strconv.Itoa(roundNum), 1)
 	url = strings.Replace(url, ":rankType", rankCode, 1)
-	fmt.Printf("=== SegaIDACClient: GetTeamRanking full path: %s\n", url)
+	logger.Debug(ctx, fmt.Sprintf("request url: %s", url))
 	// 2. Fetch + parse
 	var data entity.IdacTeamRankingResponse
 	if err := c.makeHttpRequest(ctx, url, &data); err != nil {
@@ -152,7 +153,7 @@ func (c *SegaIDACClient) GetListPlayerGrade(ctx context.Context, areaCode string
 	// 1. Build URL
 	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetListPlayerGradeUrlPath
 	url = strings.Replace(url, ":areaCode", areaCode, 1)
-	fmt.Printf("=== SegaIDACClient.GetListPlayerGrade url: %s\n", url)
+	logger.Debug(ctx, fmt.Sprintf("request url: %s", url))
 	// 2. Fetch + parse
 	var data entity.IdacPlayerRankingResponse
 	if err := c.makeHttpRequest(ctx, url, &data); err != nil {
@@ -181,7 +182,7 @@ func (c *SegaIDACClient) GetPlayerGradeByIGN(ctx context.Context, ign, areaCode 
 
 func (c *SegaIDACClient) FetchConst(ctx context.Context) (*entity.IdacConstResponse, error) {
 	url := c.config.GetSegaClientCfg().SegaIDACHost + c.config.GetSegaClientCfg().GetListConstConfigURLPath
-	fmt.Printf("=== SegaIDACClient: FetchConst %s\n", url)
+	logger.Debug(ctx, fmt.Sprintf("request url: %s", url))
 	var data entity.IdacConstResponse
 	if err := c.makeHttpRequest(ctx, url, &data); err != nil {
 		return nil, err

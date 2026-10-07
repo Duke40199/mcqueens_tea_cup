@@ -1,15 +1,17 @@
 package discord
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
-	"log"
+	"log/slog"
 	"runtime/debug"
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 
 	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 )
 
 //go:embed resource/nuhuh.gif
@@ -31,9 +33,9 @@ func interactionUser(i *discordgo.InteractionCreate) *discordgo.User {
 	return i.User
 }
 
-func recoverInteraction(context string) {
+func recoverInteraction(label string) {
 	if r := recover(); r != nil {
-		log.Printf("discord: recovered from panic in %s: %v\n%s", context, r, debug.Stack())
+		logger.Error(context.Background(), "recovered from panic in "+label, fmt.Errorf("%v", r), slog.String("panic_stack", string(debug.Stack())))
 	}
 }
 
@@ -458,7 +460,7 @@ func (h *Handler) RegisterCommands() error {
 	})
 
 	// 4. Register with Discord
-	log.Println("Registering commands...")
+	logger.Info(context.Background(), "registering commands")
 	_, err = h.Session.ApplicationCommandBulkOverwrite(botID, "", commands)
 	return err
 }

@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/domain/entity"
 	"McQueens_Tea_Cup/internal/domain/port"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	"github.com/google/uuid"
 )
@@ -25,11 +25,11 @@ func NewCarSyncService(client port.SegaIDACClient, repo database.CarRepository) 
 }
 
 func (s *CarSyncService) SyncData(ctx context.Context) error {
-	log.Println("🚗 Starting Car/Style Sync...")
+	logger.Info(ctx, "starting car/style sync")
 	// 0. Fetch existing car mappings to reuse UUIDs
 	existingCarMap, err := s.CarRepo.GetSegaIDToUUIDMap(ctx)
 	if err != nil {
-		log.Printf("⚠️ Warning: Could not fetch existing car map: %v. Proceeding with new UUIDs.", err)
+		logger.Warn(ctx, fmt.Sprintf("could not fetch existing car map, proceeding with new UUIDs: %v", err))
 		existingCarMap = make(map[int64]string)
 	}
 
@@ -38,7 +38,7 @@ func (s *CarSyncService) SyncData(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch const data: %w", err)
 	}
-	log.Printf("Fetched %d cars and %d styles. Saving to DB...", len(data.Cars), len(data.Styles))
+	logger.Info(ctx, fmt.Sprintf("fetched %d cars and %d styles, saving to DB", len(data.Cars), len(data.Styles)))
 	// 2. Normalize Sega's car data
 	foundCars := make([]entity.CarMetadata, 0)
 	carStyleIDsMap := make(map[int64]string)
@@ -53,7 +53,7 @@ func (s *CarSyncService) SyncData(ctx context.Context) error {
 		car.BaseStyleName = car.GetNormalizedBaseStyle()
 		car.ModelCode = car.GetCarModelCode()
 		car.Name = car.GetNormalizedCarName()
-		log.Printf("Car: %s, Model Code: %s, Maker: %s, Style: %s", car.Name, car.ModelCode, car.Maker, car.BaseStyleName)
+		logger.Debug(ctx, fmt.Sprintf("car: %s, model code: %s, maker: %s, style: %s", car.Name, car.ModelCode, car.Maker, car.BaseStyleName))
 		foundCars = append(foundCars, car)
 		for _, styleID := range car.CarStyleIDs {
 			carStyleIDsMap[styleID] = car.ID
@@ -68,13 +68,13 @@ func (s *CarSyncService) SyncData(ctx context.Context) error {
 	for _, segaStyle := range data.Styles {
 		segaStyle.ID = uuid.NewString()
 		segaStyle.CarID = carStyleIDsMap[segaStyle.StyleCarID]
-		log.Printf("Style: %s, Car ID: %s, Style Name: %s", segaStyle.Name, segaStyle.CarID, segaStyle.RouteStyleName)
+		logger.Debug(ctx, fmt.Sprintf("style: %s, car id: %s, style name: %s", segaStyle.Name, segaStyle.CarID, segaStyle.RouteStyleName))
 		foundStyles = append(foundStyles, segaStyle)
 	}
 	// 5. Upsert style data
 	if err := s.CarRepo.UpsertCarStyles(ctx, foundStyles); err != nil {
 		return fmt.Errorf("failed to upsert styles: %w", err)
 	}
-	log.Printf("✅ Car/Style Sync Completed")
+	logger.Info(ctx, "car/style sync completed")
 	return nil
 }

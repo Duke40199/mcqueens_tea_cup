@@ -8,6 +8,7 @@ import (
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 )
 
 type CfsStateRepo struct {
@@ -29,8 +30,7 @@ func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState,
 		if err == sql.ErrNoRows {
 			return nil, err // Not found
 		}
-		// Log error in a real app
-		fmt.Println("DB Error:", err)
+		logger.Error(ctx, "failed to get latest cfs state", err)
 		return nil, err
 	}
 	return &cfsState, nil

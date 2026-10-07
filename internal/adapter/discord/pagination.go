@@ -1,12 +1,15 @@
 package discord
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+
+	"McQueens_Tea_Cup/pkg/logger"
+	"McQueens_Tea_Cup/pkg/tracer"
 )
 
 // paginationTTL is how long a paginated message stays interactive before its
@@ -146,7 +149,7 @@ func paginationComponents(current, total int) []discordgo.MessageComponent {
 
 // SendPagination edits the deferred response with the first page and, when there
 // is more than one page, wires up navigation buttons backed by a registry entry.
-func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string) {
+func (h *Handler) SendPagination(ctx context.Context, i *discordgo.InteractionCreate, pages []string) {
 	if len(pages) == 0 {
 		return
 	}
@@ -155,7 +158,7 @@ func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string)
 		if _, err := h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 			Content: &pages[0],
 		}); err != nil {
-			log.Printf("pagination: failed to send single page: %v", err)
+			logger.Error(ctx, "failed to send single page", err)
 		}
 		return
 	}
@@ -166,7 +169,7 @@ func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string)
 		Components: &components,
 	})
 	if err != nil {
-		log.Printf("pagination: failed to send first page: %v", err)
+		logger.Error(ctx, "failed to send first page", err)
 		return
 	}
 
@@ -182,7 +185,7 @@ func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string)
 		if _, err := h.Session.InteractionResponseEdit(interaction, &discordgo.WebhookEdit{
 			Components: &empty,
 		}); err != nil {
-			log.Printf("pagination: failed to clear buttons on expiry: %v", err)
+			logger.Error(ctx, "failed to clear buttons on expiry", err)
 		}
 	})
 }
@@ -191,6 +194,11 @@ func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string)
 // is registered once (from the router), not per invocation.
 func (h *Handler) handlePaginationComponent(s *discordgo.Session, ic *discordgo.InteractionCreate) {
 	defer recoverInteraction("pagination handler")
+
+	ctx := tracer.NewContext(context.Background())
+	if u := interactionUser(ic); u != nil {
+		ctx = tracer.WithUserID(ctx, u.ID)
+	}
 
 	if ic.Type != discordgo.InteractionMessageComponent {
 		return
@@ -214,18 +222,18 @@ func (h *Handler) handlePaginationComponent(s *discordgo.Session, ic *discordgo.
 				Components: components,
 			},
 		}); err != nil {
-			log.Printf("pagination: failed to update message: %v", err)
+			logger.Error(ctx, "failed to update message", err)
 		}
 	case paginationNotOwner:
-		h.respondEphemeral(s, ic, "Only the person who ran the command can use these buttons.")
+		h.respondEphemeral(ctx, s, ic, "Only the person who ran the command can use these buttons.")
 	case paginationNotFound:
-		h.respondEphemeral(s, ic, "This menu has expired. Please run the command again.")
+		h.respondEphemeral(ctx, s, ic, "This menu has expired. Please run the command again.")
 	}
 }
 
 // respondEphemeral sends a private, self-dismissing reply to a component click so
 // the user doesn't see Discord's generic "interaction failed".
-func (h *Handler) respondEphemeral(s *discordgo.Session, ic *discordgo.InteractionCreate, content string) {
+func (h *Handler) respondEphemeral(ctx context.Context, s *discordgo.Session, ic *discordgo.InteractionCreate, content string) {
 	if err := s.InteractionRespond(ic.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -233,6 +241,6 @@ func (h *Handler) respondEphemeral(s *discordgo.Session, ic *discordgo.Interacti
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("pagination: failed to send ephemeral reply: %v", err)
+		logger.Error(ctx, "failed to send ephemeral reply", err)
 	}
 }

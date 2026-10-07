@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
+	"McQueens_Tea_Cup/pkg/logger"
 
 	_ "github.com/lib/pq"
 )
@@ -25,10 +27,10 @@ func NewAliasRepo(db *sql.DB, tables config.DatabaseTablesConfig) database.Alias
 }
 
 // GetByAliasKey fetches alias from DB
-func (a *AliasRepository) GetByAliasKey(key string) (entity.PlayerAlias, bool, error) {
+func (a *AliasRepository) GetByAliasKey(ctx context.Context, key string) (entity.PlayerAlias, bool, error) {
 	query := fmt.Sprintf(`SELECT ign, area FROM %s WHERE alias_key = $1`, a.tableName)
 
-	row := a.DB.QueryRow(query, key)
+	row := a.DB.QueryRowContext(ctx, query, key)
 
 	var alias entity.PlayerAlias
 	err := row.Scan(&alias.Ign, &alias.Area)
@@ -36,20 +38,19 @@ func (a *AliasRepository) GetByAliasKey(key string) (entity.PlayerAlias, bool, e
 		if err == sql.ErrNoRows {
 			return entity.PlayerAlias{}, false, err // Not found
 		}
-		// Log error in a real app
-		fmt.Println("DB Error:", err)
+		logger.Error(ctx, "failed to get alias by key", err)
 		return entity.PlayerAlias{}, false, err
 	}
 
 	return alias, true, nil
 }
 
-func (a *AliasRepository) GetByIgnAndAreaCode(ign, areaCode string) (entity.PlayerAlias, bool, error) {
+func (a *AliasRepository) GetByIgnAndAreaCode(ctx context.Context, ign, areaCode string) (entity.PlayerAlias, bool, error) {
 	query := fmt.Sprintf(`SELECT ign, area FROM %s
               WHERE lower(normalize(ign, NFKC)) = lower(normalize($1, NFKC))
               AND area = $2
               LIMIT 1`, a.tableName)
-	row := a.DB.QueryRow(query, ign, areaCode)
+	row := a.DB.QueryRowContext(ctx, query, ign, areaCode)
 
 	var alias entity.PlayerAlias
 	err := row.Scan(&alias.Ign, &alias.Area)
@@ -57,8 +58,7 @@ func (a *AliasRepository) GetByIgnAndAreaCode(ign, areaCode string) (entity.Play
 		if err == sql.ErrNoRows {
 			return entity.PlayerAlias{}, false, err // Not found
 		}
-		// Log error in a real app
-		fmt.Println("DB Error:", err)
+		logger.Error(ctx, "failed to get alias by ign and area", err)
 		return entity.PlayerAlias{}, false, err
 	}
 
