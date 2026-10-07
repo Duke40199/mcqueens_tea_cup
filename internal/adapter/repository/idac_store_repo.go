@@ -7,16 +7,19 @@ import (
 	"strings"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type AllNetStoreLocationsRepository struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
-func NewAllNetStoreLocationsRepository(db *sql.DB) database.AllNetStoreLocationsRepository {
+func NewAllNetStoreLocationsRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.AllNetStoreLocationsRepository {
 	return &AllNetStoreLocationsRepository{
-		DB: db,
+		DB:        db,
+		tableName: tables.IDACStores,
 	}
 }
 
@@ -24,7 +27,7 @@ func (r *AllNetStoreLocationsRepository) UpsertStoreLocation(ctx context.Context
 	query := fmt.Sprintf(`
 		INSERT INTO %s (name, address, sega_area_code, all_net_area_code, created_at)
 		VALUES ($1, $2, $3, $4, NOW())
-		RETURNING id;`, storeLocEntity.TableName())
+		RETURNING id;`, r.tableName)
 	var newID int64
 	err := r.DB.QueryRow(query,
 		storeLocEntity.Name,
@@ -38,7 +41,6 @@ func (r *AllNetStoreLocationsRepository) BulkUpsertStoreLocation(ctx context.Con
 	if len(stores) == 0 {
 		return nil
 	}
-	tableName := stores[0].TableName()
 	var valueStrings []string
 	var valueArgs []interface{}
 	for i, store := range stores {
@@ -53,7 +55,7 @@ func (r *AllNetStoreLocationsRepository) BulkUpsertStoreLocation(ctx context.Con
 		ON CONFLICT (name) DO UPDATE SET
 			address = EXCLUDED.address,
 			sega_area_code = EXCLUDED.sega_area_code,
-			all_net_area_code = EXCLUDED.all_net_area_code;`, tableName, strings.Join(valueStrings, ","))
+			all_net_area_code = EXCLUDED.all_net_area_code;`, r.tableName, strings.Join(valueStrings, ","))
 	_, err := r.DB.ExecContext(ctx, query, valueArgs...)
 	return err
 }

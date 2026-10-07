@@ -5,25 +5,28 @@ import (
 	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
 )
 
 type AliasRepository struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
 // NewAliasRepo returns the struct that satisfies AliasRepository
-func NewAliasRepo(db *sql.DB) database.AliasRepository {
+func NewAliasRepo(db *sql.DB, tables config.DatabaseTablesConfig) database.AliasRepository {
 	return &AliasRepository{
-		DB: db,
+		DB:        db,
+		tableName: tables.PlayerAlias,
 	}
 }
 
 // GetByAliasKey fetches alias from DB
 func (a *AliasRepository) GetByAliasKey(key string) (entity.PlayerAlias, bool, error) {
-	query := `SELECT ign, area FROM player_alias WHERE alias_key = $1`
+	query := fmt.Sprintf(`SELECT ign, area FROM %s WHERE alias_key = $1`, a.tableName)
 
 	row := a.DB.QueryRow(query, key)
 
@@ -42,10 +45,10 @@ func (a *AliasRepository) GetByAliasKey(key string) (entity.PlayerAlias, bool, e
 }
 
 func (a *AliasRepository) GetByIgnAndAreaCode(ign, areaCode string) (entity.PlayerAlias, bool, error) {
-	query := `SELECT ign, area FROM player_alias 
+	query := fmt.Sprintf(`SELECT ign, area FROM %s
               WHERE lower(normalize(ign, NFKC)) = lower(normalize($1, NFKC))
               AND area = $2
-              LIMIT 1`
+              LIMIT 1`, a.tableName)
 	row := a.DB.QueryRow(query, ign, areaCode)
 
 	var alias entity.PlayerAlias
@@ -65,12 +68,12 @@ func (a *AliasRepository) GetByIgnAndAreaCode(ign, areaCode string) (entity.Play
 // SetPlayerAlias inserts or updates alias
 func (a *AliasRepository) SetPlayerAlias(key, ign, area string) error {
 	// UPSERT: Insert, but if conflict (key exists), update the existing row
-	query := `
-		INSERT INTO player_alias (alias_key, ign, area, updated_at)
+	query := fmt.Sprintf(`
+		INSERT INTO %s (alias_key, ign, area, updated_at)
 		VALUES ($1, $2, $3, NOW())
-		ON CONFLICT (alias_key) 
+		ON CONFLICT (alias_key)
 		DO UPDATE SET ign = EXCLUDED.ign, area = EXCLUDED.area, updated_at = NOW();
-	`
+	`, a.tableName)
 	_, err := a.DB.Exec(query, key, ign, area)
 	return err
 }

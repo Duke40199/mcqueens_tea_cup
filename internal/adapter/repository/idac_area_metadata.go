@@ -3,23 +3,27 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type IDACAreaMetadataRepository struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
-func NewIDACAreaMetadataRepository(db *sql.DB) database.IDACAreaMetadataRepository {
+func NewIDACAreaMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.IDACAreaMetadataRepository {
 	return &IDACAreaMetadataRepository{
-		DB: db,
+		DB:        db,
+		tableName: tables.IDACAreaMetadata,
 	}
 }
 
 func (r *IDACAreaMetadataRepository) GetAll(ctx context.Context) ([]entity.IDACAreaMetadata, error) {
-	query := `SELECT * FROM idac_area_metadata`
+	query := fmt.Sprintf(`SELECT * FROM %s`, r.tableName)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err

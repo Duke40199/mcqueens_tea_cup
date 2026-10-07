@@ -8,17 +8,24 @@ import (
 	"strings"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	"github.com/lib/pq"
 )
 
 type CarRepository struct {
-	DB *sql.DB
+	DB             *sql.DB
+	carsTable      string
+	carStylesTable string
 }
 
-func NewCarRepository(db *sql.DB) database.CarRepository {
-	return &CarRepository{DB: db}
+func NewCarRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.CarRepository {
+	return &CarRepository{
+		DB:             db,
+		carsTable:      tables.IDACCarsMetadata,
+		carStylesTable: tables.IDACCarStylesMetadata,
+	}
 }
 
 func (r *CarRepository) UpsertCars(ctx context.Context, cars []entity.CarMetadata) error {
@@ -26,7 +33,7 @@ func (r *CarRepository) UpsertCars(ctx context.Context, cars []entity.CarMetadat
 		return nil
 	}
 
-	query := `INSERT INTO sega_idac_cars_metadata (id, sega_id, name, model_code, maker, base_spec, style_ids) VALUES `
+	query := fmt.Sprintf(`INSERT INTO %s (id, sega_id, name, model_code, maker, base_spec, style_ids) VALUES `, r.carsTable)
 	values := []any{}
 	placeholders := []string{}
 	// Batch insert
@@ -50,7 +57,7 @@ func (r *CarRepository) UpsertCarStyles(ctx context.Context, styles []entity.Car
 	if len(styles) == 0 {
 		return nil
 	}
-	query := `INSERT INTO sega_idac_car_styles_metadata (id, sega_id, name, car_id) VALUES `
+	query := fmt.Sprintf(`INSERT INTO %s (id, sega_id, name, car_id) VALUES `, r.carStylesTable)
 	values := []any{}
 	placeholders := []string{}
 
@@ -72,7 +79,7 @@ func (r *CarRepository) UpsertCarStyles(ctx context.Context, styles []entity.Car
 // GetBaseSpecMap returns a map of (model_code OR alias) -> CarSpecInfo
 // e.g. "FL5" -> {ModelCode: "FL5", BaseSpec: "tech"}, "CZ4Aエボ10" -> {ModelCode: "CZ4A", BaseSpec: "speed"}
 func (r *CarRepository) GetBaseSpecMap(ctx context.Context) (map[string]entity.CarSpecInfo, error) {
-	query := `SELECT name, maker, model_code, base_spec, COALESCE(aliases, '{}') FROM sega_idac_cars_metadata WHERE base_spec != ''`
+	query := fmt.Sprintf(`SELECT name, maker, model_code, base_spec, COALESCE(aliases, '{}') FROM %s WHERE base_spec != ''`, r.carsTable)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		log.Println("error getting base spec map:", err)
@@ -99,7 +106,7 @@ func (r *CarRepository) GetBaseSpecMap(ctx context.Context) (map[string]entity.C
 }
 
 func (r *CarRepository) GetSegaIDToUUIDMap(ctx context.Context) (map[int64]string, error) {
-	query := `SELECT sega_id, id FROM sega_idac_cars_metadata`
+	query := fmt.Sprintf(`SELECT sega_id, id FROM %s`, r.carsTable)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -138,7 +145,7 @@ func formatQuery(query string, args []any) string {
 }
 
 func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecMap map[string]string) (map[string]entity.CarSpecInfo, error) {
-	query := `SELECT 
+	query := fmt.Sprintf(`SELECT
 	 c.maker,
 	 c.name AS car_name,
  	c.model_code,
@@ -146,22 +153,29 @@ func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecM
  	c.aliases,
 	cs.name AS spec_name,
  	cs.sega_id as sega_spec_id
-	FROM sega_idac_cars_metadata c
-	LEFT JOIN sega_idac_car_styles_metadata cs 
-  	ON c.id = cs.car_id 
-	WHERE `
-	count := 0
-	for key, value := range aliasSpecMap {
-		query += fmt.Sprintf(`'%s' = ANY(aliases) AND cs.name = '%s'`, key, value)
-		query += fmt.Sprintf(` OR (c.model_code='%s' AND cs.name = '%s')`, key, value)
-		count++
-		if count < len(aliasSpecMap) {
-			query += ` OR `
-		} else {
-			query += `;`
-		}
+	FROM %s c
+	LEFT JOIN %s cs
+  	ON c.id = cs.car_id
+	WHERE `, r.carsTable, r.carStylesTable)
+	if len(aliasSpecMap) == 0 {
+		return make(map[string]entity.CarSpecInfo), nil
 	}
-	rows, err := r.DB.QueryContext(ctx, query)
+	// Build the WHERE clause with bound parameters to prevent SQL injection.
+	// Each group reuses two placeholders ($key, $value) across both conditions,
+	// and is parenthesized so the AND/OR precedence groups as intended.
+	conditions := make([]string, 0, len(aliasSpecMap))
+	args := make([]any, 0, len(aliasSpecMap)*2)
+	for key, value := range aliasSpecMap {
+		keyPlaceholder := fmt.Sprintf("$%d", len(args)+1)
+		valuePlaceholder := fmt.Sprintf("$%d", len(args)+2)
+		conditions = append(conditions, fmt.Sprintf(
+			`((%[1]s = ANY(aliases) AND cs.name = %[2]s) OR (c.model_code = %[1]s AND cs.name = %[2]s))`,
+			keyPlaceholder, valuePlaceholder,
+		))
+		args = append(args, key, value)
+	}
+	query += strings.Join(conditions, " OR ")
+	rows, err := r.DB.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Println("error getting base spec map:", err)
 		return nil, err
@@ -191,18 +205,18 @@ func (r *CarRepository) GetCarWithSpecsByAliases(ctx context.Context, aliasSpecM
 }
 
 func (r *CarRepository) GetListCarWithAggregatedSpecs(ctx context.Context) ([]*entity.CarMetadata, error) {
-	query := `SELECT
+	query := fmt.Sprintf(`SELECT
     c.sega_id AS sega_car_id,
     c.maker,
     c.name AS car_name,
 	c.model_code,
     array_agg(cs.sega_id) AS spec_ids,
     array_agg(cs.name) AS spec_names
-    FROM sega_idac_cars_metadata c
-    LEFT JOIN sega_idac_car_styles_metadata cs
+    FROM %s c
+    LEFT JOIN %s cs
     ON c.id = cs.car_id
 	GROUP BY c.id
-	ORDER BY c.maker, c.name ASC;`
+	ORDER BY c.maker, c.name ASC;`, r.carsTable, r.carStylesTable)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		log.Println("error getting base spec map:", err)

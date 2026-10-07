@@ -3,27 +3,31 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
 )
 
 type RankingCfgRepository struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
 // NewRankingCfgRepo returns the struct that satisfies RankingCfgRepository
-func NewRankingCfgRepo(db *sql.DB) database.RankingCfgRepository {
+func NewRankingCfgRepo(db *sql.DB, tables config.DatabaseTablesConfig) database.RankingCfgRepository {
 	return &RankingCfgRepository{
-		DB: db,
+		DB:        db,
+		tableName: tables.CfgPlayerRanking,
 	}
 }
 
 // GetListTimeAttackRankingCfg fetches time ranking from DB
 func (r *RankingCfgRepository) GetListTimeAttackRankingCfg(ctx context.Context) ([]*entity.TimeAttackRankingCfg, error) {
-	query := `SELECT id, name FROM cfg_player_ranking WHERE type = $1`
+	query := fmt.Sprintf(`SELECT id, name FROM %s WHERE type = $1`, r.tableName)
 	rows, err := r.DB.QueryContext(ctx, query, "RANK_TIME_ATTACK")
 	if err != nil {
 		return nil, err
@@ -43,7 +47,7 @@ func (r *RankingCfgRepository) GetListTimeAttackRankingCfg(ctx context.Context) 
 
 // GetListPlayerGradeCfg fetches player grade cfg from DB
 func (r *RankingCfgRepository) GetListPlayerGradeCfg(ctx context.Context) ([]*entity.PlayerGradeCfg, error) {
-	query := `SELECT id, type, name, sega_id FROM cfg_player_ranking WHERE type IN ($1, $2)`
+	query := fmt.Sprintf(`SELECT id, type, name, sega_id FROM %s WHERE type IN ($1, $2)`, r.tableName)
 	rows, err := r.DB.QueryContext(ctx, query, "RANK_NUMBER", "GRADE")
 	if err != nil {
 		return nil, err
@@ -63,7 +67,7 @@ func (r *RankingCfgRepository) GetListPlayerGradeCfg(ctx context.Context) ([]*en
 
 // GetListPlayerGradeCfg fetches player grade cfg from DB
 func (r *RankingCfgRepository) GetPlayerGradeBySegaIDs(ctx context.Context, gradeSegaID, gradeNumSegaID string) ([]*entity.PlayerGradeCfg, error) {
-	query := `SELECT id, type, name, sega_id, emoji FROM cfg_player_ranking WHERE sega_id IN ($1, $2)`
+	query := fmt.Sprintf(`SELECT id, type, name, sega_id, emoji FROM %s WHERE sega_id IN ($1, $2)`, r.tableName)
 	rows, err := r.DB.QueryContext(ctx, query, gradeSegaID, gradeNumSegaID)
 	if err != nil {
 		return nil, err
