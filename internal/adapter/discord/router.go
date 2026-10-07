@@ -448,6 +448,9 @@ func (h *Handler) RegisterCommands() error {
 			if CommandName(i.ApplicationCommandData().Name) == CommandNameIDAC {
 				h.HandleAutoComplete(s, i)
 			}
+		// C. Handle Message Components (pagination buttons)
+		case discordgo.InteractionMessageComponent:
+			h.handlePaginationComponent(s, i)
 		}
 	})
 

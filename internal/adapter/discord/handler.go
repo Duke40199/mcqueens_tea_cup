@@ -45,6 +45,8 @@ type Handler struct {
 	CarChoices   []*entity.CarMetadata
 	AreaMetadata []entity.IDACAreaMetadata
 	TrackChoices map[string]string
+	// pagination state for interactive, button-paged messages
+	pagination *paginationStore
 }
 
 // NewHandler creates our controller
@@ -96,6 +98,7 @@ func NewHandler(
 		SegaClient:   segaClient,
 		AllNetClient: allNetClient,
 		OwnerID:      ownerID,
+		pagination:   newPaginationStore(),
 	}
 	idacAreaMetadata, err := discordHandler.IdacAreaService.GetAreaMetadata(context.Background())
 	if err != nil {

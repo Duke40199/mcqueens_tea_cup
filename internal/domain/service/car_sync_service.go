@@ -34,7 +34,7 @@ func (s *CarSyncService) SyncData(ctx context.Context) error {
 	}
 
 	// 1. Fetch data
-	data, err := s.SegaClient.FetchConst()
+	data, err := s.SegaClient.FetchConst(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch const data: %w", err)
 	}

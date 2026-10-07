@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
@@ -13,13 +14,19 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// allNetHTTPTimeout bounds every AllNet request so a stalled endpoint can't hang
+// the caller. A caller-supplied ctx with an earlier deadline still wins.
+const allNetHTTPTimeout = 15 * time.Second
+
 type AllNetClient struct {
-	config config.Config
+	config     config.Config
+	httpClient *http.Client
 }
 
 func NewAllNetClient(config config.Config) port.AllNetClient {
 	return &AllNetClient{
-		config: config,
+		config:     config,
+		httpClient: &http.Client{Timeout: allNetHTTPTimeout},
 	}
 }
 
@@ -37,7 +44,7 @@ func (c *AllNetClient) GetListStore(ctx context.Context, gameCode, languageCode,
 	}
 
 	// Execute the request
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to execute request: %w", err)
 	}

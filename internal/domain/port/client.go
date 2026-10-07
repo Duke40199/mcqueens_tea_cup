@@ -11,12 +11,12 @@ type AllNetClient interface {
 }
 
 type SegaIDACClient interface {
-	GetListTimeTrail(courseID, area, car, spec string) ([]entity.TimeAttackRecord, error)
-	GetTeamRanking(round int, rankCode string) ([]entity.TeamRecord, error)
-	GetListOBRanking(roundNum string, areaCode string) (*entity.IdacOBRankingResponse, error)
-	GetCurrentRound() (int, error)
-	FetchConst() (*entity.IdacConstResponse, error)
-	GetListPlayerGrade(areaCode string) (*entity.IdacPlayerRankingResponse, error)
-	GetPlayerGradeByIGN(ign, areaCode string) (*entity.PlayerRankingRecord, error)
-	GetOBRankingByIGN(ign, roundNum, areaCode string) (*entity.OBRankingRecord, error)
+	GetListTimeTrail(ctx context.Context, courseID, area, car, spec string) ([]entity.TimeAttackRecord, error)
+	GetTeamRanking(ctx context.Context, round int, rankCode string) ([]entity.TeamRecord, error)
+	GetListOBRanking(ctx context.Context, roundNum string, areaCode string) (*entity.IdacOBRankingResponse, error)
+	GetCurrentRound(ctx context.Context) (int, error)
+	FetchConst(ctx context.Context) (*entity.IdacConstResponse, error)
+	GetListPlayerGrade(ctx context.Context, areaCode string) (*entity.IdacPlayerRankingResponse, error)
+	GetPlayerGradeByIGN(ctx context.Context, ign, areaCode string) (*entity.PlayerRankingRecord, error)
+	GetOBRankingByIGN(ctx context.Context, ign, roundNum, areaCode string) (*entity.OBRankingRecord, error)
 }

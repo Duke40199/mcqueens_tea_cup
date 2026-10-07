@@ -31,7 +31,7 @@ func NewIDACOBRankingService(
 // `limit` entries (limit <= 0 means "all"). An empty view (no entries) is a
 // valid, non-error result; upstream failures are returned as errors.
 func (s *IDACOBRankingService) GetRanking(ctx context.Context, round, area string, limit int) (*entity.OBRankingView, error) {
-	resp, err := s.segaClient.GetListOBRanking(round, area)
+	resp, err := s.segaClient.GetListOBRanking(ctx, round, area)
 	if err != nil {
 		return nil, err
 	}
