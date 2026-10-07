@@ -6,19 +6,21 @@ import (
 	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type CfsStateRepo struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
-func NewCfsStateRepository(db *sql.DB) database.CfsStateRepository {
-	return &CfsStateRepo{DB: db}
+func NewCfsStateRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.CfsStateRepository {
+	return &CfsStateRepo{DB: db, tableName: tables.CfsState}
 }
 
 func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState, error) {
-	query := `SELECT id FROM cfs_state ORDER BY created_at DESC LIMIT 1;`
+	query := fmt.Sprintf(`SELECT id FROM %s ORDER BY created_at DESC LIMIT 1;`, r.tableName)
 	row := r.DB.QueryRow(query)
 
 	var cfsState entity.CfsState
@@ -37,11 +39,11 @@ func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState,
 func (r *CfsStateRepo) CreateCfsState(discordID, content string) (int64, error) {
 	// Let databaseQL automatically generate the next `id` using SERIAL,
 	// and then immediately return that new `id` back to us.
-	query := `
-		INSERT INTO cfs_state (discord_id, content, created_at)
+	query := fmt.Sprintf(`
+		INSERT INTO %s (discord_id, content, created_at)
 		VALUES ($1, $2, NOW())
 		RETURNING id;
-	`
+	`, r.tableName)
 	var newID int64
 	err := r.DB.QueryRow(query, discordID, content).Scan(&newID)
 

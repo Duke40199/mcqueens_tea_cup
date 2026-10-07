@@ -11,7 +11,3 @@ type StoreLocation struct {
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
-
-func (s StoreLocation) TableName() string {
-	return "idac_stores"
-}

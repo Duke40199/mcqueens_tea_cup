@@ -36,6 +36,7 @@ func (c *AppConfig) GetActivePlayersSyncCfg() ActivePlayersSyncConfig {
 type AppConfig struct {
 	DiscordCfg           DiscordConfig
 	DatabaseCfg          DatabaseConfig
+	DatabaseTablesCfg    DatabaseTablesConfig
 	MetaSyncCfg          MetaSyncConfig
 	ActivePlayersSyncCfg ActivePlayersSyncConfig
 	SegaClientCfg        SegaClientConfig
@@ -95,6 +96,21 @@ type DatabaseConfig struct {
 	Name     string
 }
 
+// DatabaseTablesConfig holds the physical table names, so they can be
+// overridden per environment without touching the repository code.
+type DatabaseTablesConfig struct {
+	IDACCarsMetadata      string
+	IDACCarStylesMetadata string
+	IDACTATimeMetadata    string
+	IDACAreaMetadata      string
+	IDACOBSyncAreaCfg     string
+	IDACStores            string
+	PlayerAlias           string
+	OBRankingCfg          string
+	CfgPlayerRanking      string
+	CfsState              string
+}
+
 // env getter funcs
 func getEnv(key string, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
@@ -127,6 +143,18 @@ func LoadConfig() (*AppConfig, error) {
 			User:     getEnv("DB_USER", ""),
 			Password: getEnv("DB_PASSWORD", ""),
 			Name:     getEnv("DB_NAME", ""),
+		},
+		DatabaseTablesCfg: DatabaseTablesConfig{
+			IDACCarsMetadata:      getEnv("DB_TABLE_IDAC_CARS_METADATA", "sega_idac_cars_metadata"),
+			IDACCarStylesMetadata: getEnv("DB_TABLE_IDAC_CAR_STYLES_METADATA", "sega_idac_car_styles_metadata"),
+			IDACTATimeMetadata:    getEnv("DB_TABLE_IDAC_TA_TIME_METADATA", "sega_idac_ta_time_metadata"),
+			IDACAreaMetadata:      getEnv("DB_TABLE_IDAC_AREA_METADATA", "idac_area_metadata"),
+			IDACOBSyncAreaCfg:     getEnv("DB_TABLE_IDAC_OB_SYNC_AREA_CFG", "idac_ob_sync_area_cfg"),
+			IDACStores:            getEnv("DB_TABLE_IDAC_STORES", "idac_stores"),
+			PlayerAlias:           getEnv("DB_TABLE_PLAYER_ALIAS", "player_alias"),
+			OBRankingCfg:          getEnv("DB_TABLE_OB_RANKING_CFG", "ob_ranking_cfg"),
+			CfgPlayerRanking:      getEnv("DB_TABLE_CFG_PLAYER_RANKING", "cfg_player_ranking"),
+			CfsState:              getEnv("DB_TABLE_CFS_STATE", "cfs_state"),
 		},
 		SegaClientCfg: SegaClientConfig{
 			SegaIDACHost:              getEnv("SEGA_IDAC_HOST", ""),

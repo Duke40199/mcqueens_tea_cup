@@ -6,33 +6,36 @@ import (
 	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
 )
 
-const taTimeMetadataTableName = "sega_idac_ta_time_metadata"
-
 type TATimeMetadataRepository struct {
-	DB *sql.DB
+	DB                    *sql.DB
+	taTimeMetadataTable   string
+	cfgPlayerRankingTable string
 }
 
 // NewTATimeMetadataRepository returns the struct that satisfies TATimeMetadataRepository
-func NewTATimeMetadataRepository(db *sql.DB) database.TATimeMetadataRepository {
+func NewTATimeMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.TATimeMetadataRepository {
 	return &TATimeMetadataRepository{
-		DB: db,
+		DB:                    db,
+		taTimeMetadataTable:   tables.IDACTATimeMetadata,
+		cfgPlayerRankingTable: tables.CfgPlayerRanking,
 	}
 }
 
 // GetByCourseID fetches time ranking from DB
 func (r *TATimeMetadataRepository) GetByCourseID(ctx context.Context, courseID string) ([]*entity.TimeAttackRankingMetadata, error) {
 	// 1. Debug exactly what is being passed
-	query := `
+	query := fmt.Sprintf(`
         SELECT m.id, m.required_time, r.name
-        FROM sega_idac_ta_time_metadata m
-        LEFT JOIN cfg_player_ranking r ON m.rank_id::uuid = r.id
+        FROM %s m
+        LEFT JOIN %s r ON m.rank_id::uuid = r.id
         WHERE m.course_id = $1
-        ORDER BY m.required_time ASC`
+        ORDER BY m.required_time ASC`, r.taTimeMetadataTable, r.cfgPlayerRankingTable)
 
 	rows, err := r.DB.QueryContext(ctx, query, courseID)
 	if err != nil {

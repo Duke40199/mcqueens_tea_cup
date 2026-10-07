@@ -32,15 +32,15 @@ func main() {
 	}
 
 	// 3. Init Repositories
-	aliasRepo := repository.NewAliasRepo(dbConn)
-	obRankingCfgRepo := repository.NewOBRankingCfgRepository(dbConn)
-	areaRepo := repository.NewAreaRepository(dbConn)
-	taTimeMetadataRepo := repository.NewTATimeMetadataRepository(dbConn)
-	rankingCfgRepo := repository.NewRankingCfgRepo(dbConn)
-	cfsStateRepo := repository.NewCfsStateRepository(dbConn)
-	carRepo := repository.NewCarRepository(dbConn)
-	areaMetadataRepo := repository.NewIDACAreaMetadataRepository(dbConn)
-	storeLocationRepo := repository.NewAllNetStoreLocationsRepository(dbConn)
+	aliasRepo := repository.NewAliasRepo(dbConn, cfg.DatabaseTablesCfg)
+	obRankingCfgRepo := repository.NewOBRankingCfgRepository(dbConn, cfg.DatabaseTablesCfg)
+	areaRepo := repository.NewAreaRepository(dbConn, cfg.DatabaseTablesCfg)
+	taTimeMetadataRepo := repository.NewTATimeMetadataRepository(dbConn, cfg.DatabaseTablesCfg)
+	rankingCfgRepo := repository.NewRankingCfgRepo(dbConn, cfg.DatabaseTablesCfg)
+	cfsStateRepo := repository.NewCfsStateRepository(dbConn, cfg.DatabaseTablesCfg)
+	carRepo := repository.NewCarRepository(dbConn, cfg.DatabaseTablesCfg)
+	areaMetadataRepo := repository.NewIDACAreaMetadataRepository(dbConn, cfg.DatabaseTablesCfg)
+	storeLocationRepo := repository.NewAllNetStoreLocationsRepository(dbConn, cfg.DatabaseTablesCfg)
 
 	// 4. Init Discord Session
 	discordSession, err := discord_handler.NewDiscordSession(&cfg.DiscordCfg)

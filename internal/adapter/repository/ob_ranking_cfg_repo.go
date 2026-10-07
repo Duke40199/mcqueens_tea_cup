@@ -5,27 +5,28 @@ import (
 	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 
 	_ "github.com/lib/pq"
 )
 
 type OBRankingCfgRepository struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
-var obRankingCfgTableName = "ob-ranking-cfg"
-
 // NewOBRankingCfgRepository returns the struct that satisfies AliasRepository
-func NewOBRankingCfgRepository(db *sql.DB) database.OBRankingCfgRepository {
+func NewOBRankingCfgRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.OBRankingCfgRepository {
 	return &OBRankingCfgRepository{
-		DB: db,
+		DB:        db,
+		tableName: tables.OBRankingCfg,
 	}
 }
 
 // GetByAliasKey fetches alias from DB
 func (o *OBRankingCfgRepository) GetBySegaID(key string) (*entity.OBRankingCfg, error) {
-	query := `SELECT * FROM ` + obRankingCfgTableName + ` WHERE sega_id = $1`
+	query := fmt.Sprintf(`SELECT * FROM %s WHERE sega_id = $1`, o.tableName)
 
 	row := o.DB.QueryRow(query, key)
 
@@ -44,7 +45,7 @@ func (o *OBRankingCfgRepository) GetBySegaID(key string) (*entity.OBRankingCfg, 
 }
 
 func (o *OBRankingCfgRepository) GetRankingCfgMap() (map[string]entity.OBRankingCfg, error) {
-	query := `SELECT * FROM ob_ranking_cfg`
+	query := fmt.Sprintf(`SELECT * FROM %s`, o.tableName)
 
 	rows, err := o.DB.Query(query)
 	if err != nil {

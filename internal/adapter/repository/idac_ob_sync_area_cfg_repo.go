@@ -3,23 +3,27 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"McQueens_Tea_Cup/internal/adapter/database"
+	"McQueens_Tea_Cup/internal/config"
 	"McQueens_Tea_Cup/internal/domain/entity"
 )
 
 type AreaRepository struct {
-	DB *sql.DB
+	DB        *sql.DB
+	tableName string
 }
 
-func NewAreaRepository(db *sql.DB) database.AreaRepository {
+func NewAreaRepository(db *sql.DB, tables config.DatabaseTablesConfig) database.AreaRepository {
 	return &AreaRepository{
-		DB: db,
+		DB:        db,
+		tableName: tables.IDACOBSyncAreaCfg,
 	}
 }
 
 func (r *AreaRepository) GetOBActiveAreas(ctx context.Context) ([]entity.AreaSyncInfo, error) {
-	query := `SELECT sega_code, name, COALESCE(timezone, 'Asia/Tokyo') FROM idac_ob_sync_area_cfg WHERE is_cron_ob_active_status = true`
+	query := fmt.Sprintf(`SELECT sega_code, name, COALESCE(timezone, 'Asia/Tokyo') FROM %s WHERE is_cron_ob_active_status = true`, r.tableName)
 	rows, err := r.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
