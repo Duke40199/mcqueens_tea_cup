@@ -28,13 +28,17 @@ func (h *Handler) HandlePlayerInfo(cc *CommandContext) error {
 		return NewUserError("Cannot find player grade.")
 	}
 	// 3. Build Response
+	areaDisplay := playerArea
+	if name, ok := entity.AreaDisplayNameByCode[playerArea]; ok {
+		areaDisplay = name
+	}
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf(
 		"# **IGN:** %s | Area: %s\n"+
 			"### **Account Grade**:\n"+
 			"# %s%s\n"+
 			"### **Online Battle Rank:**\n"+
-			"# %s %s\n", playerName, "VN", profile.GradeName, profile.GradeNum, profile.OBRankName, profile.OBStarCount))
+			"# %s %s\n", playerName, areaDisplay, profile.GradeName, profile.GradeNum, profile.OBRankName, profile.OBStarCount))
 	finalContent := sb.String()
 	embed := &discordgo.MessageEmbed{
 		Title:       "__**Player Profile**__",

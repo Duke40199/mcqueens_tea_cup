@@ -28,7 +28,7 @@ func (r *CfsStateRepo) GetLatestCfsState(ctx context.Context) (*entity.CfsState,
 	err := row.Scan(&cfsState.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, err // Not found
+			return nil, nil // Not found is not an error
 		}
 		logger.Error(ctx, "failed to get latest cfs state", err)
 		return nil, err
