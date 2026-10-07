@@ -84,6 +84,7 @@ type ActivePlayersSyncConfig struct {
 // DiscordConfig holds Discord Integration configuration
 type DiscordConfig struct {
 	Token                        string
+	BotOwnerID                   string
 	IDACOBMetaCarsChannelID      string
 	IDACOBActivePlayersChannelID string
 }
@@ -134,6 +135,7 @@ func LoadConfig() (*AppConfig, error) {
 	cfg := &AppConfig{
 		DiscordCfg: DiscordConfig{
 			Token:                        getEnv("DISCORD_BOT_TOKEN", ""),
+			BotOwnerID:                   getEnv("DISCORD_BOT_OWNER_ID", ""),
 			IDACOBMetaCarsChannelID:      getEnv("DISCORD_OB_META_CARS_CHANNEL_ID", ""),
 			IDACOBActivePlayersChannelID: getEnv("DISCORD_OB_ACTIVE_PLAYERS_CHANNEL_ID", ""),
 		},

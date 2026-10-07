@@ -68,6 +68,7 @@ func main() {
 
 	cmdHandler := discord_handler.NewHandler(
 		discordSession.Session,
+		cfg.DiscordCfg.BotOwnerID,
 		aliasRepo,
 		obRankingCfgRepo,
 		rankingCfgRepo,

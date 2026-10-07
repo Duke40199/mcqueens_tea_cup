@@ -28,12 +28,8 @@ func (h *Handler) HandleAnonymousCommand(i *discordgo.InteractionCreate) {
 	// 1. Extract the message they want to send anonymously
 	messageContent := i.ApplicationCommandData().Options[0].StringValue()
 	var discordID string
-	if i.Member != nil {
-		// Command was used in a server (Guild)
-		discordID = i.Member.User.ID
-	} else if i.User != nil {
-		// Command was used in a Direct Message
-		discordID = i.User.ID
+	if user := interactionUser(i); user != nil {
+		discordID = user.ID
 	}
 	// 2. Respond to the interaction ephemerally
 	// Because this is ephemeral, the prompt "User used /anon" is hidden from the public!

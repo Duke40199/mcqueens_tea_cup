@@ -31,6 +31,10 @@ func (h *Handler) HandleMiemebell(i *discordgo.InteractionCreate) {
 		log.Println("Error parsing JSON:", err)
 		return
 	}
+	if len(data.Blocks) == 0 {
+		log.Println("miemebell: no blocks to choose from")
+		return
+	}
 	// Use h.Rand if you want to mock random in tests, otherwise global rand is fine for simple bots
 	randomIndex := rand.Intn(len(data.Blocks))
 
@@ -52,8 +56,11 @@ func (h *Handler) HandleNuhuh(i *discordgo.InteractionCreate) {
 	var content string
 	for _, opt := range options {
 		if opt.Name == "user" {
-			targetID := opt.Value.(string)
-			if targetID == h.Session.State.User.ID {
+			targetID, ok := opt.Value.(string)
+			if !ok {
+				continue
+			}
+			if botUser := h.Session.State.User; botUser != nil && targetID == botUser.ID {
 				content = "Nice try, but ***nuh-uh***"
 			} else {
 				content = fmt.Sprintf("<@%s>", targetID)

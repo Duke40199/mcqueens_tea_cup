@@ -50,6 +50,7 @@ type Handler struct {
 // NewHandler creates our controller
 func NewHandler(
 	s *discordgo.Session,
+	ownerID string,
 	// db repositories
 	aliasRepo database.AliasRepository,
 	obRankingCfgRepo database.OBRankingCfgRepository,
@@ -94,7 +95,7 @@ func NewHandler(
 		// clients
 		SegaClient:   segaClient,
 		AllNetClient: allNetClient,
-		OwnerID:      "384015507302383616",
+		OwnerID:      ownerID,
 	}
 	idacAreaMetadata, err := discordHandler.IdacAreaService.GetAreaMetadata(context.Background())
 	if err != nil {
@@ -132,11 +133,9 @@ func (h *Handler) HandleStatus(i *discordgo.InteractionCreate) {
 // If NOT, it sends the unauthorized GIF/Message and returns false.
 // If YES, it returns true.
 func (h *Handler) IsRequestFromOwner(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
-	// Replace with your actual Owner ID
-	const OwnerID = "384015507302383616"
-
-	// Check ID
-	if i.Member.User.ID == OwnerID {
+	// Owner ID comes from config (DISCORD_OWNER_ID). If it's unset, no one is
+	// treated as owner, so owner-gated commands fail closed.
+	if user := interactionUser(i); user != nil && h.OwnerID != "" && user.ID == h.OwnerID {
 		return true
 	}
 	// 1. Respond immediately with just the GIF
