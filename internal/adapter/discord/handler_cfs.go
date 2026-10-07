@@ -1,71 +1,62 @@
 package discord
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"strconv"
-	"sync"
+	"log"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-var (
-	cfsCounter int
-	cfsMutex   sync.Mutex
-)
-
-func init() {
-	// Load initial counter state
-	b, err := os.ReadFile("cfs_counter.txt")
-	if err == nil {
-		cfsCounter, _ = strconv.Atoi(string(bytes.TrimSpace(b)))
-	}
-}
-
 func (h *Handler) HandleAnonymousCommand(i *discordgo.InteractionCreate) {
+	// 1. Extract the message they want to send anonymously.
+	data := i.ApplicationCommandData()
+	if len(data.Options) == 0 {
+		return
+	}
+	messageContent := data.Options[0].StringValue()
 
-	// 1. Extract the message they want to send anonymously
-	messageContent := i.ApplicationCommandData().Options[0].StringValue()
 	var discordID string
 	if user := interactionUser(i); user != nil {
 		discordID = user.ID
 	}
-	// 2. Respond to the interaction ephemerally
-	// Because this is ephemeral, the prompt "User used /anon" is hidden from the public!
-	err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Your confession has been sent in secret!",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	if err != nil {
-		// handle error
+
+	// 2. Acknowledge privately first (deferred + ephemeral). This keeps us inside
+	// Discord's 3-second window and, crucially, lets us report the REAL outcome
+	// after the DB write and channel post below. The previous code confirmed
+	// success before doing any work and then tried to respond a second time on
+	// error (rejected by Discord as "already acknowledged").
+	if err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+	}); err != nil {
+		log.Printf("cfs: failed to defer interaction: %v", err)
 		return
 	}
-	// 3. Increment counter and format tag
+
+	// 3. Persist the confession (this also allocates the sequential id).
 	newID, err := h.CfsStateRepo.CreateCfsState(discordID, messageContent)
 	if err != nil {
-		h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Error updating cfs state",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		log.Printf("cfs: failed to create cfs state: %v", err)
+		h.editEphemeralReply(i, "⚠️ Something went wrong saving your confession. Please try again.")
 		return
 	}
-	// 4. Send a completely separate standard message to the channel.
-	// This will just look like the bot is speaking on its own.
-	_, err = h.Session.ChannelMessageSend(i.ChannelID, fmt.Sprintf("#cfs%04d: %s", newID, messageContent))
-	if err != nil {
-		h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Error sending confession",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+
+	// 4. Post the confession to the channel as a standalone bot message.
+	if _, err := h.Session.ChannelMessageSend(i.ChannelID, fmt.Sprintf("#cfs%04d: %s", newID, messageContent)); err != nil {
+		log.Printf("cfs: failed to send confession message: %v", err)
+		h.editEphemeralReply(i, "⚠️ Your confession was saved but couldn't be posted. Please contact an admin.")
+		return
+	}
+
+	// 5. Only now confirm success to the author.
+	h.editEphemeralReply(i, "Your confession has been sent in secret!")
+}
+
+// editEphemeralReply replaces the deferred ephemeral response with the given text.
+func (h *Handler) editEphemeralReply(i *discordgo.InteractionCreate, content string) {
+	if _, err := h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &content,
+	}); err != nil {
+		log.Printf("cfs: failed to edit response: %v", err)
 	}
 }
