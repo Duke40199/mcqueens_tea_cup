@@ -23,14 +23,14 @@ func NewIDACTeamService(segaClient port.SegaIDACClient) port.IDACTeamService {
 // as an error; when several are requested, failing codes are skipped so a
 // partial result is still produced.
 func (s *IDACTeamService) GetSortedTeamRankings(ctx context.Context, rankCodes []string) (int, []entity.TeamRecord, error) {
-	round, err := s.segaClient.GetCurrentRound()
+	round, err := s.segaClient.GetCurrentRound(ctx)
 	if err != nil {
 		return 0, nil, err
 	}
 
 	var allRecords []entity.TeamRecord
 	for _, code := range rankCodes {
-		records, err := s.segaClient.GetTeamRanking(round, code)
+		records, err := s.segaClient.GetTeamRanking(ctx, round, code)
 		if err != nil {
 			if len(rankCodes) == 1 {
 				return round, nil, err

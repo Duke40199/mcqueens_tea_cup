@@ -92,7 +92,7 @@ func (s *IDACPlayerService) ResolvePlayer(ctx context.Context, input, manualArea
 // the Sega client and the ranking config repos. A nil view with a nil error
 // means the player grade could not be found.
 func (s *IDACPlayerService) GetPlayerProfile(ctx context.Context, ign, area string) (*entity.PlayerProfileView, error) {
-	playerGrade, err := s.segaClient.GetPlayerGradeByIGN(ign, area)
+	playerGrade, err := s.segaClient.GetPlayerGradeByIGN(ctx, ign, area)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (s *IDACPlayerService) GetPlayerProfile(ctx context.Context, ign, area stri
 		}
 	}
 
-	obRankingRes, err := s.segaClient.GetOBRankingByIGN(ign, "all", area)
+	obRankingRes, err := s.segaClient.GetOBRankingByIGN(ctx, ign, "all", area)
 	if err != nil {
 		return nil, err
 	}
@@ -148,11 +148,11 @@ func (s *IDACPlayerService) GetTournamentInfo(ctx context.Context, areaCode stri
 		gradeCfgMap[cfg.SegaID] = cfg
 	}
 
-	obRankingRes, err := s.segaClient.GetListOBRanking("all", areaCode)
+	obRankingRes, err := s.segaClient.GetListOBRanking(ctx, "all", areaCode)
 	if err != nil {
 		return nil, err
 	}
-	listSegaPlayerGrade, err := s.segaClient.GetListPlayerGrade(areaCode)
+	listSegaPlayerGrade, err := s.segaClient.GetListPlayerGrade(ctx, areaCode)
 	if err != nil {
 		return nil, err
 	}

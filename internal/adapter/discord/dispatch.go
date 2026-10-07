@@ -5,9 +5,16 @@ import (
 	"errors"
 	"log"
 	"runtime/debug"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+// commandTimeout bounds how long a single slash-command handler may run before its
+// context is cancelled, so a slow upstream (Sega/AllNet/DB) can't keep the handler
+// goroutine and its connections alive indefinitely. It stays well under Discord's
+// 15-minute deferred-response window.
+const commandTimeout = 30 * time.Second
 
 // CommandContext carries everything a slash-command handler needs for a single
 // interaction and owns the reply channel back to Discord. By the time a handler
@@ -48,8 +55,11 @@ func (h *Handler) dispatch(i *discordgo.InteractionCreate, optMap map[string]str
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
 	cc := &CommandContext{
-		Ctx:         context.Background(),
+		Ctx:         ctx,
 		Session:     h.Session,
 		Interaction: i,
 		OptMap:      optMap,

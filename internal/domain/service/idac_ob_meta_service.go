@@ -28,12 +28,12 @@ func NewIDACOBMetaService(segaClient port.SegaIDACClient, carRepo database.CarRe
 // stable rendering. An empty view (TotalSampled == 0) is a valid, non-error
 // "no data" result.
 func (s *IDACOBMetaService) GetMeta(ctx context.Context, area string, limit int) (*entity.OBMetaView, error) {
-	currentRound, err := s.segaClient.GetCurrentRound()
+	currentRound, err := s.segaClient.GetCurrentRound(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.segaClient.GetListOBRanking(strconv.Itoa(currentRound), area)
+	resp, err := s.segaClient.GetListOBRanking(ctx, strconv.Itoa(currentRound), area)
 	if err != nil {
 		return nil, err
 	}

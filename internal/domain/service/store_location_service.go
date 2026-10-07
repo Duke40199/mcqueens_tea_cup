@@ -39,7 +39,7 @@ func (s *StoreLocationService) GetListAllNextStore(ctx context.Context, areaCode
 }
 
 func (s *StoreLocationService) GetMapStoreFromTopPlayers(ctx context.Context, areaCode string) (map[string]entity.StoreLocation, error) {
-	listTopPlayers, err := s.segaIDACClient.GetListPlayerGrade(areaCode)
+	listTopPlayers, err := s.segaIDACClient.GetListPlayerGrade(ctx, areaCode)
 	if err != nil {
 		return map[string]entity.StoreLocation{}, err
 	}

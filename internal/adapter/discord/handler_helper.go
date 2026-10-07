@@ -5,7 +5,6 @@ import (
 	"log"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/cases"
@@ -15,115 +14,7 @@ import (
 	idac_domain "McQueens_Tea_Cup/internal/domain/entity"
 )
 
-// SendPagination sends a paginated message with Next/Prev buttons
-func (h *Handler) SendPagination(i *discordgo.InteractionCreate, pages []string) {
-	// If only 1 page, just send it without buttons
-	if len(pages) == 1 {
-		h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &pages[0],
-		})
-		return
-	}
-
-	// Current Page Index
-	pageIndex := 0
-
-	// Helper to create buttons based on current page
-	getComponents := func(current int) []discordgo.MessageComponent {
-		prevDisabled := current == 0
-		nextDisabled := current == len(pages)-1
-
-		return []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "◀️ Previous",
-						Style:    discordgo.PrimaryButton,
-						CustomID: "pagination_prev",
-						Disabled: prevDisabled,
-					},
-					discordgo.Button{
-						Label:    fmt.Sprintf("Page %d/%d", current+1, len(pages)),
-						Style:    discordgo.SecondaryButton,
-						CustomID: "pagination_status",
-						Disabled: true, // Just a label
-					},
-					discordgo.Button{
-						Label:    "Next ▶️",
-						Style:    discordgo.PrimaryButton,
-						CustomID: "pagination_next",
-						Disabled: nextDisabled,
-					},
-				},
-			},
-		}
-	}
-
-	// 1. Send the FIRST page
-	components := getComponents(pageIndex)
-	msg, err := h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content:    &pages[0],
-		Components: &components,
-	})
-	if err != nil {
-		return
-	}
-
-	// 2. Register a Handler for Button Clicks
-	// We use a closure so we can access 'pageIndex' and 'pages' safely
-	// We also need a "stop" channel to kill the listener after timeout
-	stop := make(chan struct{})
-
-	// Create the handler function
-	cleanup := h.Session.AddHandler(func(s *discordgo.Session, ic *discordgo.InteractionCreate) {
-		defer recoverInteraction("pagination handler")
-		// Filter: Must be a button click on THIS message from the user who invoked the command.
-		if ic.Type != discordgo.InteractionMessageComponent || ic.Message == nil || ic.Message.ID != msg.ID {
-			return
-		}
-		clicker := interactionUser(ic)
-		invoker := interactionUser(i)
-		if clicker == nil || invoker == nil || clicker.ID != invoker.ID {
-			return
-		}
-
-		// Handle Buttons
-		switch ic.MessageComponentData().CustomID {
-		case "pagination_prev":
-			if pageIndex > 0 {
-				pageIndex--
-			}
-		case "pagination_next":
-			if pageIndex < len(pages)-1 {
-				pageIndex++
-			}
-		}
-
-		// Update the Message
-		newComps := getComponents(pageIndex)
-		s.InteractionRespond(ic.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    pages[pageIndex],
-				Components: newComps,
-			},
-		})
-	})
-	// 3. Cleanup Routine (Timeout after 2 minutes)
-	// We run this in a goroutine so we don't block
-	go func() {
-		select {
-		case <-time.After(2 * time.Minute):
-			// Remove buttons after timeout
-			h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-				Components: &[]discordgo.MessageComponent{}, // Empty components clears them
-			})
-			cleanup() // Remove the event handler
-		case <-stop:
-			cleanup()
-		}
-	}()
-}
+// SendPagination and its button handling now live in pagination.go.
 
 func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ApplicationCommandData()

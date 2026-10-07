@@ -61,7 +61,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	}
 
 	// 3. Get current round
-	currentRound, err := s.SegaClient.GetCurrentRound()
+	currentRound, err := s.SegaClient.GetCurrentRound(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get current round: %w", err)
 	}
@@ -109,7 +109,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	canaryArea := areas[0]
 
 	for {
-		resp, err := s.SegaClient.GetListOBRanking(roundStr, canaryArea.AreaCode)
+		resp, err := s.SegaClient.GetListOBRanking(ctx, roundStr, canaryArea.AreaCode)
 		if err != nil {
 			log.Printf("⚠️ Polling Error for Canary %s: %v", canaryArea.AreaName, err)
 		} else if resp != nil {
@@ -153,7 +153,7 @@ func (s *ActivePlayerSyncService) Sync(ctx context.Context) (string, error) {
 	// 6. Processing Phase (Fetch all areas)
 	activePlayersByArea = make(map[string]areaActivity)
 	for _, area := range areas {
-		resp, err := s.SegaClient.GetListOBRanking(roundStr, area.AreaCode)
+		resp, err := s.SegaClient.GetListOBRanking(ctx, roundStr, area.AreaCode)
 		if err != nil {
 			log.Printf("⚠️ Error fetching ranking for %s (%s): %v", area.AreaName, area.AreaCode, err)
 			continue

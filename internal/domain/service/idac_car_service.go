@@ -55,7 +55,7 @@ func (s *IDACCarService) GetListCarDetailByTAFormat(ctx context.Context, listCar
 }
 
 func (s *IDACCarService) GetListTopTACarsWithPercentage(ctx context.Context, segaCourseID string, resultCount int64) ([]entity.IDACCarUsagePercentage, error) {
-	records, err := s.segaClient.GetListTimeTrail(segaCourseID, "area-all", "car-all", "")
+	records, err := s.segaClient.GetListTimeTrail(ctx, segaCourseID, "area-all", "car-all", "")
 	if err != nil {
 		fmt.Println("⚠️ Failed to fetch data from Sega API: " + err.Error())
 		return nil, err
