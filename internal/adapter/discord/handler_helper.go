@@ -51,9 +51,11 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	case "spec":
 		choices = h.handleCarSpecAutocomplete(subCmd)
 	case "area-select":
+		// Store-location commands need the AllNet area code.
 		query := focused.StringValue()
 		choices = h.SearchAreaChoiceQuery(query)
-	case "country-select":
+	case "country-select", "area", "country", "area1", "area2":
+		// Ranking / TA / OB commands need Sega's area code (e.g. "area-57").
 		query := focused.StringValue()
 		choices = h.SearchCountryChoiceQuery(query)
 	}
@@ -119,48 +121,82 @@ func (h *Handler) SearchTrackChoiceQuery(query string) []*discordgo.ApplicationC
 	return choices
 }
 
-func (h *Handler) SearchAreaChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
-	query = strings.ToLower(strings.TrimSpace(query))
-	var choices []*discordgo.ApplicationCommandOptionChoice
-	for _, area := range h.AreaMetadata {
-		if query != "" && !strings.Contains(strings.ToLower(area.Name), query) {
-			continue
-		}
-		choices = append(choices,
-			&discordgo.ApplicationCommandOptionChoice{
-				Name:  area.Name,
-				Value: area.ALLNetCode,
-			},
-		)
+// areaChoiceLabel renders an area for the autocomplete dropdown, suffixing the ISO
+// country code (area_code) when available, e.g. "Vietnam (VNM)".
+func areaChoiceLabel(area entity.IDACAreaMetadata) string {
+	iso := strings.ToUpper(strings.TrimSpace(area.AreaCode))
+	if iso == "" {
+		return area.Name
 	}
-	sort.Slice(choices, func(i, j int) bool {
-		return choices[i].Name < choices[j].Name
+	return fmt.Sprintf("%s (%s)", area.Name, iso)
+}
+
+// areaMatchesQuery reports whether an area matches a (lowercased) autocomplete
+// query by name or ISO code, so users can type either "viet" or "vnm".
+func areaMatchesQuery(area entity.IDACAreaMetadata, query string) bool {
+	if query == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(area.Name), query) ||
+		strings.Contains(strings.ToLower(area.AreaCode), query)
+}
+
+// maxAutocompleteChoices is Discord's hard limit on autocomplete results.
+const maxAutocompleteChoices = 25
+
+// areaSortRank orders areas for the dropdown: World/All first, then countries,
+// then prefectures.
+func areaSortRank(area entity.IDACAreaMetadata) int {
+	switch {
+	case area.SegaAreaCode == "area-all":
+		return 0
+	case strings.EqualFold(area.AreaType, "COUNTRY"):
+		return 1
+	default: // PREFECTURE (and anything else)
+		return 2
+	}
+}
+
+// sortedAreaMatches returns the areas matching query, ordered World first, then
+// COUNTRY (A–Z), then PREFECTURE (A–Z), capped to Discord's choice limit.
+func (h *Handler) sortedAreaMatches(query string) []entity.IDACAreaMetadata {
+	query = strings.ToLower(strings.TrimSpace(query))
+	var matches []entity.IDACAreaMetadata
+	for _, area := range h.AreaMetadata {
+		if areaMatchesQuery(area, query) {
+			matches = append(matches, area)
+		}
+	}
+	sort.SliceStable(matches, func(i, j int) bool {
+		if ri, rj := areaSortRank(matches[i]), areaSortRank(matches[j]); ri != rj {
+			return ri < rj
+		}
+		return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name)
 	})
-	if len(choices) > 25 {
-		choices = choices[:25]
+	if len(matches) > maxAutocompleteChoices {
+		matches = matches[:maxAutocompleteChoices]
+	}
+	return matches
+}
+
+func (h *Handler) SearchAreaChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
+	var choices []*discordgo.ApplicationCommandOptionChoice
+	for _, area := range h.sortedAreaMatches(query) {
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  areaChoiceLabel(area),
+			Value: area.ALLNetCode,
+		})
 	}
 	return choices
 }
 
 func (h *Handler) SearchCountryChoiceQuery(query string) []*discordgo.ApplicationCommandOptionChoice {
-	query = strings.ToLower(strings.TrimSpace(query))
 	var choices []*discordgo.ApplicationCommandOptionChoice
-	for _, area := range h.AreaMetadata {
-		if query != "" && !strings.Contains(strings.ToLower(area.Name), query) {
-			continue
-		}
-		choices = append(choices,
-			&discordgo.ApplicationCommandOptionChoice{
-				Name:  area.Name,
-				Value: area.SegaAreaCode,
-			},
-		)
-	}
-	sort.Slice(choices, func(i, j int) bool {
-		return choices[i].Name < choices[j].Name
-	})
-	if len(choices) > 25 {
-		choices = choices[:25]
+	for _, area := range h.sortedAreaMatches(query) {
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  areaChoiceLabel(area),
+			Value: area.SegaAreaCode,
+		})
 	}
 	return choices
 }

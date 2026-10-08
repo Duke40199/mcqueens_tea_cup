@@ -401,13 +401,14 @@ func (h *Handler) HandlePlayerCompare(cc *CommandContext) error {
 	// 3. Map sega codes (area, course, car) & make requests to get list TA
 	var area1, area2 string
 	if !isFoundP1 {
-		area1 = entity.AreaAliases[optMap["area1"]] // optMap["area1"] = tokyo -> area1 = area-12
+		// optMap["area1"] may be an alias ("tokyo") or a Sega code from autocomplete ("area-12").
+		area1 = entity.ResolveAreaCode(optMap["area1"])
 		p1Name = optMap["player1"]
 	} else {
 		area1 = foundP1Area // foundP1Area = area-12
 	}
 	if !isFoundP2 {
-		area2 = entity.AreaAliases[optMap["area2"]]
+		area2 = entity.ResolveAreaCode(optMap["area2"])
 		p2Name = optMap["player2"]
 	} else {
 		area2 = foundP2Area

@@ -20,6 +20,7 @@ type IDACAreaMetadata struct {
 	Aliases      pq.StringArray
 	SegaAreaCode string
 	ALLNetCode   string
+	AreaCode     string // ISO country code (e.g. "VNM"), shown in the area dropdown
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

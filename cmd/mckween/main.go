@@ -135,7 +135,22 @@ func main() {
 		}
 	}()
 
-	// 7.c. Health server
+	// 7.c. Cron Job: Car / Style Data Sync — run once on startup, then every 24h. Enable if needed
+	//carSync := service.NewCarSyncService(segaClient, carRepo)
+	//go func() {
+	//	ticker := time.NewTicker(24 * time.Hour)
+	//	defer ticker.Stop()
+	//	for {
+	//		// Fresh trace ID per sync run so its logs can be correlated.
+	//		ctx := tracer.NewContext(context.Background())
+	//		if err := carSync.SyncData(ctx); err != nil {
+	//			logger.Error(ctx, "scheduled car data sync failed", err)
+	//		}
+	//		<-ticker.C
+	//	}
+	//}()
+
+	// 7.d. Health server
 	// The bot is outbound-only (Discord gateway, Sega/AllNet HTTP, Postgres) and
 	// never accepts inbound traffic. Web-service hosts like Render port-scan the
 	// container and route health checks to an open port, so we expose a tiny HTTP
@@ -171,28 +186,3 @@ func main() {
 		logger.Error(context.Background(), "health server shutdown error", err)
 	}
 }
-
-// ---------------------------------------------------------
-// FEATURE C: CAR DATA SYNC (Cron)
-// ---------------------------------------------------------
-// TODO: check for both model_code & aliases
-// carSyncService := usecase.NewCarSyncService(segaClient, carRepo)
-
-// Run Sync in background (every 24h)
-// go func() {
-// 	// Run once on startup
-// 	log.Println("⏳ Initializing Car Data Sync...")
-// 	if err := carSyncService.SyncData(context.Background()); err != nil {
-// 		log.Printf("❌ Initial Car Sync Failed: %v", err)
-// 	}
-
-// 	ticker := time.NewTicker(24 * time.Hour)
-// 	defer ticker.Stop()
-
-// 	for range ticker.C {
-// 		log.Println("⏰ Starting Scheduled Car Sync...")
-// 		if err := carSyncService.SyncData(context.Background()); err != nil {
-// 			log.Printf("❌ Scheduled Car Sync Failed: %v", err)
-// 		}
-// 	}
-// }()

@@ -25,8 +25,9 @@ func NewIDACAreaMetadataRepository(db *sql.DB, tables config.DatabaseTablesConfi
 func (r *IDACAreaMetadataRepository) GetAll(ctx context.Context) ([]entity.IDACAreaMetadata, error) {
 	// Explicit column list (in scan order) so an added/reordered column can't
 	// silently corrupt the positional Scan below.
+	// COALESCE(area_code, '') so rows where the new column is still NULL scan cleanly.
 	query := fmt.Sprintf(
-		`SELECT id, sega_area_code, name, aliases, created_at, updated_at, all_net_area_code, area_type FROM %s`,
+		`SELECT id, sega_area_code, name, aliases, created_at, updated_at, all_net_area_code, area_type, COALESCE(area_code, '') FROM %s`,
 		r.tableName,
 	)
 	rows, err := r.DB.QueryContext(ctx, query)
@@ -46,7 +47,8 @@ func (r *IDACAreaMetadataRepository) GetAll(ctx context.Context) ([]entity.IDACA
 			&area.CreatedAt,
 			&area.UpdatedAt,
 			&area.ALLNetCode,
-			&area.AreaType); err != nil {
+			&area.AreaType,
+			&area.AreaCode); err != nil {
 			return nil, err
 		}
 		areas = append(areas, area)
