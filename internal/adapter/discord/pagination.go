@@ -24,12 +24,15 @@ const (
 	paginationPrefix   = "pagination_"
 )
 
-// paginationSession is the server-side state for one paginated message.
+// paginationSession is the server-side state for one paginated message. When
+// thumbnailURL is set, pages render as an embed (description = page text) with that
+// thumbnail; otherwise they render as plain message content.
 type paginationSession struct {
-	pages   []string
-	index   int
-	ownerID string
-	timer   *time.Timer
+	pages        []string
+	index        int
+	ownerID      string
+	thumbnailURL string
+	timer        *time.Timer
 }
 
 // paginationResult is the outcome of a button click lookup.
@@ -61,7 +64,7 @@ func newPaginationStore() *paginationStore {
 
 // register stores a new session for messageID. onExpire runs once, after the TTL,
 // after the session has been removed (used to clear the buttons).
-func (ps *paginationStore) register(messageID, ownerID string, pages []string, onExpire func()) {
+func (ps *paginationStore) register(messageID, ownerID string, pages []string, thumbnailURL string, onExpire func()) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
@@ -69,7 +72,7 @@ func (ps *paginationStore) register(messageID, ownerID string, pages []string, o
 		existing.timer.Stop()
 	}
 
-	sess := &paginationSession{pages: pages, ownerID: ownerID}
+	sess := &paginationSession{pages: pages, ownerID: ownerID, thumbnailURL: thumbnailURL}
 	sess.timer = time.AfterFunc(ps.ttl, func() {
 		ps.remove(messageID)
 		if onExpire != nil {
@@ -93,16 +96,16 @@ func (ps *paginationStore) remove(messageID string) {
 // advance applies a button click (prev/next) to the session for messageID and
 // returns the content + components to render. The whole read-modify-read happens
 // under the lock, so concurrent clicks can't race on the index.
-func (ps *paginationStore) advance(messageID string, user *discordgo.User, customID string) (string, []discordgo.MessageComponent, paginationResult) {
+func (ps *paginationStore) advance(messageID string, user *discordgo.User, customID string) (text, thumbnailURL string, components []discordgo.MessageComponent, result paginationResult) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
 	sess, ok := ps.sessions[messageID]
 	if !ok {
-		return "", nil, paginationNotFound
+		return "", "", nil, paginationNotFound
 	}
 	if user == nil || user.ID != sess.ownerID {
-		return "", nil, paginationNotOwner
+		return "", "", nil, paginationNotOwner
 	}
 
 	switch customID {
@@ -115,7 +118,38 @@ func (ps *paginationStore) advance(messageID string, user *discordgo.User, custo
 			sess.index++
 		}
 	}
-	return sess.pages[sess.index], paginationComponents(sess.index, len(sess.pages)), paginationOK
+	return sess.pages[sess.index], sess.thumbnailURL, paginationComponents(sess.index, len(sess.pages)), paginationOK
+}
+
+// pageWebhookEdit builds the WebhookEdit for a page: an embed (with thumbnail) when
+// thumbnailURL is set, otherwise plain content. components may be nil to leave them
+// unchanged.
+func pageWebhookEdit(text, thumbnailURL string, components *[]discordgo.MessageComponent) *discordgo.WebhookEdit {
+	edit := &discordgo.WebhookEdit{Components: components}
+	if thumbnailURL != "" {
+		edit.Embeds = &[]*discordgo.MessageEmbed{{
+			Description: text,
+			Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: thumbnailURL},
+		}}
+	} else {
+		edit.Content = &text
+	}
+	return edit
+}
+
+// pageResponseData builds the UpdateMessage payload for a page (embed when a
+// thumbnail is set, otherwise plain content).
+func pageResponseData(text, thumbnailURL string, components []discordgo.MessageComponent) *discordgo.InteractionResponseData {
+	data := &discordgo.InteractionResponseData{Components: components}
+	if thumbnailURL != "" {
+		data.Embeds = []*discordgo.MessageEmbed{{
+			Description: text,
+			Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: thumbnailURL},
+		}}
+	} else {
+		data.Content = text
+	}
+	return data
 }
 
 // paginationComponents builds the Prev / "Page x/y" / Next button row for the
@@ -147,27 +181,32 @@ func paginationComponents(current, total int) []discordgo.MessageComponent {
 	}
 }
 
-// SendPagination edits the deferred response with the first page and, when there
-// is more than one page, wires up navigation buttons backed by a registry entry.
+// SendPagination edits the deferred response with the first page as plain message
+// content and, when there is more than one page, wires up navigation buttons.
 func (h *Handler) SendPagination(ctx context.Context, i *discordgo.InteractionCreate, pages []string) {
+	h.sendPagination(ctx, i, pages, "")
+}
+
+// SendPaginationWithThumbnail is like SendPagination but renders each page as an
+// embed carrying the given thumbnail image (top-right).
+func (h *Handler) SendPaginationWithThumbnail(ctx context.Context, i *discordgo.InteractionCreate, pages []string, thumbnailURL string) {
+	h.sendPagination(ctx, i, pages, thumbnailURL)
+}
+
+func (h *Handler) sendPagination(ctx context.Context, i *discordgo.InteractionCreate, pages []string, thumbnailURL string) {
 	if len(pages) == 0 {
 		return
 	}
 	// Single page: no buttons needed.
 	if len(pages) == 1 {
-		if _, err := h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: &pages[0],
-		}); err != nil {
+		if _, err := h.Session.InteractionResponseEdit(i.Interaction, pageWebhookEdit(pages[0], thumbnailURL, nil)); err != nil {
 			logger.Error(ctx, "failed to send single page", err)
 		}
 		return
 	}
 
 	components := paginationComponents(0, len(pages))
-	msg, err := h.Session.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content:    &pages[0],
-		Components: &components,
-	})
+	msg, err := h.Session.InteractionResponseEdit(i.Interaction, pageWebhookEdit(pages[0], thumbnailURL, &components))
 	if err != nil {
 		logger.Error(ctx, "failed to send first page", err)
 		return
@@ -180,7 +219,7 @@ func (h *Handler) SendPagination(ctx context.Context, i *discordgo.InteractionCr
 
 	// Capture the interaction so the expiry callback can clear the buttons.
 	interaction := i.Interaction
-	h.pagination.register(msg.ID, ownerID, pages, func() {
+	h.pagination.register(msg.ID, ownerID, pages, thumbnailURL, func() {
 		empty := []discordgo.MessageComponent{}
 		if _, err := h.Session.InteractionResponseEdit(interaction, &discordgo.WebhookEdit{
 			Components: &empty,
@@ -212,15 +251,12 @@ func (h *Handler) handlePaginationComponent(s *discordgo.Session, ic *discordgo.
 		return
 	}
 
-	content, components, res := h.pagination.advance(ic.Message.ID, interactionUser(ic), customID)
+	content, thumbnailURL, components, res := h.pagination.advance(ic.Message.ID, interactionUser(ic), customID)
 	switch res {
 	case paginationOK:
 		if err := s.InteractionRespond(ic.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    content,
-				Components: components,
-			},
+			Data: pageResponseData(content, thumbnailURL, components),
 		}); err != nil {
 			logger.Error(ctx, "failed to update message", err)
 		}

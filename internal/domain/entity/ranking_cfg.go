@@ -26,6 +26,12 @@ type TimeAttackRankingMetadata struct {
 	RankName     string    `json:"rank_name"`
 }
 
+// FormatRaceTime renders a race time (stored as a time-of-day) back into Sega's
+// display format M'SS"MMM, e.g. "3'14\"765". It is the inverse of ParseRaceTime.
+func FormatRaceTime(t time.Time) string {
+	return fmt.Sprintf("%d'%02d\"%03d", t.Minute(), t.Second(), t.Nanosecond()/1_000_000)
+}
+
 // ParseRaceTime converts a Sega IDAC time string (e.g., "3'14\"765") into a time.Time object.
 func ParseRaceTime(rawTime string) (time.Time, error) {
 	var min, sec, ms int

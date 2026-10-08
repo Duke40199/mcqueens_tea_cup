@@ -70,7 +70,7 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 	)
 
 	if err != nil {
-		logger.Error(tracer.NewContext(context.Background()), "autocomplete response error", err)
+		logger.Warn(tracer.NewContext(context.Background()), fmt.Sprintf("autocomplete response error: %v", err))
 	}
 }
 
