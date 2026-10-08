@@ -672,6 +672,10 @@ var TrackRegistry = map[string][]TrackVariant{
 		{"『下り』Downhill", "course-96"},
 		{"『逆走』Uphill", "course-98"},
 	},
+	"Akagi (Snow)「赤城(雪)」": {
+		{"『下り』Downhill", "course-100"},
+		{"『上り』Uphill", "course-102"},
+	},
 }
 
 var MergedTrackRegistry = map[string]string{
@@ -725,6 +729,8 @@ var MergedTrackRegistry = map[string]string{
 	"Akina (Rain) / Uphill |『秋名 (雨) / 上り』":                  "course-94",
 	"Irohazaka (Rain) / Downhill |『いろは坂（雨） / 下り』":           "course-96",
 	"Irohazaka (Rain) / Uphill |『いろは坂（雨） / 逆走』":             "course-98",
+	"Akagi (Snow) / Downhill |『赤城(雪) / 下り』":                 "course-100",
+	"Akagi (Snow) / Uphill |『赤城(雪) / 上り』":                   "course-102",
 }
 
 // GetTrackNames Helper to get keys for the Dropdown
