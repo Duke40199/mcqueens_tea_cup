@@ -319,6 +319,17 @@ var CourseDisplayNameByCode = map[string]string{
 	"course-102": "Akagi Snow (UH)",
 }
 
+// ResolveAreaCode maps a user-supplied area to Sega's area code. It accepts either
+// an alias (e.g. "vn", "tokyo") or a value already in Sega-code form (e.g.
+// "area-57", as produced by the area autocomplete), returning the latter unchanged.
+// Matching is case-insensitive; unknown input is returned as-is.
+func ResolveAreaCode(input string) string {
+	if code, ok := AreaAliases[strings.ToLower(strings.TrimSpace(input))]; ok {
+		return code
+	}
+	return input
+}
+
 var AreaAliases = map[string]string{
 	// Global
 	"all": "area-all",

@@ -65,7 +65,7 @@ func (s *IDACPlayerService) ResolvePlayer(ctx context.Context, input, manualArea
 		aliasIgn = playerAlias.Ign
 		aliasArea = playerAlias.Area
 	} else {
-		areaCode := entity.AreaAliases[manualArea]
+		areaCode := entity.ResolveAreaCode(manualArea)
 		// text input -> custom tag lookup (case-insensitive)
 		val, ok, err := s.aliasRepo.GetByIgnAndAreaCode(ctx, strings.ToLower(cleanInput), areaCode)
 		if !ok || err != nil {
