@@ -16,6 +16,59 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// renderTopUsedCars builds the "Top 3 Most Used Cars" section for a course (based on
+// the top 1000 global TA results) and returns it along with how many cars were found.
+func (h *Handler) renderTopUsedCars(ctx context.Context, courseID string) (string, int, error) {
+	listCarPercentages, err := h.IDACCarService.GetListTopTACarsWithPercentage(ctx, courseID, 4)
+	if err != nil {
+		return "", 0, fmt.Errorf("fetching top TA cars: %w", err)
+	}
+	if len(listCarPercentages) < 3 {
+		return "", len(listCarPercentages), nil
+	}
+
+	section := "## 🚗 Top 3 Most Used Cars *(based on top 1000 results)*\n"
+	// car name sega format: FD3S[DH]
+	listCarNameSegaFormat := make([]string, 0, 3)
+	for i := 0; i < 3; i++ {
+		listCarNameSegaFormat = append(listCarNameSegaFormat, listCarPercentages[i].SegaCarName)
+	}
+	carListFullInfo, err := h.IDACCarService.GetListCarDetailByTAFormat(ctx, listCarNameSegaFormat)
+	if err != nil {
+		return "", 0, fmt.Errorf("fetching car detail by TA format: %w", err)
+	}
+	carCount := 0
+	for z := 0; z < 3; z++ {
+		splitSegaCarName := strings.Split(listCarNameSegaFormat[z], "[")
+		// if not found by chassis code -> find by aliases
+		var foundCarFullInfo entity.CarSpecInfo
+		found := false
+		for _, carFullInfo := range carListFullInfo {
+			if slices.Contains(carFullInfo.Aliases, splitSegaCarName[0]) || splitSegaCarName[0] == carFullInfo.ModelCode {
+				foundCarFullInfo = carFullInfo
+				found = true
+				break // stop at the first match; a later alias collision must not overwrite it
+			}
+		}
+		if !found {
+			section += fmt.Sprintf("%d. **%s** - `%.1f%%`\n",
+				carCount+1, listCarPercentages[z].SegaCarName, listCarPercentages[z].Percentage)
+			carCount++
+			continue
+		}
+
+		section += fmt.Sprintf("%d. %s %s **%s %s (%s)** - `%.1f%%`\n", carCount+1,
+			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.BaseSpec)],
+			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.SpecStyleName)],
+			strings.ToTitle(foundCarFullInfo.Maker),
+			foundCarFullInfo.CarName,
+			foundCarFullInfo.ModelCode,
+			listCarPercentages[z].Percentage)
+		carCount++
+	}
+	return section, len(listCarPercentages), nil
+}
+
 func (h *Handler) HandleTimeAttack(cc *CommandContext) error {
 	optMap := cc.OptMap
 	specInput := cc.SpecInput
@@ -53,7 +106,7 @@ func (h *Handler) HandleTimeAttack(cc *CommandContext) error {
 		if foundCar == nil {
 			return cc.Edit("⚠️ Car not found with input.")
 		}
-		if inputArea != "" && inputArea != "all" {
+		if inputArea != "" && inputArea != "area-all" {
 			return cc.Edit("ℹ️ Currently search with car only supported with __**all**__ area input.")
 		}
 	}
@@ -100,55 +153,15 @@ func (h *Handler) HandleTimeAttack(cc *CommandContext) error {
 	header := fmt.Sprintf("# Initial D Rankings (Time Trial)\n 🗾 : %s | 🌎 : %s | 🚗 : %s\n", courseName, areaName, carDisplayName)
 	currentMessage.WriteString(header)
 
-	// Top-3 most used cars section
-	listCarPercentages, err := h.IDACCarService.GetListTopTACarsWithPercentage(cc.Ctx, finalCourseID, 4)
+	// Top-3 most used cars section (shared with /idac track-details).
+	topCars, carCount, err := h.renderTopUsedCars(cc.Ctx, finalCourseID)
 	if err != nil {
-		return fmt.Errorf("fetching top TA cars: %w", err)
+		return err
 	}
-	if len(listCarPercentages) < 3 {
+	if carCount < 3 {
 		return cc.Edit("⚠️ Not enough car data available for this track yet.")
 	}
-	headerCarPercentage := "## Top 3 Most Used Cars (based on top 1000 **Global** results)\n"
-	// car name sega format: FD3S[DH]
-	listCarNameSegaFormat := make([]string, 0)
-	for i := 0; i < 3; i++ {
-		listCarNameSegaFormat = append(listCarNameSegaFormat, listCarPercentages[i].SegaCarName)
-	}
-	carListFullInfo, err := h.IDACCarService.GetListCarDetailByTAFormat(cc.Ctx, listCarNameSegaFormat)
-	if err != nil {
-		return fmt.Errorf("fetching car detail by TA format: %w", err)
-	}
-	carCount := 0
-	for z := 0; z < 3; z++ {
-		splitSegaCarName := strings.Split(listCarNameSegaFormat[z], "[")
-		// if not found by chassis code -> find by aliases
-		var foundCarFullInfo entity.CarSpecInfo
-		found := false
-		for _, carFullInfo := range carListFullInfo {
-			if slices.Contains(carFullInfo.Aliases, splitSegaCarName[0]) || splitSegaCarName[0] == carFullInfo.ModelCode {
-				foundCarFullInfo = carFullInfo
-				found = true
-				break // stop at the first match; a later alias collision must not overwrite it
-			}
-		}
-		if !found {
-			headerCarPercentage += fmt.Sprintf("%d. **%s** - `%.1f%%`\n",
-				carCount+1, listCarPercentages[z].SegaCarName, listCarPercentages[z].Percentage)
-			carCount++
-			continue
-		}
-
-		entry := fmt.Sprintf("%d. %s %s **%s %s (%s)** - `%.1f%%`\n", carCount+1,
-			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.BaseSpec)],
-			entity.SpecEmojis[strings.ToLower(foundCarFullInfo.SpecStyleName)],
-			strings.ToTitle(foundCarFullInfo.Maker),
-			foundCarFullInfo.CarName,
-			foundCarFullInfo.ModelCode,
-			listCarPercentages[z].Percentage)
-		headerCarPercentage += entry
-		carCount++
-	}
-	headerCarPercentage += "\n"
+	headerCarPercentage := topCars + "\n"
 	currentMessage.WriteString(headerCarPercentage)
 
 	for j := 0; j < resultLimit; j++ {

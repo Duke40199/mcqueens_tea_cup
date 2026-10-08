@@ -52,6 +52,7 @@ const (
 	CommandNameIDACOBMeta               CommandName = "ob-meta"
 	CommandNameIDACPlayerInfoTournament CommandName = "player-info-tournament"
 	CommandNameIDACListStoreLocation    CommandName = "list-store-location"
+	CommandNameIDACTrackDetails         CommandName = "track-details"
 
 	CommandNameStatus    CommandName = "status"
 	CommandNameNuhuh     CommandName = "nuhuh"
@@ -397,6 +398,20 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
+				{
+					Name:        string(CommandNameIDACTrackDetails),
+					Description: "Show a track's rank time thresholds",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "track",
+							Description:  "Select the track",
+							Required:     true,
+							Autocomplete: true,
+						},
+					},
+				},
 			},
 		},
 		// --- Simple Commands ---
@@ -546,5 +561,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.dispatch(i, optMap, specInput, h.HandlePlayerTournamentInfo)
 	case CommandNameIDACListStoreLocation:
 		h.dispatch(i, optMap, specInput, h.HandleStoreLocation)
+	case CommandNameIDACTrackDetails:
+		h.dispatch(i, optMap, specInput, h.HandleTrackDetails)
 	}
 }

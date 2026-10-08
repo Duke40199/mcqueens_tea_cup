@@ -103,6 +103,12 @@ func (cc *CommandContext) SendPages(pages []string) {
 	cc.h.SendPagination(cc.Ctx, cc.Interaction, pages)
 }
 
+// SendPagesWithThumbnail paginates like SendPages but renders each page as an embed
+// carrying the given thumbnail image.
+func (cc *CommandContext) SendPagesWithThumbnail(pages []string, thumbnailURL string) {
+	cc.h.SendPaginationWithThumbnail(cc.Ctx, cc.Interaction, pages, thumbnailURL)
+}
+
 // replyError edits the deferred response with a user-facing error message.
 // UserError messages are shown as-is; anything else is logged and replaced with
 // a generic message.
