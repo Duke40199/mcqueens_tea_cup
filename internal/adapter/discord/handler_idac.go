@@ -18,8 +18,6 @@ import (
 
 // renderTopUsedCars builds the "Top 3 Most Used Cars" section for a course (based on
 // the top 1000 global TA results) and returns it along with how many cars were found.
-// When fewer than 3 cars are available it returns an empty section; callers decide
-// whether that's fatal. Shared by /idac time-attack and /idac track-details.
 func (h *Handler) renderTopUsedCars(ctx context.Context, courseID string) (string, int, error) {
 	listCarPercentages, err := h.IDACCarService.GetListTopTACarsWithPercentage(ctx, courseID, 4)
 	if err != nil {

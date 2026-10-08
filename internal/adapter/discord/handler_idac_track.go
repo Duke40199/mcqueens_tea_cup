@@ -44,10 +44,7 @@ func (h *Handler) HandleTrackDetails(cc *CommandContext) error {
 	return nil
 }
 
-// courseImageURL returns the Sega course image URL for a course. Track variants of
-// the same mountain share one image keyed to the mountain's base course number,
-// which is the course number rounded down to a multiple of 4 (e.g. Myogi DH course-4
-// and UH course-6 both use 4_0.jpg). Returns "" if the course id can't be parsed.
+// courseImageURL returns the Sega course image URL for a course.
 func courseImageURL(courseID string) string {
 	n, err := strconv.Atoi(strings.TrimPrefix(courseID, "course-"))
 	if err != nil {
@@ -91,9 +88,7 @@ func buildTrackDetailPages(courseName, topCars string, thresholds []*entity.Time
 }
 
 // renderTrackThresholdBar builds a numbered timeline bar (fastest → slowest) as a
-// code block, with each rank's number anchored at its time position. It is not
-// currently included in the /idac track-details response, but is kept for reuse.
-// Thresholds are expected sorted fastest → slowest (as the repository returns them).
+// code block, with each rank's number anchored at its time position.
 func renderTrackThresholdBar(thresholds []*entity.TimeAttackRankingMetadata) string {
 	n := len(thresholds)
 	minT := thresholds[0].RequiredTime
