@@ -58,6 +58,10 @@ func (h *Handler) HandleAutoComplete(s *discordgo.Session, i *discordgo.Interact
 		// Ranking / TA / OB commands need Sega's area code (e.g. "area-57").
 		query := focused.StringValue()
 		choices = h.SearchCountryChoiceQuery(query)
+	case "command":
+		// /idac help picks a guide by its command key.
+		query := focused.StringValue()
+		choices = h.SearchCommandGuideChoiceQuery(query)
 	}
 	err := s.InteractionRespond(
 		i.Interaction,

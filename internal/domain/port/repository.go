@@ -56,3 +56,10 @@ type CfsStateRepository interface {
 type AllNetStoreLocationsRepository interface {
 	BulkUpsertStoreLocation(ctx context.Context, stores []entity.StoreLocation) error
 }
+
+// CommandGuideRepository defines how we read authored command help guides.
+// GetByCommandKey returns (nil, nil) when no enabled guide matches the key.
+type CommandGuideRepository interface {
+	GetByCommandKey(ctx context.Context, commandKey string) (*entity.CommandGuide, error)
+	ListEnabled(ctx context.Context) ([]entity.CommandGuide, error)
+}

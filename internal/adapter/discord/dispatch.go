@@ -50,8 +50,18 @@ type CommandFunc func(*CommandContext) error
 
 // dispatch owns the interaction lifecycle: it sends the deferred ack inside
 // Discord's 3-second window, runs the handler, and turns a returned error into a
-// single user-facing edit of the deferred response.
+// single user-facing edit of the deferred response. The reply is public.
 func (h *Handler) dispatch(i *discordgo.InteractionCreate, optMap map[string]string, specInput string, fn CommandFunc) {
+	h.dispatchWith(i, optMap, specInput, false, fn)
+}
+
+// dispatchPrivate is like dispatch but the deferred reply (and every edit of it)
+// is only visible to the invoking user.
+func (h *Handler) dispatchPrivate(i *discordgo.InteractionCreate, optMap map[string]string, specInput string, fn CommandFunc) {
+	h.dispatchWith(i, optMap, specInput, true, fn)
+}
+
+func (h *Handler) dispatchWith(i *discordgo.InteractionCreate, optMap map[string]string, specInput string, isPrivate bool, fn CommandFunc) {
 	// Start a trace for this interaction and tag it with the invoking user so all
 	// downstream logs carry the same trace_id / user_id.
 	base := tracer.NewContext(context.Background())
@@ -59,9 +69,15 @@ func (h *Handler) dispatch(i *discordgo.InteractionCreate, optMap map[string]str
 		base = tracer.WithUserID(base, u.ID)
 	}
 
-	if err := h.Session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// Setting the Ephemeral flag on the deferred ack makes the follow-up edits
+	// isPrivate too, so handlers don't need to know about visibility.
+	deferResp := &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	}); err != nil {
+	}
+	if isPrivate {
+		deferResp.Data = &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral}
+	}
+	if err := h.Session.InteractionRespond(i.Interaction, deferResp); err != nil {
 		logger.Error(base, "failed to defer interaction", err)
 		return
 	}

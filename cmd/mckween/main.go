@@ -47,6 +47,7 @@ func main() {
 	carRepo := repository.NewCarRepository(dbConn, cfg.DatabaseTablesCfg)
 	areaMetadataRepo := repository.NewIDACAreaMetadataRepository(dbConn, cfg.DatabaseTablesCfg)
 	storeLocationRepo := repository.NewAllNetStoreLocationsRepository(dbConn, cfg.DatabaseTablesCfg)
+	commandGuideRepo := repository.NewCommandGuideRepository(dbConn, cfg.DatabaseTablesCfg)
 
 	// 4. Init Discord Session
 	discordSession, err := discord_handler.NewDiscordSession(&cfg.DiscordCfg)
@@ -81,6 +82,7 @@ func main() {
 		carRepo,
 		taTimeMetadataRepo,
 		cfsStateRepo,
+		commandGuideRepo,
 		metaLogic,
 		storeLocationService,
 		idacCarService,
