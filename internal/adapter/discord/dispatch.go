@@ -61,7 +61,7 @@ func (h *Handler) dispatchPrivate(i *discordgo.InteractionCreate, optMap map[str
 	h.dispatchWith(i, optMap, specInput, true, fn)
 }
 
-func (h *Handler) dispatchWith(i *discordgo.InteractionCreate, optMap map[string]string, specInput string, ephemeral bool, fn CommandFunc) {
+func (h *Handler) dispatchWith(i *discordgo.InteractionCreate, optMap map[string]string, specInput string, isPrivate bool, fn CommandFunc) {
 	// Start a trace for this interaction and tag it with the invoking user so all
 	// downstream logs carry the same trace_id / user_id.
 	base := tracer.NewContext(context.Background())
@@ -70,11 +70,11 @@ func (h *Handler) dispatchWith(i *discordgo.InteractionCreate, optMap map[string
 	}
 
 	// Setting the Ephemeral flag on the deferred ack makes the follow-up edits
-	// ephemeral too, so handlers don't need to know about visibility.
+	// isPrivate too, so handlers don't need to know about visibility.
 	deferResp := &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	}
-	if ephemeral {
+	if isPrivate {
 		deferResp.Data = &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral}
 	}
 	if err := h.Session.InteractionRespond(i.Interaction, deferResp); err != nil {
