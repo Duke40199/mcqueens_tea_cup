@@ -112,6 +112,7 @@ type DatabaseTablesConfig struct {
 	OBRankingCfg          string
 	CfgPlayerRanking      string
 	CfsState              string
+	BotCommandGuides      string
 }
 
 // env getter funcs
@@ -160,6 +161,7 @@ func LoadConfig() (*AppConfig, error) {
 			OBRankingCfg:          getEnv("DB_TABLE_OB_RANKING_CFG", "ob_ranking_cfg"),
 			CfgPlayerRanking:      getEnv("DB_TABLE_CFG_PLAYER_RANKING", "cfg_player_ranking"),
 			CfsState:              getEnv("DB_TABLE_CFS_STATE", "cfs_state"),
+			BotCommandGuides:      getEnv("DB_TABLE_BOT_COMMAND_GUIDES", "bot_command_guides"),
 		},
 		SegaClientCfg: SegaClientConfig{
 			SegaIDACHost:              getEnv("SEGA_IDAC_HOST", ""),

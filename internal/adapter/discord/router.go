@@ -53,6 +53,7 @@ const (
 	CommandNameIDACPlayerInfoTournament CommandName = "player-info-tournament"
 	CommandNameIDACListStoreLocation    CommandName = "list-store-location"
 	CommandNameIDACTrackDetails         CommandName = "track-details"
+	CommandNameIDACHelp                 CommandName = "help"
 
 	CommandNameStatus    CommandName = "status"
 	CommandNameNuhuh     CommandName = "nuhuh"
@@ -212,65 +213,65 @@ func (h *Handler) RegisterCommands() error {
 					},
 				},
 				// Player Alias
-				{
-					Name:        string(CommandNameIDACPlayerAlias),
-					Description: "Manage Player Aliases",
-					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-					Options: []*discordgo.ApplicationCommandOption{
-						// 1. Link Discord User
-						{
-							Name:        "set",
-							Description: "Link a Discord User to an IGN and Area",
-							Type:        discordgo.ApplicationCommandOptionSubCommand,
-							Options: []*discordgo.ApplicationCommandOption{
-								{
-									Type:        discordgo.ApplicationCommandOptionUser,
-									Name:        "user",
-									Description: "The Discord User",
-									Required:    true,
-								},
-								{
-									Type:        discordgo.ApplicationCommandOptionString,
-									Name:        "ign",
-									Description: "In-Game Name",
-									Required:    true,
-								},
-								{
-									Type:        discordgo.ApplicationCommandOptionString,
-									Name:        "area",
-									Description: "Area Code",
-									Required:    true,
-								},
-							},
-						},
-						// 2. Link Custom Tag (For non-Discord players)
-						{
-							Name:        "set-custom",
-							Description: "Create a custom alias tag (e.g. 'rival', 'alt')",
-							Type:        discordgo.ApplicationCommandOptionSubCommand,
-							Options: []*discordgo.ApplicationCommandOption{
-								{
-									Type:        discordgo.ApplicationCommandOptionString,
-									Name:        "tag",
-									Description: "Unique Tag Name (e.g. 'takumi', 'rival1')",
-									Required:    true,
-								},
-								{
-									Type:        discordgo.ApplicationCommandOptionString,
-									Name:        "ign",
-									Description: "In-Game Name",
-									Required:    true,
-								},
-								{
-									Type:        discordgo.ApplicationCommandOptionString,
-									Name:        "area",
-									Description: "Area Code",
-									Required:    true,
-								},
-							},
-						},
-					},
-				},
+				//{
+				//	Name:        string(CommandNameIDACPlayerAlias),
+				//	Description: "Manage Player Aliases",
+				//	Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+				//	Options: []*discordgo.ApplicationCommandOption{
+				//		// 1. Link Discord User
+				//		{
+				//			Name:        "set",
+				//			Description: "Link a Discord User to an IGN and Area",
+				//			Type:        discordgo.ApplicationCommandOptionSubCommand,
+				//			Options: []*discordgo.ApplicationCommandOption{
+				//				{
+				//					Type:        discordgo.ApplicationCommandOptionUser,
+				//					Name:        "user",
+				//					Description: "The Discord User",
+				//					Required:    true,
+				//				},
+				//				{
+				//					Type:        discordgo.ApplicationCommandOptionString,
+				//					Name:        "ign",
+				//					Description: "In-Game Name",
+				//					Required:    true,
+				//				},
+				//				{
+				//					Type:        discordgo.ApplicationCommandOptionString,
+				//					Name:        "area",
+				//					Description: "Area Code",
+				//					Required:    true,
+				//				},
+				//			},
+				//		},
+				//		// 2. Link Custom Tag (For non-Discord players)
+				//		{
+				//			Name:        "set-custom",
+				//			Description: "Create a custom alias tag (e.g. 'rival', 'alt')",
+				//			Type:        discordgo.ApplicationCommandOptionSubCommand,
+				//			Options: []*discordgo.ApplicationCommandOption{
+				//				{
+				//					Type:        discordgo.ApplicationCommandOptionString,
+				//					Name:        "tag",
+				//					Description: "Unique Tag Name (e.g. 'takumi', 'rival1')",
+				//					Required:    true,
+				//				},
+				//				{
+				//					Type:        discordgo.ApplicationCommandOptionString,
+				//					Name:        "ign",
+				//					Description: "In-Game Name",
+				//					Required:    true,
+				//				},
+				//				{
+				//					Type:        discordgo.ApplicationCommandOptionString,
+				//					Name:        "area",
+				//					Description: "Area Code",
+				//					Required:    true,
+				//				},
+				//			},
+				//		},
+				//	},
+				//},
 				// Subcommand: Player Info
 				{
 					Name:        string(CommandNameIDACPlayerProfile),
@@ -412,6 +413,20 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
+				{
+					Name:        string(CommandNameIDACHelp),
+					Description: "How to use the bot's commands",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:         discordgo.ApplicationCommandOptionString,
+							Name:         "command",
+							Description:  "Pick a command to read its guide (leave empty to list all)",
+							Required:     false,
+							Autocomplete: true,
+						},
+					},
+				},
 			},
 		},
 		// --- Simple Commands ---
@@ -511,14 +526,14 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 				optMap[opt.Name] = opt.StringValue()
 			}
 		}
-		if CommandName(rootOption.Name) == CommandNameIDACPlayerAlias {
-			switch subCmd.Name {
-			case "set":
-				h.HandleSetPlayerAlias(i, optMap["user"], optMap)
-			case "set-custom":
-				h.HandleSetPlayerAlias(i, optMap["tag"], optMap)
-			}
-		}
+		//if CommandName(rootOption.Name) == CommandNameIDACPlayerAlias {
+		//	switch subCmd.Name {
+		//	case "set":
+		//		h.HandleSetPlayerAlias(i, optMap["user"], optMap)
+		//	case "set-custom":
+		//		h.HandleSetPlayerAlias(i, optMap["tag"], optMap)
+		//	}
+		//}
 		return
 	}
 	// --- 2. HANDLE REGULAR SUBCOMMANDS ---
@@ -563,5 +578,7 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.dispatch(i, optMap, specInput, h.HandleStoreLocation)
 	case CommandNameIDACTrackDetails:
 		h.dispatch(i, optMap, specInput, h.HandleTrackDetails)
+	case CommandNameIDACHelp:
+		h.dispatchPrivate(i, optMap, specInput, h.HandleHelp)
 	}
 }

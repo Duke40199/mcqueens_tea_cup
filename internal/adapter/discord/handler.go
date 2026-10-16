@@ -27,6 +27,7 @@ type Handler struct {
 	CarRepo            port.CarRepository
 	TATimeMetadataRepo port.TATimeMetadataRepository
 	CfsStateRepo       port.CfsStateRepository
+	CommandGuideRepo   port.CommandGuideRepository
 	// internal services
 	MetaLogic                     *service.MetaLogicService
 	IDACStoreLocationService      port.IDACStoreLocationService
@@ -44,6 +45,9 @@ type Handler struct {
 	CarChoices   []*entity.CarMetadata
 	AreaMetadata []entity.IDACAreaMetadata
 	TrackChoices map[string]string
+	// CommandGuides caches the enabled help guides for autocomplete only; the
+	// /idac help response itself reads live from the DB (see handler_help.go).
+	CommandGuides []entity.CommandGuide
 	// pagination state for interactive, button-paged messages
 	pagination *paginationStore
 }
@@ -59,6 +63,7 @@ func NewHandler(
 	carRepo port.CarRepository,
 	taTimeMetadataRepo port.TATimeMetadataRepository,
 	cfsStateRepo port.CfsStateRepository,
+	commandGuideRepo port.CommandGuideRepository,
 	// internal services
 	metaLogic *service.MetaLogicService,
 	storeLocationService port.IDACStoreLocationService,
@@ -83,6 +88,7 @@ func NewHandler(
 		CarRepo:            carRepo,
 		TATimeMetadataRepo: taTimeMetadataRepo,
 		CfsStateRepo:       cfsStateRepo,
+		CommandGuideRepo:   commandGuideRepo,
 		// internal services
 		MetaLogic:                     metaLogic,
 		IDACStoreLocationService:      storeLocationService,
@@ -106,6 +112,13 @@ func NewHandler(
 	discordHandler.AreaMetadata = idacAreaMetadata
 	discordHandler.CarChoices = discordHandler.PreloadListCarSelection()
 	discordHandler.TrackChoices = entity.MergedTrackRegistry
+	// Preload the guide list for autocomplete. Help is non-critical, so a failure
+	// here just leaves the autocomplete empty rather than taking down the bot.
+	if guides, err := discordHandler.CommandGuideRepo.ListEnabled(context.Background()); err != nil {
+		logger.Error(context.Background(), "error preloading command guides", err)
+	} else {
+		discordHandler.CommandGuides = guides
+	}
 	return discordHandler
 }
 
