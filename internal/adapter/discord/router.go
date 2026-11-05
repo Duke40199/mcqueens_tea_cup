@@ -385,20 +385,20 @@ func (h *Handler) RegisterCommands() error {
 						},
 					},
 				},
-				{
-					Name:        string(CommandNameIDACListStoreLocation),
-					Description: "Get List Stores from All.Net",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:         discordgo.ApplicationCommandOptionString,
-							Name:         "area-select",
-							Description:  "Filter by Country/Area (e.g. 'vn', 'jp')",
-							Required:     true,
-							Autocomplete: true,
-						},
-					},
-				},
+				//{
+				//	Name:        string(CommandNameIDACListStoreLocation),
+				//	Description: "Get List Stores from All.Net",
+				//	Type:        discordgo.ApplicationCommandOptionSubCommand,
+				//	Options: []*discordgo.ApplicationCommandOption{
+				//		{
+				//			Type:         discordgo.ApplicationCommandOptionString,
+				//			Name:         "area-select",
+				//			Description:  "Filter by Country/Area (e.g. 'vn', 'jp')",
+				//			Required:     true,
+				//			Autocomplete: true,
+				//		},
+				//	},
+				//},
 				{
 					Name:        string(CommandNameIDACTrackDetails),
 					Description: "Show a track's rank time thresholds",
@@ -574,8 +574,8 @@ func (h *Handler) routeIdacCommand(i *discordgo.InteractionCreate) {
 		h.dispatch(i, optMap, specInput, h.HandleOBMeta)
 	case CommandNameIDACPlayerInfoTournament:
 		h.dispatch(i, optMap, specInput, h.HandlePlayerTournamentInfo)
-	case CommandNameIDACListStoreLocation:
-		h.dispatch(i, optMap, specInput, h.HandleStoreLocation)
+	//case CommandNameIDACListStoreLocation:
+	//	h.dispatch(i, optMap, specInput, h.HandleStoreLocation)
 	case CommandNameIDACTrackDetails:
 		h.dispatch(i, optMap, specInput, h.HandleTrackDetails)
 	case CommandNameIDACHelp:
