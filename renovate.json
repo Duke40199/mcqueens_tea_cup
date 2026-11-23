@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {
+      "description": "Fast-track bumps of the internal sega-idac-client contract so proto changes reach the bot quickly. CI (go build) gates each PR, so a breaking change fails here before merge.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/Duke40199/sega-idac-client"],
+      "groupName": "sega-idac-client",
+      "automerge": false,
+      "schedule": ["at any time"]
+    }
+  ]
+}

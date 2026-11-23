@@ -13,6 +13,7 @@ type Config interface {
 	GetDiscordCfg() DiscordConfig
 	GetSegaClientCfg() SegaClientConfig
 	GetAllNetClientCfg() AllNetClientConfig
+	GetSegaIDACGRPCCfg() SegaIDACGRPCConfig
 	GetMetaSyncCfg() MetaSyncConfig
 	GetActivePlayersSyncCfg() ActivePlayersSyncConfig
 }
@@ -25,6 +26,9 @@ func (c *AppConfig) GetSegaClientCfg() SegaClientConfig {
 }
 func (c *AppConfig) GetAllNetClientCfg() AllNetClientConfig {
 	return c.AllNetClientConfig
+}
+func (c *AppConfig) GetSegaIDACGRPCCfg() SegaIDACGRPCConfig {
+	return c.SegaIDACGRPCCfg
 }
 func (c *AppConfig) GetMetaSyncCfg() MetaSyncConfig {
 	return c.MetaSyncCfg
@@ -42,6 +46,14 @@ type AppConfig struct {
 	ActivePlayersSyncCfg ActivePlayersSyncConfig
 	SegaClientCfg        SegaClientConfig
 	AllNetClientConfig   AllNetClientConfig
+	SegaIDACGRPCCfg      SegaIDACGRPCConfig
+}
+
+// SegaIDACGRPCConfig points the bot at a sega-idac-client gRPC server. When Addr
+// is empty the bot talks to SEGA/All.Net directly over HTTP (the default); when
+// set, the IDAC/All.Net clients are backed by that gRPC service instead.
+type SegaIDACGRPCConfig struct {
+	Addr string
 }
 
 type SegaClientConfig struct {
@@ -171,6 +183,9 @@ func LoadConfig() (*AppConfig, error) {
 			GetCurrentRoundUrlPath:    getEnv("SEGA_IDAC_GET_CURRENT_ROUND_URL_PATH", ""),
 			GetTeamRankingUrlPath:     getEnv("SEGA_IDAC_GET_TEAM_RANKING_URL_PATH", ""),
 			GetListPlayerGradeUrlPath: getEnv("SEGA_IDAC_GET_LIST_PLAYER_GRADE_URL_PATH", ""),
+		},
+		SegaIDACGRPCCfg: SegaIDACGRPCConfig{
+			Addr: getEnv("SEGA_IDAC_GRPC_ADDR", ""),
 		},
 		AllNetClientConfig: AllNetClientConfig{
 			AllNetHost:                  getEnv("ALLNET_HOST", ""),

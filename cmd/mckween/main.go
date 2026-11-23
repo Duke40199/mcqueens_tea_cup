@@ -10,12 +10,18 @@ import (
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"McQueens_Tea_Cup/internal/adapter/client/all_net"
+	"McQueens_Tea_Cup/internal/adapter/client/all_net_grpc"
 	"McQueens_Tea_Cup/internal/adapter/client/sega_idac"
+	"McQueens_Tea_Cup/internal/adapter/client/sega_idac_grpc"
 	"McQueens_Tea_Cup/internal/adapter/database"
 	discord_handler "McQueens_Tea_Cup/internal/adapter/discord"
 	"McQueens_Tea_Cup/internal/adapter/repository"
 	"McQueens_Tea_Cup/internal/config"
+	"McQueens_Tea_Cup/internal/domain/port"
 	"McQueens_Tea_Cup/internal/domain/service"
 	"McQueens_Tea_Cup/pkg/logger"
 	"McQueens_Tea_Cup/pkg/tracer"
@@ -59,9 +65,27 @@ func main() {
 	}
 	defer discordSession.CloseSession()
 
-	// 5. Init clients
-	segaClient := sega_idac.NewSegaIDACClient(cfg)
-	allNetClient := all_net.NewAllNetClient(cfg)
+	// 5. Init clients. When SEGA_IDAC_GRPC_ADDR is set, the IDAC/All.Net clients
+	// are backed by the sega-idac-client gRPC service; otherwise the bot calls
+	// SEGA/All.Net directly over HTTP (the default).
+	var (
+		segaClient   port.SegaIDACClient
+		allNetClient port.AllNetClient
+	)
+	if addr := cfg.GetSegaIDACGRPCCfg().Addr; addr != "" {
+		conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Fatal("sega-idac-client gRPC dial error:", err)
+		}
+		defer conn.Close()
+		segaClient = sega_idac_grpc.NewSegaIDACClient(conn)
+		allNetClient = all_net_grpc.NewAllNetClient(conn)
+		log.Printf("IDAC backend: sega-idac-client gRPC at %s", addr)
+	} else {
+		segaClient = sega_idac.NewSegaIDACClient(cfg)
+		allNetClient = all_net.NewAllNetClient(cfg)
+		log.Println("IDAC backend: direct SEGA/All.Net HTTP")
+	}
 	// 5. Init services
 	idacCarService := service.NewIDACCarService(cfg, carRepo, segaClient)
 	idacTimeAttackMetadata := service.NewIDACTimeAttackService(cfg, taTimeMetadataRepo, segaClient)
